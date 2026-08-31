@@ -3,11 +3,12 @@ import './App.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppRoutes } from './routes/AppRoutes';
 import { Modals } from './component/Modals';
+import { ScreenSwitcher } from './component/ScreenSwitcher';
 import { academicAssets } from './assets';
 
 function AppContent() {
-  const { currentUser, userProfile: authProfile, loading } = useAuth();
-  const [currentScreen, setCurrentScreen] = useState('login');
+  const { currentUser, userProfile: authProfile, signIn, loading } = useAuth();
+  const [currentScreen, setCurrentScreen] = useState('get-started');
   const [activeModal, setActiveModal] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedMentor, setSelectedMentor] = useState(null);
@@ -31,7 +32,7 @@ function AppContent() {
   // Sync auth state to screen navigation on change
   useEffect(() => {
     if (currentUser) {
-      if (currentScreen === 'login' || currentScreen === 'signup') {
+      if (currentScreen === 'login' || currentScreen === 'signup' || currentScreen === 'get-started') {
         setCurrentScreen('dashboard');
       }
     }
@@ -52,6 +53,17 @@ function AppContent() {
   const handleOpenMentor = (mentor) => {
     setSelectedMentor(mentor);
     setActiveModal('mentor');
+  };
+
+  const handleExploreDemo = async () => {
+    try {
+      const res = await signIn('unknown@bscse.uiu.ac.bd', 'password123');
+      showToast(`Logged in as ${res.profile?.fullName || 'UIU'}!`);
+      setCurrentScreen('dashboard');
+    } catch (err) {
+      showToast('Entering dashboard as UIU...');
+      setCurrentScreen('dashboard');
+    }
   };
 
   return (
@@ -80,6 +92,7 @@ function AppContent() {
         onOpenMentor={handleOpenMentor}
         onOpenSSO={() => setActiveModal('sso')}
         onShowToast={showToast}
+        onExploreDemo={handleExploreDemo}
       />
 
       {/* Reusable Modals & Dialogs */}
@@ -90,6 +103,15 @@ function AppContent() {
         selectedMentor={selectedMentor}
         onShowToast={showToast}
       />
+
+      {/* Bottom Floating Navigation / Preview Switcher (Disabled) */}
+      {/* 
+      <ScreenSwitcher
+        currentScreen={currentScreen}
+        onSelectScreen={(screen) => setCurrentScreen(screen)}
+        onOpenQuickDemo={(type) => setActiveModal(type)}
+      /> 
+      */}
     </div>
   );
 }

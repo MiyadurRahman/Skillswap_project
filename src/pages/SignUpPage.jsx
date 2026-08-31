@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 export const SignUpPage = ({
   onSignUpSuccess,
   onNavigateToLogin,
+  onNavigateToGetStarted,
   onOpenSSO,
   onShowToast,
 }) => {
@@ -12,7 +13,7 @@ export const SignUpPage = ({
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [university, setUniversity] = useState('Stanford University');
+  const [university, setUniversity] = useState('United International University (UIU)');
   const [showPassword, setShowPassword] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -86,29 +87,31 @@ export const SignUpPage = ({
       {/* Top Header */}
       <header className="fixed top-0 w-full h-[72px] bg-[#4e4353] z-50 shadow-sm flex items-center justify-between px-6 sm:px-8 max-w-[1280px] mx-auto left-0 right-0">
         <div className="flex items-center">
-          <span
-            onClick={onNavigateToLogin}
-            className="text-2xl font-bold text-[#c5b3d3] tracking-tight cursor-pointer hover:opacity-90 transition-opacity"
-          >
-            SkillSwap
-          </span>
-        </div>
-        <div className="hidden md:flex items-center space-x-6 text-sm">
           <button
-            onClick={() => onShowToast('Campus Liaison Help Desk: support@skillswap.edu')}
-            className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors cursor-pointer"
+            type="button"
+            onClick={onNavigateToGetStarted || onNavigateToLogin}
+            className="text-2xl font-bold text-[#c5b3d3] tracking-tight cursor-pointer hover:opacity-90 transition-opacity flex items-center gap-2"
           >
-            Help
+            <span className="material-symbols-outlined text-[24px]">school</span>
+            <span>SkillSwap</span>
           </button>
+        </div>
+        <div className="flex items-center space-x-4 sm:space-x-6 text-sm">
+          {onNavigateToGetStarted && (
+            <button
+              type="button"
+              onClick={onNavigateToGetStarted}
+              className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors cursor-pointer text-xs sm:text-sm"
+            >
+              Get Started Overview
+            </button>
+          )}
           <button
-            onClick={() =>
-              onShowToast(
-                'SkillSwap is an inter-university academic skill exchange platform for researchers and scholars.'
-              )
-            }
-            className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors cursor-pointer"
+            type="button"
+            onClick={onNavigateToLogin}
+            className="text-[#efdbfd] font-semibold hover:underline transition-colors cursor-pointer text-xs sm:text-sm"
           >
-            About
+            Sign In
           </button>
         </div>
       </header>
@@ -225,12 +228,15 @@ export const SignUpPage = ({
 
               {/* University Affiliation */}
               <div className="space-y-1">
-                <label
-                  htmlFor="signup-university"
-                  className="text-xs font-semibold text-[#201a1b] block ml-1"
-                >
-                  University / Academic Institution
-                </label>
+                <div className="flex items-center justify-between ml-1">
+                  <label
+                    htmlFor="signup-university"
+                    className="text-xs font-semibold text-[#201a1b] block"
+                  >
+                    University / Academic Institution
+                  </label>
+                  <span className="text-[10px] text-[#675975] font-semibold">Default: UIU</span>
+                </div>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] text-[18px]">
                     domain
@@ -240,11 +246,34 @@ export const SignUpPage = ({
                     type="text"
                     value={university}
                     onChange={(e) => setUniversity(e.target.value)}
-                    placeholder="e.g. Stanford University, MIT, Oxford"
+                    placeholder="United International University (UIU)"
                     required
                     disabled={loading}
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-xs sm:text-sm focus:outline-none input-focus-glow transition-all"
                   />
+                </div>
+                {/* Quick suggestions */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-[#7b757d] font-medium">Suggestions:</span>
+                  {[
+                    'United International University (UIU)',
+                    'Stanford University',
+                    'MIT',
+                    'Oxford University',
+                  ].map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setUniversity(u)}
+                      className={`text-[10px] px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                        university === u
+                          ? 'bg-[#675975] text-white border-[#675975] font-semibold'
+                          : 'bg-[#f7effa] text-[#52445f] border-[#d2c0e0] hover:bg-[#ebd9f8]'
+                      }`}
+                    >
+                      {u === 'United International University (UIU)' ? 'UIU' : u}
+                    </button>
+                  ))}
                 </div>
               </div>
 

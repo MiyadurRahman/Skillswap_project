@@ -3,6 +3,7 @@ import { LoginPage } from '../pages/LoginPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { SignUpPage } from '../pages/SignUpPage';
 import { ProfileSetupPage } from '../pages/ProfileSetupPage';
+import { GetStartedPage } from '../pages/GetStartedPage';
 
 export const AppRoutes = ({
   currentScreen,
@@ -14,13 +15,26 @@ export const AppRoutes = ({
   onOpenMentor,
   onOpenSSO,
   onShowToast,
+  onExploreDemo,
 }) => {
   switch (currentScreen) {
+    case 'get-started':
+      return (
+        <GetStartedPage
+          onNavigateToSignUp={() => setCurrentScreen('signup')}
+          onNavigateToLogin={() => setCurrentScreen('login')}
+          onExploreDemo={onExploreDemo}
+          onShowToast={onShowToast}
+          onOpenSSO={onOpenSSO}
+        />
+      );
+
     case 'login':
       return (
         <LoginPage
           onLoginSuccess={() => setCurrentScreen('dashboard')}
           onNavigateToSignUp={() => setCurrentScreen('signup')}
+          onNavigateToGetStarted={() => setCurrentScreen('get-started')}
           onOpenSSO={onOpenSSO}
           onShowToast={onShowToast}
         />
@@ -46,6 +60,7 @@ export const AppRoutes = ({
             setCurrentScreen('profile-setup');
           }}
           onNavigateToLogin={() => setCurrentScreen('login')}
+          onNavigateToGetStarted={() => setCurrentScreen('get-started')}
           onOpenSSO={onOpenSSO}
           onShowToast={onShowToast}
         />

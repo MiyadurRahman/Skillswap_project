@@ -10,7 +10,7 @@ export const AUTH_CONFIG = {
 
   // Default credentials used by the Quick Login demo
   DEMO_ACCOUNT: {
-    label: 'UIU Scholar',
+    label: 'UIU',
     email: 'unknown@bscse.uiu.ac.bd',
     password: 'password123',
     university: 'United International University (UIU)',
