@@ -5,6 +5,7 @@ import { AUTH_CONFIG } from '../config/authConfig';
 export const LoginPage = ({
   onLoginSuccess,
   onNavigateToSignUp,
+  onNavigateToGetStarted,
   onOpenSSO,
   onShowToast,
 }) => {
@@ -118,12 +119,30 @@ export const LoginPage = ({
       <main className="w-full max-w-[460px] z-10">
         {/* Brand Identity Section */}
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-[#d2c0e0] tracking-tight mb-2 bg-[#4e4353] inline-block px-5 py-1.5 rounded-xl shadow-md">
-            SkillSwap
-          </h1>
+          <div className="inline-block">
+            <button
+              type="button"
+              onClick={onNavigateToGetStarted}
+              className="text-2xl font-bold text-[#d2c0e0] tracking-tight mb-2 bg-[#4e4353] hover:bg-[#3c2f47] transition-all px-5 py-1.5 rounded-xl shadow-md cursor-pointer flex items-center gap-2 mx-auto"
+              title="Return to Get Started overview"
+            >
+              <span className="material-symbols-outlined text-[20px]">school</span>
+              <span>SkillSwap</span>
+            </button>
+          </div>
           <p className="text-xs sm:text-sm text-[#4a454c] opacity-90 mt-1 font-medium">
             Advancing academic excellence through peer collaboration.
           </p>
+          {onNavigateToGetStarted && (
+            <button
+              type="button"
+              onClick={onNavigateToGetStarted}
+              className="text-[11px] text-[#675975] hover:text-[#3c2f47] font-semibold underline mt-1.5 inline-flex items-center gap-1 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[13px]">arrow_back</span>
+              <span>Back to Get Started & Platform Overview</span>
+            </button>
+          )}
         </div>
 
         {/* Login Card - Solid & Stable */}

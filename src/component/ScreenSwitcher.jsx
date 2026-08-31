@@ -6,10 +6,11 @@ export const ScreenSwitcher = ({
   onOpenQuickDemo,
 }) => {
   const screens = [
-    { id: 'login', label: '1. Sign In', icon: 'login', badge: 'Auth' },
-    { id: 'signup', label: '2. Sign Up', icon: 'person_add', badge: 'Register' },
-    { id: 'dashboard', label: '3. Dashboard', icon: 'dashboard', badge: 'Main' },
-    { id: 'profile-setup', label: '4. Profile', icon: 'badge', badge: 'Profile' },
+    { id: 'get-started', label: '1. Get Started', icon: 'explore', badge: 'Start' },
+    { id: 'login', label: '2. Sign In', icon: 'login', badge: 'Auth' },
+    { id: 'signup', label: '3. Sign Up', icon: 'person_add', badge: 'Register' },
+    { id: 'dashboard', label: '4. Dashboard', icon: 'dashboard', badge: 'Main' },
+    { id: 'profile-setup', label: '5. Profile', icon: 'badge', badge: 'Profile' },
   ];
 
   return (

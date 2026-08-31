@@ -579,6 +579,7 @@ export const Modals = ({
 
           <div className="space-y-2.5 mb-6">
             {[
+              { name: 'United International University (UIU)', domain: 'uiu.ac.bd' },
               { name: 'Stanford University', domain: 'stanford.edu' },
               { name: 'Massachusetts Institute of Tech', domain: 'mit.edu' },
               { name: 'Harvard University', domain: 'harvard.edu' },
