@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActiveSessionCard } from '../component/ActiveSessionCard';
 import { MentorCard } from '../component/MentorCard';
 import { academicAssets } from '../assets';
+import { useAuth } from '../context/AuthContext';
 
 export const DashboardPage = ({
   onNavigateScreen,
@@ -9,7 +10,10 @@ export const DashboardPage = ({
   onOpenWalletModal,
   onOpenMentorModal,
   onShowToast,
+  userProfile: propProfile,
 }) => {
+  const { currentUser, userProfile: authProfile, logOut } = useAuth();
+  const userProfile = authProfile || propProfile || {};
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState(null);
 
@@ -91,6 +95,40 @@ export const DashboardPage = ({
 
   const trendingTags = ['Python for Bio', 'LATEX Mastery', 'GIS Mapping', 'Sociology 101'];
 
+  const filteredMentors = mentors.filter((m) => {
+    if (selectedTag && !m.badges.some((b) => b.toLowerCase().includes(selectedTag.toLowerCase())) && !m.field.toLowerCase().includes(selectedTag.toLowerCase())) {
+      return false;
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        m.name.toLowerCase().includes(q) ||
+        m.field.toLowerCase().includes(q) ||
+        m.institution.toLowerCase().includes(q) ||
+        m.badges.some((b) => b.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
+
+  const handleSignOut = async () => {
+    try {
+      await logOut();
+      onShowToast('Successfully logged out.');
+      onNavigateScreen('login');
+    } catch (e) {
+      onShowToast('Logged out.');
+      onNavigateScreen('login');
+    }
+  };
+
+  const displayName = userProfile?.name || currentUser?.displayName || 'Scholar';
+  const firstName = displayName.split(' ')[0];
+  const userAvatar = userProfile?.avatarUrl || academicAssets.avatars.alexRivera;
+  const userCredits = userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5;
+  const userRole = userProfile?.academicLevel || 'PhD Scholar';
+  const userInstitution = userProfile?.university || 'Stanford University';
+
   return (
     <div id="screen-dashboard" className="bg-[#fff8f7] text-[#201a1b] min-h-screen">
       {/* Top Header */}
@@ -106,27 +144,21 @@ export const DashboardPage = ({
             <div className="hidden md:flex items-center gap-6">
               <button
                 onClick={() => onNavigateScreen('dashboard')}
-                className="text-[#d2c0e0] border-b-2 border-[#d2c0e0] pb-1 font-bold text-sm"
+                className="text-[#d2c0e0] border-b-2 border-[#d2c0e0] pb-1 font-bold text-sm cursor-pointer"
               >
                 Dashboard
               </button>
               <button
                 onClick={() => onShowToast('Opening academic skill catalog...')}
-                className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors text-sm"
+                className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors text-sm cursor-pointer"
               >
                 Discover
               </button>
               <button
                 onClick={() => onShowToast('Showing your upcoming 2 peer swaps')}
-                className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors text-sm"
+                className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors text-sm cursor-pointer"
               >
                 My Sessions
-              </button>
-              <button
-                onClick={() => onShowToast('You have 3 incoming swap proposals')}
-                className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors text-sm"
-              >
-                Requests
               </button>
             </div>
           </div>
@@ -138,21 +170,21 @@ export const DashboardPage = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search skills or peers..."
+                placeholder="Search skills or mentors..."
                 className="bg-transparent border-none focus:outline-none placeholder-[#efdbfd]/50 text-xs w-44 text-white"
               />
             </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => onShowToast('Notifications: 2 pending peer reviews.')}
-                className="p-2 text-white/80 hover:text-white transition-colors"
+                className="p-2 text-white/80 hover:text-white transition-colors cursor-pointer"
                 title="Notifications"
               >
                 <span className="material-symbols-outlined text-[22px]">notifications</span>
               </button>
               <button
                 onClick={() => onShowToast('Scholar Messages: No unread chats')}
-                className="p-2 text-white/80 hover:text-white transition-colors"
+                className="p-2 text-white/80 hover:text-white transition-colors cursor-pointer"
                 title="Messages"
               >
                 <span className="material-symbols-outlined text-[22px]">chat_bubble</span>
@@ -160,17 +192,27 @@ export const DashboardPage = ({
             </div>
             <div
               onClick={() => onNavigateScreen('profile-setup')}
-              className="flex items-center gap-2 pl-2 border-l border-white/10 cursor-pointer"
+              className="flex items-center gap-2 pl-2 border-l border-white/10 cursor-pointer group"
               title="Edit Profile"
             >
-              <div className="w-8 h-8 rounded-full border-2 border-[#c5b3d3] overflow-hidden">
+              <div className="w-8 h-8 rounded-full border-2 border-[#c5b3d3] overflow-hidden group-hover:border-white transition-colors">
                 <img
-                  src={academicAssets.avatars.alexRivera}
-                  alt="Alex Rivera"
+                  src={userAvatar}
+                  alt={displayName}
                   className="w-full h-full object-cover"
                 />
               </div>
+              <span className="hidden sm:inline text-xs font-semibold text-white">
+                {firstName}
+              </span>
             </div>
+            <button
+              onClick={handleSignOut}
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1 text-xs text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+              title="Sign Out"
+            >
+              <span className="material-symbols-outlined text-[16px]">logout</span>
+            </button>
           </div>
         </div>
       </header>
@@ -181,19 +223,24 @@ export const DashboardPage = ({
         <aside className="w-64 bg-[#fdf1f1] border-r border-[#ccc4cd]/30 p-6 hidden md:flex flex-col justify-between shrink-0">
           <div className="space-y-6">
             {/* User Mini Profile Card */}
-            <div className="flex items-center gap-3 pb-6 border-b border-[#ccc4cd]/30">
-              <div className="w-12 h-12 rounded-full border-2 border-[#675975] overflow-hidden relative">
+            <div
+              onClick={() => onNavigateScreen('profile-setup')}
+              className="flex items-center gap-3 pb-6 border-b border-[#ccc4cd]/30 cursor-pointer group"
+            >
+              <div className="w-12 h-12 rounded-full border-2 border-[#675975] overflow-hidden relative shrink-0">
                 <img
-                  src={academicAssets.avatars.alexRivera}
-                  alt="Alex Rivera"
+                  src={userAvatar}
+                  alt={displayName}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div>
-                <h2 className="font-bold text-sm text-[#201a1b]">Alex Rivera</h2>
-                <p className="text-xs text-[#4a454c]">PhD Candidate</p>
-                <span className="inline-block text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded font-semibold mt-1">
-                  Verified Scholar
+              <div className="overflow-hidden">
+                <h2 className="font-bold text-sm text-[#201a1b] truncate group-hover:text-[#675975] transition-colors">
+                  {displayName}
+                </h2>
+                <p className="text-xs text-[#4a454c] truncate">{userRole}</p>
+                <span className="inline-block text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded font-semibold mt-1 truncate max-w-full">
+                  {userInstitution}
                 </span>
               </div>
             </div>
@@ -202,28 +249,28 @@ export const DashboardPage = ({
             <nav className="space-y-1">
               <button
                 onClick={() => onNavigateScreen('dashboard')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 bg-[#eeddf2] text-[#6c6071] rounded-xl font-bold text-xs"
+                className="w-full flex items-center gap-3 px-4 py-2.5 bg-[#eeddf2] text-[#6c6071] rounded-xl font-bold text-xs cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">dashboard</span>
                 Overview
               </button>
               <button
                 onClick={() => onShowToast('Showing all your peer tutoring sessions')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">calendar_today</span>
                 My Schedule
               </button>
               <button
                 onClick={onOpenWalletModal}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
                 Time Credit Ledger
               </button>
               <button
                 onClick={() => onNavigateScreen('profile-setup')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">person</span>
                 Profile Settings
@@ -231,14 +278,21 @@ export const DashboardPage = ({
             </nav>
           </div>
 
-          {/* Quick Action Button */}
-          <div className="pt-6 border-t border-[#ccc4cd]/30">
+          {/* Quick Action & Signout */}
+          <div className="pt-6 border-t border-[#ccc4cd]/30 space-y-2">
             <button
               onClick={() => onShowToast('Opening Matchmaking engine: finding optimal peer swap...')}
-              className="w-full bg-[#675975] hover:bg-[#52445f] text-white py-3 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full bg-[#675975] hover:bg-[#52445f] text-white py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">person_search</span>
               Find a Peer
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-[#7b757d] hover:text-red-700 font-semibold transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">logout</span>
+              <span>Sign Out</span>
             </button>
           </div>
         </aside>
@@ -250,10 +304,10 @@ export const DashboardPage = ({
             <div className="lg:col-span-2 bg-gradient-to-r from-[#675975] to-[#52445f] text-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden">
               <div className="relative z-10 space-y-2">
                 <span className="text-[11px] font-semibold text-[#efdbfd] uppercase tracking-wider bg-white/10 px-3 py-1 rounded-full">
-                  Semester Fall 2026
+                  Verified Scholar Session
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                  Welcome back, Alex!
+                  Welcome back, {firstName}!
                 </h1>
                 <p className="text-xs sm:text-sm text-white/80 max-w-md leading-relaxed">
                   You have <span className="font-bold text-[#efdbfd]">2 upcoming sessions</span> scheduled this week. Your time credit balance is ready for new exchanges.
@@ -267,9 +321,9 @@ export const DashboardPage = ({
                   </button>
                   <button
                     onClick={() => onNavigateScreen('profile-setup')}
-                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-full transition-all border border-white/20"
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-full transition-all border border-white/20 cursor-pointer"
                   >
-                    Update Bio & Skills
+                    Edit Profile
                   </button>
                 </div>
               </div>
@@ -279,7 +333,7 @@ export const DashboardPage = ({
             </div>
 
             {/* Time Credit Balance Widget */}
-            <div className="bg-white rounded-3xl p-6 ambient-lift border border-[#ccc4cd]/40 flex flex-col justify-between">
+            <div className="bg-white rounded-3xl p-6 ambient-lift border border-[#ccc4cd]/40 flex flex-col justify-between shadow-xs">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#7b757d] uppercase tracking-wider">
@@ -287,18 +341,18 @@ export const DashboardPage = ({
                   </span>
                   <button
                     onClick={onOpenWalletModal}
-                    className="text-[#675975] hover:text-[#4e4353] text-xs font-bold flex items-center gap-0.5"
+                    className="text-[#675975] hover:text-[#4e4353] text-xs font-bold flex items-center gap-0.5 cursor-pointer"
                   >
-                    History
+                    Ledger
                     <span className="material-symbols-outlined text-[16px]">chevron_right</span>
                   </button>
                 </div>
                 <div className="flex items-baseline gap-2 mt-3">
-                  <span className="text-4xl font-extrabold text-[#675975]">24.5</span>
+                  <span className="text-4xl font-extrabold text-[#675975]">{userCredits}</span>
                   <span className="text-sm font-semibold text-[#4a454c]">Credit Hours</span>
                 </div>
                 <p className="text-xs text-[#4a454c]/80 mt-1">
-                  Earned via 18 academic research & peer tutoring swaps.
+                  Cloud verified on Firestore ledger.
                 </p>
               </div>
 
@@ -309,28 +363,28 @@ export const DashboardPage = ({
                 </span>
                 <button
                   onClick={onOpenWalletModal}
-                  className="text-xs font-bold text-[#675975] hover:underline"
+                  className="text-xs font-bold text-[#675975] hover:underline cursor-pointer"
                 >
-                  View Ledger
+                  View History
                 </button>
               </div>
             </div>
           </div>
 
           {/* Section: Upcoming Active Swaps */}
-          <div className="space-y-4">
+          <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-[#201a1b]">Upcoming Active Swaps</h2>
                 <p className="text-xs text-[#4a454c]">
-                  Confirmed 1-on-1 collaborative research sessions
+                  Confirmed 1-on-1 collaborative sessions with fellow scholars.
                 </p>
               </div>
               <button
-                onClick={() => onShowToast('Loading all scheduled peer exchanges')}
-                className="text-xs font-semibold text-[#675975] hover:underline"
+                onClick={() => onShowToast('Opening Schedule Calendar...')}
+                className="text-xs text-[#675975] font-bold hover:underline cursor-pointer"
               >
-                View Calendar
+                View Full Calendar
               </button>
             </div>
 
@@ -339,123 +393,99 @@ export const DashboardPage = ({
                 <ActiveSessionCard
                   key={session.id}
                   session={session}
-                  onJoin={onOpenMeetingModal}
+                  onOpenMeeting={() => onOpenMeetingModal(session)}
                   onShowToast={onShowToast}
                 />
               ))}
             </div>
-          </div>
+          </section>
 
-          {/* Section: Learning Velocity Bento & Recommendations */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Learning Velocity Chart */}
-            <div className="lg:col-span-1 bg-white rounded-3xl p-6 ambient-lift border border-[#ccc4cd]/40 flex flex-col justify-between">
+          {/* Section: Learning Velocity & Skill Momentum */}
+          <section className="bg-white rounded-3xl p-6 ambient-lift border border-[#ccc4cd]/40 space-y-4 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold text-[#201a1b]">Learning Velocity</h3>
-                  <span className="text-[11px] font-bold text-[#675975] bg-[#fdf1f1] px-2 py-0.5 rounded-full">
-                    This Week
-                  </span>
-                </div>
-                <p className="text-xs text-[#4a454c] mb-6">
-                  Hours exchanged across active disciplines
+                <h2 className="text-base font-bold text-[#201a1b]">Weekly Learning Velocity</h2>
+                <p className="text-xs text-[#4a454c]">
+                  Hours invested in peer mentoring and research collaboration.
                 </p>
-
-                {/* Bar Graph */}
-                <div className="h-36 flex items-end justify-between gap-2 px-2 pb-2 border-b border-[#ccc4cd]/30">
-                  {weeklyGrowthBars.map((bar, idx) => (
-                    <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 group relative">
-                      {/* Tooltip on hover */}
-                      <div className="absolute -top-8 bg-[#352f2f] text-white text-[10px] py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                        {bar.hours}
-                      </div>
-                      <div
-                        style={{ height: bar.height }}
-                        className={`w-full rounded-t-lg transition-all duration-300 ${
-                          bar.highlight
-                            ? 'bg-[#675975] hover:bg-[#52445f]'
-                            : 'bg-[#c5b3d3] hover:bg-[#b09bc0]'
-                        }`}
-                      ></div>
-                      <span className="text-[10px] font-semibold text-[#7b757d]">
-                        {bar.day}
-                      </span>
-                    </div>
-                  ))}
-                </div>
               </div>
-
-              <div className="mt-4 pt-3 flex items-center justify-between text-xs">
-                <span className="text-[#4a454c]">Total: <strong>21.0 Hrs</strong></span>
-                <span className="text-emerald-700 font-bold">92% Completion rate</span>
-              </div>
+              <span className="text-xs bg-[#efdbfd] text-[#4f415c] px-3 py-1 rounded-full font-bold self-start sm:self-auto">
+                Total: 21.0 hrs logged
+              </span>
             </div>
 
-            {/* Recommended Verified Scholar Mentors */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-[#201a1b]">
-                    Recommended Scholar Mentors
-                  </h3>
-                  <p className="text-xs text-[#4a454c]">
-                    Matched based on your learning goals (e.g. Game Theory, PyTorch)
-                  </p>
+            {/* Velocity Bar Chart */}
+            <div className="h-44 flex items-end justify-between gap-2 pt-6 px-2">
+              {weeklyGrowthBars.map((bar, idx) => (
+                <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                  <div
+                    className="text-[10px] text-[#675975] font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    {bar.hours}
+                  </div>
+                  <div className="w-full max-w-[40px] bg-[#f0e6e6] rounded-t-xl overflow-hidden flex flex-col justify-end h-full">
+                    <div
+                      style={{ height: bar.height }}
+                      className={`w-full rounded-t-xl transition-all duration-500 ${
+                        bar.highlight ? 'bg-[#675975]' : 'bg-[#c5b3d3]'
+                      }`}
+                    ></div>
+                  </div>
+                  <span className="text-[11px] font-bold text-[#7b757d]">{bar.day}</span>
                 </div>
-                <button
-                  onClick={() => onShowToast('Showing full catalog of verified PhD peers')}
-                  className="text-xs font-semibold text-[#675975] hover:underline"
-                >
-                  Explore All
-                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Section: Recommended Scholar Mentors */}
+          <section className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-[#201a1b]">Recommended Scholar Mentors</h2>
+                <p className="text-xs text-[#4a454c]">
+                  Matched based on your declared learning goals and discipline interests.
+                </p>
               </div>
 
-              <div className="space-y-3">
-                {mentors.map((mentor) => (
-                  <MentorCard
-                    key={mentor.id}
-                    mentor={mentor}
-                    onSelect={onOpenMentorModal}
-                    onShowToast={onShowToast}
-                  />
+              {/* Filter chips */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedTag(null)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                    selectedTag === null
+                      ? 'bg-[#675975] text-white'
+                      : 'bg-white border border-[#ccc4cd] text-[#4a454c] hover:bg-[#ebe0e0]'
+                  }`}
+                >
+                  All Fields
+                </button>
+                {trendingTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                      selectedTag === tag
+                        ? 'bg-[#675975] text-white'
+                        : 'bg-white border border-[#ccc4cd] text-[#4a454c] hover:bg-[#ebe0e0]'
+                    }`}
+                  >
+                    {tag}
+                  </button>
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* Section: Trending Academic Tags */}
-          <div className="bg-[#fdf1f1] rounded-2xl p-5 border border-[#ccc4cd]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-[#675975] text-2xl">
-                trending_up
-              </span>
-              <div>
-                <h4 className="text-xs font-bold text-[#201a1b]">Trending on Campus This Week</h4>
-                <p className="text-[11px] text-[#4a454c]">
-                  Popular skill categories with high peer tutoring demand
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {trendingTags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => {
-                    setSelectedTag(tag);
-                    onShowToast(`Filtering scholars offering ${tag}...`);
-                  }}
-                  className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${
-                    selectedTag === tag
-                      ? 'bg-[#675975] text-white shadow-xs'
-                      : 'bg-white text-[#4a454c] hover:bg-[#ebe0e0] border border-[#ccc4cd]/40'
-                  }`}
-                >
-                  #{tag}
-                </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredMentors.map((mentor) => (
+                <MentorCard
+                  key={mentor.id}
+                  mentor={mentor}
+                  onOpenMentorModal={() => onOpenMentorModal(mentor)}
+                  onShowToast={onShowToast}
+                />
               ))}
             </div>
-          </div>
+          </section>
         </main>
       </div>
     </div>

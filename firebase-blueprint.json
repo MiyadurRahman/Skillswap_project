@@ -1,0 +1,57 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Scholar or student profile data in the SkillSwap platform",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "university": { "type": "string" },
+        "degree": { "type": "string" },
+        "researchArea": { "type": "string" },
+        "bio": { "type": "string" },
+        "timeCredits": { "type": "number" },
+        "skillsOffered": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "skillsToLearn": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "avatar": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "email"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "Collaborative peer tutoring or research session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "mentorId": { "type": "string" },
+        "mentorName": { "type": "string" },
+        "studentId": { "type": "string" },
+        "discipline": { "type": "string" },
+        "scheduledTime": { "type": "string" },
+        "status": { "type": "string", "enum": ["scheduled", "in-progress", "completed", "cancelled"] },
+        "credits": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "entity": "UserProfile",
+      "description": "User profile documents keyed by Firebase Auth UID"
+    },
+    "/sessions/{sessionId}": {
+      "entity": "Session",
+      "description": "Academic swap sessions between scholars"
+    }
+  }
+}

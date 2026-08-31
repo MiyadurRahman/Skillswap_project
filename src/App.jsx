@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppRoutes } from './routes/AppRoutes';
 import { Modals } from './component/Modals';
-import { ScreenSwitcher } from './component/ScreenSwitcher';
 import { academicAssets } from './assets';
 
-export default function App() {
+function AppContent() {
+  const { currentUser, userProfile: authProfile, loading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState('login');
   const [activeModal, setActiveModal] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedMentor, setSelectedMentor] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
-  const [userProfile, setUserProfile] = useState({
+  const [localProfile, setLocalProfile] = useState({
     name: 'Alex Rivera',
     email: 'scholar@university.edu',
     title: 'PhD Scholar',
@@ -24,6 +25,17 @@ export default function App() {
     learningGoals: ['Game Theory', 'R-Studio', 'CRISPR Data Analysis'],
     bio: 'Doctoral candidate focusing on high-energy mathematical physics and stochastic modeling.',
   });
+
+  const activeUserProfile = authProfile || localProfile;
+
+  // Sync auth state to screen navigation on change
+  useEffect(() => {
+    if (currentUser) {
+      if (currentScreen === 'login' || currentScreen === 'signup') {
+        setCurrentScreen('dashboard');
+      }
+    }
+  }, [currentUser]);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -61,8 +73,8 @@ export default function App() {
       <AppRoutes
         currentScreen={currentScreen}
         setCurrentScreen={setCurrentScreen}
-        userProfile={userProfile}
-        setUserProfile={setUserProfile}
+        userProfile={activeUserProfile}
+        setUserProfile={setLocalProfile}
         onOpenMeeting={handleOpenMeeting}
         onOpenWallet={() => setActiveModal('wallet')}
         onOpenMentor={handleOpenMentor}
@@ -78,30 +90,14 @@ export default function App() {
         selectedMentor={selectedMentor}
         onShowToast={showToast}
       />
-
-      {/* Persistent Screen Switcher Dock */}
-      <ScreenSwitcher
-        currentScreen={currentScreen}
-        onSelectScreen={(screen) => setCurrentScreen(screen)}
-        onOpenQuickDemo={(demoType) => {
-          if (demoType === 'wallet') setActiveModal('wallet');
-          if (demoType === 'meeting') {
-            setSelectedSession({
-              id: 'demo-meeting',
-              title: 'Data Regression Analysis Workshop',
-              category: 'Advanced Statistics',
-              type: 'Exchange',
-              mentorName: 'Dr. Elena Volkov',
-              dateStr: 'Now',
-              iconName: 'psychology',
-              bgCategoryColor: 'bg-[#ffdada]',
-              textCategoryColor: 'text-[#5c3f40]',
-              status: 'live',
-            });
-            setActiveModal('meeting');
-          }
-        }}
-      />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
