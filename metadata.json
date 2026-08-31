@@ -1,6 +1,0 @@
-{
-  "name": "SkillSwap Academic",
-  "description": "An academic peer-to-peer skill exchange platform featuring scholar sign in, registration, student dashboard, and multi-step profile builder.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
