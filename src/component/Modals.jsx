@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { academicAssets } from '../assets';
 
 export const Modals = ({
   activeModal,
@@ -11,7 +12,7 @@ export const Modals = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [chatMessages, setChatMessages] = useState([
-    'Dr. Elena Volkov: Welcome Alex! Let us inspect the dataset regression curve.',
+    'Dr. Rafiqul Islam: Welcome Tanvir! Let us inspect the dataset regression curve.',
     'System: Session credit counter active (1.0 Hr swap).',
   ]);
   const [chatInput, setChatInput] = useState('');
@@ -23,27 +24,27 @@ export const Modals = ({
   const transactions = [
     {
       id: 'tx-1',
-      title: 'Peer Tutoring: Quantum Math',
+      title: 'Peer Tutoring: Dynamic Programming',
       type: 'earned',
       amount: '+2.5 hrs',
       date: 'Today, 11:20 AM',
-      partner: 'Julian Sterling',
+      partner: 'Shakib Chowdhury',
     },
     {
       id: 'tx-2',
-      title: 'Workshop: Data Regression',
+      title: 'Workshop: Graph Algorithms',
       type: 'spent',
       amount: '-1.0 hr',
       date: 'Yesterday',
-      partner: 'Dr. Elena Volkov',
+      partner: 'Dr. Rafiqul Islam',
     },
     {
       id: 'tx-3',
-      title: 'Mentoring: Grant Writing',
+      title: 'Mentoring: LaTeX Paper Drafting',
       type: 'earned',
       amount: '+2.0 hrs',
       date: 'Aug 28, 2026',
-      partner: 'Marcus Thorne',
+      partner: 'Abrar Zahin',
     },
     {
       id: 'tx-4',
@@ -51,7 +52,7 @@ export const Modals = ({
       type: 'spent',
       amount: '-1.5 hrs',
       date: 'Aug 25, 2026',
-      partner: 'Dr. Sarah Khan',
+      partner: 'Mahir Faisal',
     },
   ];
 
@@ -77,10 +78,10 @@ export const Modals = ({
               <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
               <div>
                 <h3 className="text-base font-semibold text-[#efdbfd]">
-                  {selectedSession?.title || 'Data Regression Analysis Workshop'}
+                  {selectedSession?.title || 'Data Structures & Dynamic Programming'}
                 </h3>
                 <p className="text-xs text-white/70">
-                  Host: {selectedSession?.mentorName || 'Dr. Elena Volkov'} • SkillSwap Verified Room
+                  Host: {selectedSession?.mentorName || 'Dr. Rafiqul Islam'} • SkillSwap Verified Room
                 </p>
               </div>
             </div>
@@ -105,29 +106,29 @@ export const Modals = ({
                 {/* Host Feed */}
                 <div className="relative bg-[#2c2425] rounded-2xl overflow-hidden flex items-center justify-center border border-white/10">
                   <img
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNb1jKOTuvRaKypyHJkjyBfRhhd0WfRhVAd_wZA1dpOvOmadEAWxw8GVXOdWBRzhLrZlfk8Nhv_gYeMg1EoMmLy7WUctk5-LArBaxRpMVYeACPBWSAWNWg2IxWXM-i1DvnYKJS2e03QNOQZqJDWFTMaYxG8zMlksDgCr9nrHnsFcpHzw8KNm-KqiIcZIvCePvLsRmPst4Y3BhqBSw55uGJxDYbQoB5ATw5N48j_KxheoUbD4PsUbNnYw"
+                    src={academicAssets.avatars.rafiqulIslam}
                     alt="Host video feed"
                     className="w-full h-full object-cover opacity-90"
                   />
                   <div className="absolute bottom-3 left-3 bg-black/60 px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-sm flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-xs text-green-400">mic</span>
-                    {selectedSession?.mentorName || 'Dr. Elena Volkov'}
+                    {selectedSession?.mentorName || 'Dr. Rafiqul Islam'}
                   </div>
                 </div>
 
-                {/* Participant Feed (Alex) */}
+                {/* Participant Feed (Tanvir) */}
                 <div className="relative bg-[#2c2425] rounded-2xl overflow-hidden flex items-center justify-center border border-white/10">
                   {isVideoOff ? (
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-16 h-16 rounded-full bg-[#675975] flex items-center justify-center text-xl font-bold text-white">
-                        AR
+                        TA
                       </div>
                       <span className="text-xs text-white/60">Camera Off</span>
                     </div>
                   ) : (
                     <img
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuDO6G8cbuAp-2LMxrLK69_FAO683etxZkNYKSxnqWVjXEOpVUskBDenJqzt4UDpUTacmujIQWfTyfvlb9hOpClMkAeWW7c-Ir8bgu-oI2hZ1JGjMw09r1-koJrc2mY0q2qaTDfYpfz2ixJarx4G1CM85pUri83SzJwUOULa9UeJUDD9sD2iNHLwcY1cdEmoHyzgHkfpikCGutuY_BHUI1YyfaOyPDV9A4mqC4nc1AKhUS6UVEtuSRC_0Q"
-                      alt="Alex Rivera video"
+                      src={academicAssets.avatars.tanvirAhmed}
+                      alt="Tanvir Ahmed video"
                       className="w-full h-full object-cover"
                     />
                   )}
@@ -139,7 +140,7 @@ export const Modals = ({
                     >
                       {isMuted ? 'mic_off' : 'mic'}
                     </span>
-                    Alex Rivera (You)
+                    Tanvir Ahmed (You)
                   </div>
                 </div>
               </div>
@@ -151,11 +152,11 @@ export const Modals = ({
                     code
                   </span>
                   <span className="text-xs text-white/90 font-mono">
-                    linear_regression_pytorch_v3.ipynb
+                    dsa_dynamic_programming_tree_dp.cpp
                   </span>
                 </div>
                 <button
-                  onClick={() => onShowToast('Synced local Python sandbox with peer!')}
+                  onClick={() => onShowToast('Synced local C++ / Python sandbox with peer!')}
                   className="px-2.5 py-1 bg-[#675975] text-[#efdbfd] rounded-lg text-xs hover:bg-[#52445f] transition-colors font-medium"
                 >
                   Sync Workspace
@@ -185,7 +186,7 @@ export const Modals = ({
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (chatInput.trim()) {
-                    setChatMessages([...chatMessages, `Alex Rivera: ${chatInput.trim()}`]);
+                    setChatMessages([...chatMessages, `Tanvir Ahmed: ${chatInput.trim()}`]);
                     setChatInput('');
                   }
                 }}

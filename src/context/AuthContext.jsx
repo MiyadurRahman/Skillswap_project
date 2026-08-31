@@ -83,21 +83,21 @@ export function AuthProvider({ children }) {
       ) {
         const isUiu = email.includes('uiu.ac.bd');
         const fallbackUser = {
-          uid: isUiu ? 'uiu-scholar-demo-id' : 'alex-stanford-demo-id',
+          uid: isUiu ? 'uiu-scholar-demo-id' : 'tanvir-demo-id',
           email: email,
-          displayName: isUiu ? 'Unknown (UIU Scholar)' : 'Alex Rivera',
+          displayName: isUiu ? 'Tanvir Ahmed (UIU)' : 'Tanvir Ahmed',
         };
         const fallbackProfile = {
           userId: fallbackUser.uid,
-          name: isUiu ? 'Unknown (UIU Scholar)' : 'Alex Rivera',
-          fullName: isUiu ? 'Unknown (UIU Scholar)' : 'Alex Rivera',
+          name: 'Tanvir Ahmed',
+          fullName: 'Tanvir Ahmed',
           email: email,
-          university: isUiu ? 'United International University (UIU)' : 'Stanford University',
-          academicLevel: isUiu ? 'BSc in Computer Science & Engineering' : 'PhD Candidate',
-          title: isUiu ? 'Undergraduate Researcher' : 'Graduate Scholar',
+          university: isUiu ? 'United International University (UIU)' : 'United International University (UIU)',
+          academicLevel: isUiu ? 'BSc in Computer Science & Engineering' : 'BSc in CSE',
+          title: 'Undergraduate Researcher',
           timeCredits: 24,
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          avatarUrl: 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80',
+          avatar: 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80',
           expertiseAreas: isUiu
             ? ['Data Structures', 'Algorithms', 'C++', 'Python']
             : ['Applied Math', 'Python', 'LaTeX'],

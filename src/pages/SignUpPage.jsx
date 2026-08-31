@@ -218,7 +218,7 @@ export const SignUpPage = ({
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Dr. Julian Sterling"
+                    placeholder="e.g. Tanvir Ahmed"
                     required
                     disabled={loading}
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-xs sm:text-sm focus:outline-none input-focus-glow transition-all"
@@ -257,9 +257,10 @@ export const SignUpPage = ({
                   <span className="text-[10px] text-[#7b757d] font-medium">Suggestions:</span>
                   {[
                     'United International University (UIU)',
-                    'Stanford University',
-                    'MIT',
-                    'Oxford University',
+                    'BUET',
+                    'University of Dhaka',
+                    'BRAC University',
+                    'North South University (NSU)',
                   ].map((u) => (
                     <button
                       key={u}

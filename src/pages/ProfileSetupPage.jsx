@@ -10,26 +10,26 @@ export const ProfileSetupPage = ({
 }) => {
   const { currentUser, logOut, updateProfileData } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
-  const [firstName, setFirstName] = useState('Alex');
-  const [lastName, setLastName] = useState('Rivera');
-  const [university, setUniversity] = useState('Stanford University');
-  const [academicLevel, setAcademicLevel] = useState('PhD Candidate');
+  const [firstName, setFirstName] = useState('Tanvir');
+  const [lastName, setLastName] = useState('Ahmed');
+  const [university, setUniversity] = useState('United International University (UIU)');
+  const [academicLevel, setAcademicLevel] = useState('BSc in Computer Science & Engineering');
   const [bio, setBio] = useState(
-    "Doctoral researcher focusing on stochastic modeling, neural network optimization, and applied mathematics. Passionate about cross-disciplinary peer tutoring."
+    "Undergraduate researcher at United International University (UIU) specializing in Data Structures, Algorithms, and System Design. Passionate about academic peer learning."
   );
-  const [avatarPreview, setAvatarPreview] = useState(academicAssets.avatars.alexRivera);
+  const [avatarPreview, setAvatarPreview] = useState(academicAssets.avatars.tanvirAhmed);
   const [saving, setSaving] = useState(false);
 
   const [expertise, setExpertise] = useState([
-    'Applied Math',
-    'LaTeX',
+    'Data Structures',
+    'Algorithms',
+    'C++',
     'Python',
-    'Fourier Analysis',
   ]);
   const [learningGoals, setLearningGoals] = useState([
-    'Game Theory',
-    'R-Studio',
-    'CRISPR Data Analysis',
+    'Machine Learning',
+    'Artificial Intelligence',
+    'Cloud Systems',
   ]);
   const [newSkillInput, setNewSkillInput] = useState('');
   const [newGoalInput, setNewGoalInput] = useState('');

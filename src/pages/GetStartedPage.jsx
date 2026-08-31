@@ -23,41 +23,41 @@ export const GetStartedPage = ({
       id: 1,
       category: 'cs',
       title: 'Data Structures & Algorithms',
-      mentorName: 'Unknown (UIU)',
+      mentorName: 'Tanvir Ahmed',
       university: 'United International University (UIU)',
       tags: ['C++', 'Dynamic Programming', 'Trees'],
       rating: 4.95,
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      avatarUrl: academicAssets.avatars.tanvirAhmed,
     },
     {
       id: 2,
       category: 'math',
       title: 'LaTeX Research Paper Drafting',
-      mentorName: 'Alex Rivera',
-      university: 'Stanford University',
+      mentorName: 'Abrar Zahin',
+      university: 'United International University (UIU)',
       tags: ['LaTeX', 'Python', 'Calculus'],
       rating: 5.0,
-      avatarUrl: academicAssets.avatars.alexRivera,
+      avatarUrl: academicAssets.avatars.abrarZahin,
     },
     {
       id: 3,
       category: 'bio',
       title: 'Genomic Sequence Pipelines',
-      mentorName: 'Dr. Sarah Khan',
-      university: 'Oxford University',
+      mentorName: 'Mahir Faisal',
+      university: 'University of Dhaka',
       tags: ['R-Studio', 'Bioinformatics'],
       rating: 4.92,
-      avatarUrl: academicAssets.avatars.sarahKhan,
+      avatarUrl: academicAssets.avatars.mahirFaisal,
     },
     {
       id: 4,
       category: 'eng',
       title: 'MATLAB Simulation & Modeling',
-      mentorName: 'James Whitmore',
-      university: 'UC Berkeley',
+      mentorName: 'Shakib Chowdhury',
+      university: 'BUET',
       tags: ['MATLAB', 'Simulink'],
       rating: 4.97,
-      avatarUrl: academicAssets.avatars.jamesWhitmore,
+      avatarUrl: academicAssets.avatars.shakibChowdhury,
     },
   ];
 
@@ -203,12 +203,12 @@ export const GetStartedPage = ({
               <div className="bg-[#f7effa] rounded-xl p-3.5 space-y-2 border border-[#d2c0e0]/40">
                 <div className="flex items-center gap-2.5">
                   <img
-                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-                    alt="UIU Student"
+                    src={academicAssets.avatars.tanvirAhmed}
+                    alt="Tanvir Ahmed - UIU Student"
                     className="w-10 h-10 rounded-full object-cover border border-[#675975]/30"
                   />
                   <div>
-                    <span className="text-xs font-bold text-[#201a1b] block">UIU Peer</span>
+                    <span className="text-xs font-bold text-[#201a1b] block">Tanvir Ahmed (UIU)</span>
                     <span className="text-[10px] text-[#675975]">United International University</span>
                   </div>
                 </div>

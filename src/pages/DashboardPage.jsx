@@ -20,10 +20,10 @@ export const DashboardPage = ({
   const activeSessions = [
     {
       id: 'session-1',
-      title: 'Data Regression Analysis Workshop',
-      category: 'Advanced Statistics',
+      title: 'Data Structures & Dynamic Programming',
+      category: 'Algorithms',
       type: 'Exchange',
-      mentorName: 'Dr. Elena Volkov',
+      mentorName: 'Dr. Rafiqul Islam',
       dateStr: 'Tomorrow, 14:00',
       iconName: 'psychology',
       bgCategoryColor: 'bg-[#ffdada]',
@@ -32,10 +32,10 @@ export const DashboardPage = ({
     },
     {
       id: 'session-2',
-      title: 'Grant Proposal Peer Review',
+      title: 'LaTeX Research Paper Peer Review',
       category: 'Academic Writing',
       type: 'Mentoring',
-      mentorName: 'Marcus Thorne',
+      mentorName: 'Mahir Faisal',
       dateStr: 'Friday, 09:30',
       iconName: 'history_edu',
       bgCategoryColor: 'bg-[#efdbfd]',
@@ -47,38 +47,50 @@ export const DashboardPage = ({
   const mentors = [
     {
       id: 'mentor-1',
-      name: 'Prof. Julian Archer',
-      field: 'Quantum Physics & Math',
+      name: 'Dr. Rafiqul Islam',
+      field: 'Algorithms & Discrete Math',
       rating: 4.9,
       reviewsCount: 124,
-      avatarUrl: academicAssets.avatars.julianSterling,
+      avatarUrl: academicAssets.avatars.rafiqulIslam,
       isOnline: true,
-      institution: 'Stanford Quantum Lab',
-      badges: ['Tensor Math', 'Hilbert Spaces'],
+      institution: 'UIU CSE Faculty',
+      badges: ['Dynamic Programming', 'Graph Theory'],
       hourlyRateCredits: 1.0,
     },
     {
       id: 'mentor-2',
-      name: 'Dr. Sarah Khan',
-      field: 'Neural Networks & ML',
+      name: 'Mahir Faisal',
+      field: 'Neural Networks & PyTorch',
       rating: 5.0,
       reviewsCount: 89,
-      avatarUrl: academicAssets.avatars.sarahKhan,
+      avatarUrl: academicAssets.avatars.mahirFaisal,
       isOnline: true,
-      institution: 'MIT AI Lab',
+      institution: 'UIU AI Research Lab',
       badges: ['Transformers', 'PyTorch'],
       hourlyRateCredits: 1.0,
     },
     {
       id: 'mentor-3',
-      name: 'James Whitmore',
-      field: 'Microbiology Lab Tech',
+      name: 'Shakib Chowdhury',
+      field: 'MATLAB & Control Systems',
       rating: 4.8,
       reviewsCount: 210,
-      avatarUrl: academicAssets.avatars.jamesWhitmore,
+      avatarUrl: academicAssets.avatars.shakibChowdhury,
       isOnline: false,
-      institution: 'Harvard Bio Dept',
-      badges: ['CRISPR', 'Cell Culture'],
+      institution: 'BUET Robotics Lab',
+      badges: ['MATLAB', 'Embedded Systems'],
+      hourlyRateCredits: 1.0,
+    },
+    {
+      id: 'mentor-4',
+      name: 'Abrar Zahin',
+      field: 'Full Stack & Cloud Systems',
+      rating: 4.95,
+      reviewsCount: 96,
+      avatarUrl: academicAssets.avatars.abrarZahin,
+      isOnline: true,
+      institution: 'UIU Software Club',
+      badges: ['React', 'Node.js', 'Docker'],
       hourlyRateCredits: 1.0,
     },
   ];
@@ -122,12 +134,12 @@ export const DashboardPage = ({
     }
   };
 
-  const displayName = userProfile?.name || currentUser?.displayName || 'Scholar';
+  const displayName = userProfile?.name || currentUser?.displayName || 'Tanvir Ahmed';
   const firstName = displayName.split(' ')[0];
-  const userAvatar = userProfile?.avatarUrl || academicAssets.avatars.alexRivera;
+  const userAvatar = userProfile?.avatarUrl || academicAssets.avatars.tanvirAhmed;
   const userCredits = userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5;
-  const userRole = userProfile?.academicLevel || 'PhD Scholar';
-  const userInstitution = userProfile?.university || 'Stanford University';
+  const userRole = userProfile?.academicLevel || 'BSc in CSE';
+  const userInstitution = userProfile?.university || 'United International University (UIU)';
 
   return (
     <div id="screen-dashboard" className="bg-[#fff8f7] text-[#201a1b] min-h-screen">
