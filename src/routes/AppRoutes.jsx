@@ -29,6 +29,7 @@ export const AppRoutes = ({
     case 'dashboard':
       return (
         <DashboardPage
+          userProfile={userProfile}
           onNavigateScreen={(screen) => setCurrentScreen(screen)}
           onOpenMeetingModal={onOpenMeeting}
           onOpenWalletModal={onOpenWallet}

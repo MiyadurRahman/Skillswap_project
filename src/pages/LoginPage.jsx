@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { academicAssets } from '../assets';
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { AUTH_CONFIG } from '../config/authConfig';
 
 export const LoginPage = ({
   onLoginSuccess,
@@ -7,86 +8,151 @@ export const LoginPage = ({
   onOpenSSO,
   onShowToast,
 }) => {
-  const [email, setEmail] = useState('scholar@university.edu');
-  const [password, setPassword] = useState('••••••••');
+  const { signIn, signInWithGoogleOAuth, resetPassword } = useAuth();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0 });
-  const cardRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
-  // Mouse parallax interaction on the glass card
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (!cardRef.current) return;
-      const rect = cardRef.current.getBoundingClientRect();
-      const cardCenterX = rect.left + rect.width / 2;
-      const cardCenterY = rect.top + rect.height / 2;
-      const xAxis = (cardCenterX - e.clientX) / 45;
-      const yAxis = (cardCenterY - e.clientY) / 45;
-      setTilt({
-        rotateX: Math.max(-8, Math.min(8, yAxis)),
-        rotateY: Math.max(-8, Math.min(8, -xAxis)),
-      });
-    };
+  const handleQuickDemoLogin = async (demoType = 'uiu') => {
+    setErrorMessage('');
+    const demoEmail = 'unknown@bscse.uiu.ac.bd';
+    const demoPassword = 'password123';
+    
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setLoading(true);
 
-    const handleMouseLeave = () => {
-      setTilt({ rotateX: 0, rotateY: 0 });
-    };
+    try {
+      const result = await signIn(demoEmail, demoPassword);
+      onShowToast(`Welcome, ${result.profile?.fullName || 'UIU Scholar'}!`);
+      if (onLoginSuccess) onLoginSuccess();
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to authenticate demo account.');
+      onShowToast(err.message || 'Demo login failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseleave', handleMouseLeave);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, []);
+  const handleFillDemo = (demoType) => {
+    if (demoType === 'uiu') {
+      setEmail('unknown@bscse.uiu.ac.bd');
+      setPassword('password123');
+      onShowToast('Loaded UIU credentials. Click "Sign In" or "Quick Sign In".');
+    } else {
+      setEmail('');
+      setPassword('');
+      onShowToast('Cleared form fields.');
+    }
+  };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onShowToast('Welcome back, Alex Rivera! Loading dashboard...');
-    onLoginSuccess();
+    setErrorMessage('');
+
+    if (!email || !password) {
+      setErrorMessage('Please enter both email and password.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await signIn(email.trim(), password);
+      onShowToast(`Welcome back, ${result.profile?.fullName || result.user?.displayName || 'Scholar'}!`);
+      if (onLoginSuccess) onLoginSuccess();
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to authenticate.');
+      onShowToast(err.message || 'Login failed. Please check credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setErrorMessage('');
+    setGoogleLoading(true);
+    try {
+      const res = await signInWithGoogleOAuth();
+      onShowToast(`Signed in with Google as ${res.user.displayName || res.user.email}!`);
+      if (onLoginSuccess) onLoginSuccess();
+    } catch (err) {
+      setErrorMessage(err.message || 'Google authentication failed.');
+      onShowToast(err.message || 'Google sign-in cancelled or failed.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      onShowToast('Please enter your university email to receive a reset link.');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await resetPassword(resetEmail.trim());
+      onShowToast(`Password reset link sent to ${resetEmail.trim()}! Check your inbox.`);
+      setResetModalOpen(false);
+      setResetEmail('');
+    } catch (err) {
+      onShowToast(err.message || 'Failed to send reset link.');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   return (
     <div
       id="screen-scholar-login"
-      className="min-h-screen flex flex-col justify-center items-center overflow-x-hidden relative mesh-academic-bg px-4 py-12"
+      className="min-h-screen flex flex-col justify-center items-center bg-[#fff8f7] px-4 py-12"
     >
-      {/* Decorative ambient background glows */}
-      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-[#c5b3d3]/30 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#ffdada]/30 rounded-full blur-3xl"></div>
-      </div>
-
-      {/* Main Login Container */}
-      <main className="w-full max-w-[480px] z-10 transition-all">
+      {/* Main Login Container - Clean & Static (No Parallax Animation) */}
+      <main className="w-full max-w-[460px] z-10">
         {/* Brand Identity Section */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-[#d2c0e0] tracking-tight mb-2 bg-[#4e4353] inline-block px-5 py-1.5 rounded-xl shadow-md">
             SkillSwap
           </h1>
-          <p className="text-sm text-[#4a454c] opacity-90 mt-1 font-medium">
+          <p className="text-xs sm:text-sm text-[#4a454c] opacity-90 mt-1 font-medium">
             Advancing academic excellence through peer collaboration.
           </p>
         </div>
 
-        {/* Login Card with 3D subtle tilt */}
-        <div
-          ref={cardRef}
-          style={{
-            transform: `perspective(1000px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)`,
-            transition: 'transform 0.15s ease-out',
-          }}
-          className="academic-glass rounded-2xl p-6 sm:p-8 ambient-lift border border-[#ccc4cd]/40 bg-white/85 backdrop-blur-xl"
-        >
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-[#201a1b] mb-1">Scholar Login</h2>
+        {/* Login Card - Solid & Stable */}
+        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-[#ccc4cd]/60 shadow-lg">
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-[#201a1b] mb-1">Scholar Sign In</h2>
             <p className="text-xs text-[#4a454c]">
-              Access your institutional skill dashboard.
+              Access your institutional research & tutoring dashboard.
             </p>
           </div>
 
+          {/* Error Message Box */}
+          {errorMessage && (
+            <div
+              id="login-error-banner"
+              className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2.5"
+            >
+              <span className="material-symbols-outlined text-[18px] text-red-500 shrink-0">
+                error
+              </span>
+              <div className="flex-1">
+                <span className="font-semibold block">Authentication Notice</span>
+                <span>{errorMessage}</span>
+              </div>
+            </div>
+          )}
+
           {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* University Email */}
             <div className="space-y-1.5">
               <label
@@ -96,7 +162,7 @@ export const LoginPage = ({
                 University Email
               </label>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] opacity-70">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] opacity-70 text-[18px]">
                   school
                 </span>
                 <input
@@ -104,9 +170,10 @@ export const LoginPage = ({
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="scholar@university.edu"
+                  placeholder="e.g. unknown@bscse.uiu.ac.bd"
                   required
-                  className="w-full pl-11 pr-4 py-3 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-sm text-[#201a1b] focus:outline-none input-focus-glow transition-all"
+                  disabled={loading}
+                  className="w-full pl-11 pr-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs sm:text-sm text-[#201a1b] focus:outline-none input-focus-glow disabled:opacity-50"
                 />
               </div>
             </div>
@@ -122,16 +189,17 @@ export const LoginPage = ({
                 </label>
                 <button
                   type="button"
-                  onClick={() =>
-                    onShowToast('Password reset link sent to scholar@university.edu')
-                  }
-                  className="text-xs text-[#675975] hover:text-[#4e4353] font-medium transition-colors"
+                  onClick={() => {
+                    setResetEmail(email || '');
+                    setResetModalOpen(true);
+                  }}
+                  className="text-xs text-[#675975] hover:text-[#4e4353] font-medium transition-colors cursor-pointer"
                 >
                   Forgot Password?
                 </button>
               </div>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] opacity-70">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] opacity-70 text-[18px]">
                   lock
                 </span>
                 <input
@@ -139,9 +207,10 @@ export const LoginPage = ({
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   required
-                  className="w-full pl-11 pr-11 py-3 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-sm text-[#201a1b] focus:outline-none input-focus-glow transition-all"
+                  disabled={loading}
+                  className="w-full pl-11 pr-11 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs sm:text-sm text-[#201a1b] focus:outline-none input-focus-glow disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -159,78 +228,149 @@ export const LoginPage = ({
             <button
               id="login-submit-btn"
               type="submit"
-              className="w-full bg-[#c5b3d3] hover:bg-[#a992bb] text-[#52445f] hover:text-[#22162e] font-semibold text-sm py-3.5 rounded-full shadow-sm active:scale-[0.98] transition-all duration-200 cursor-pointer mt-2"
+              disabled={loading || googleLoading}
+              className="w-full bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm py-3 rounded-full shadow-md transition-colors cursor-pointer mt-2 flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              Log In
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-[#3c2f47] border-t-transparent rounded-full animate-spin"></div>
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                </>
+              )}
             </button>
           </form>
 
           {/* Divider */}
-          <div className="relative my-6">
+          <div className="relative my-5">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-[#ccc4cd]/60"></div>
             </div>
             <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
-              <span className="bg-white/95 px-3 text-[#4a454c] font-semibold">
-                Continue with
+              <span className="bg-white px-3 text-[#4a454c] font-semibold">
+                Or Continue With
               </span>
             </div>
           </div>
 
-          {/* SSO Options */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* One-Click Google Auth */}
+          <div>
             <button
-              id="btn-login-sso"
+              id="btn-login-google"
               type="button"
-              onClick={onOpenSSO}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 border border-[#ccc4cd] rounded-full text-xs font-semibold text-[#201a1b] hover:bg-[#ebe0e0] transition-all active:scale-[0.98] cursor-pointer"
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading || loading}
+              className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 border border-[#ccc4cd] rounded-full text-xs font-semibold text-[#201a1b] hover:bg-[#ebe0e0] transition-colors cursor-pointer bg-white"
             >
-              <span className="material-symbols-outlined text-[18px] text-[#675975]">
-                account_balance
-              </span>
-              University SSO
-            </button>
-            <button
-              id="btn-login-eduid"
-              type="button"
-              onClick={onOpenSSO}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 border border-[#ccc4cd] rounded-full text-xs font-semibold text-[#201a1b] hover:bg-[#ebe0e0] transition-all active:scale-[0.98] cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px] text-[#675975]">
-                badge
-              </span>
-              EduID
+              {googleLoading ? (
+                <div className="w-4 h-4 border-2 border-[#4e4353] border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
+                </svg>
+              )}
+              <span>Continue with Google Account</span>
             </button>
           </div>
+
+          {/* Quick Demo Login Downside of Continue With */}
+          {AUTH_CONFIG.ENABLE_INSTANT_SIGN_IN && (
+            <div className="mt-5 pt-4 border-t border-[#ccc4cd]/50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold text-[#675975] flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[15px]">bolt</span>
+                  Demo Quick Login:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleFillDemo('clear')}
+                  className="text-[10px] text-[#7b757d] hover:text-[#201a1b] underline cursor-pointer"
+                >
+                  Clear Fields
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  id="demo-login-uiu"
+                  type="button"
+                  onClick={() => handleFillDemo('uiu')}
+                  title="Fill input fields"
+                  className={`flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors flex items-center justify-between cursor-pointer ${
+                    email === AUTH_CONFIG.DEMO_ACCOUNT.email
+                      ? 'bg-[#675975] text-white border-[#675975] shadow-sm'
+                      : 'bg-[#f7effa] hover:bg-[#ebd9f8] text-[#52445f] border-[#d2c0e0]'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[15px]">school</span>
+                    <span>{AUTH_CONFIG.DEMO_ACCOUNT.label}</span>
+                  </div>
+                  <span className="text-[10px] opacity-75 font-mono">
+                    {AUTH_CONFIG.DEMO_ACCOUNT.email}
+                  </span>
+                </button>
+
+                <button
+                  id="btn-instant-demo-login"
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleQuickDemoLogin('uiu')}
+                  className="px-3.5 py-2 bg-[#675975] hover:bg-[#52445f] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[14px]">login</span>
+                  <span>Instant Sign In</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer Meta */}
-        <footer className="mt-8 text-center space-y-3">
+        <footer className="mt-6 text-center space-y-3">
           <p className="text-xs text-[#4a454c]">
-            New to SkillSwap?{' '}
+            Don't have a scholar account yet?{' '}
             <button
               type="button"
               onClick={onNavigateToSignUp}
-              className="text-[#675975] font-bold hover:underline cursor-pointer"
+              className="text-[#675975] font-bold hover:underline cursor-pointer ml-1"
             >
-              Request an Invitation
+              Sign Up for Free
             </button>
           </p>
           <div className="flex justify-center gap-5 text-[11px] text-[#4a454c]/70">
             <button
-              onClick={() => onShowToast('Academic Privacy Policy (FERPA & GDPR compliant)')}
+              onClick={() => onShowToast('FERPA & Institutional privacy standards enabled.')}
               className="hover:text-[#201a1b] transition-colors"
             >
               Privacy Policy
             </button>
             <button
-              onClick={() => onShowToast('Institutional Skill Exchange Terms')}
+              onClick={() => onShowToast('SkillSwap academic honor code and peer guidelines.')}
               className="hover:text-[#201a1b] transition-colors"
             >
               Institutional Terms
             </button>
             <button
-              onClick={() => onShowToast('Contacting Campus Liaison Help Desk')}
+              onClick={() => onShowToast('Campus Liaison Help Desk: support@skillswap.edu')}
               className="hover:text-[#201a1b] transition-colors"
             >
               Help Center
@@ -239,25 +379,57 @@ export const LoginPage = ({
         </footer>
       </main>
 
-      {/* Side Image Decor (Institutional Aesthetic) */}
-      <div
-        id="login-quote-card"
-        className="hidden xl:block fixed right-10 bottom-10 w-[300px] h-[380px] rounded-3xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500 z-10 border border-white/40"
-      >
-        <div
-          className="w-full h-full bg-cover bg-center relative"
-          style={{
-            backgroundImage: `url('${academicAssets.photos.inspirationalLibrary}')`,
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-[#4e4353]/90 via-[#4e4353]/40 to-transparent flex flex-col justify-end p-6">
-            <p className="text-white text-sm font-medium leading-relaxed italic">
-              "The beautiful thing about learning is that no one can take it away from you."
+      {/* Forgot Password Dialog */}
+      {resetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-[#ccc4cd]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#675975] text-[22px]">
+                  lock_reset
+                </span>
+                <h3 className="text-base font-bold text-[#201a1b]">Reset Password</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResetModalOpen(false)}
+                className="text-[#7b757d] hover:text-[#201a1b] p-1 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <p className="text-xs text-[#4a454c] mb-4">
+              Enter your registered academic email and we will send you a secure link to reset your password.
             </p>
-            <span className="text-white/80 text-xs mt-2 font-semibold">— B.B. King</span>
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              <input
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="scholar@university.edu"
+                required
+                className="w-full px-4 py-2.5 border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none focus:border-[#675975]"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setResetModalOpen(false)}
+                  className="px-4 py-2 border border-[#ccc4cd] rounded-xl text-xs font-semibold text-[#4a454c] hover:bg-gray-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="px-5 py-2 bg-[#675975] hover:bg-[#52445f] text-white rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
