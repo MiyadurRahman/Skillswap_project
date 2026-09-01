@@ -88,28 +88,30 @@ export const GetStartedPage = ({
   return (
     <div id="screen-get-started" className="min-h-screen bg-[#fff8f7] text-[#201a1b] flex flex-col">
       {/* Simple Header */}
-      <header className="sticky top-0 z-40 w-full bg-[#4e4353] shadow-sm border-b border-[#ccc4cd]/20">
-        <div className="max-w-[1180px] mx-auto px-5 sm:px-8 h-[68px] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#675975] to-[#c5b3d3] flex items-center justify-center text-white shadow-sm">
-              <span className="material-symbols-outlined text-[22px]">school</span>
+      <header className="sticky top-0 z-40 w-full bg-[#4e4353]/95 backdrop-blur-md shadow-sm border-b border-[#ccc4cd]/20">
+        <div className="max-w-[1180px] mx-auto px-3.5 sm:px-6 md:px-8 h-16 sm:h-[68px] flex items-center justify-between gap-2">
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-[#675975] to-[#c5b3d3] flex items-center justify-center text-white shadow-sm shrink-0">
+              <span className="material-symbols-outlined text-[18px] sm:text-[22px]">school</span>
             </div>
-            <div>
-              <span className="text-xl font-bold text-[#c5b3d3] tracking-tight block leading-none">
+            <div className="min-w-0">
+              <span className="text-base sm:text-xl font-bold text-[#c5b3d3] tracking-tight block leading-none truncate">
                 SkillSwap
               </span>
-              <span className="text-[10px] text-white/70 font-medium tracking-wide uppercase">
+              <span className="text-[9px] sm:text-[10px] text-white/70 font-medium tracking-wide uppercase truncate block mt-0.5">
                 Academic Exchange
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* Action Buttons */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <button
               id="header-btn-login"
               type="button"
               onClick={onNavigateToLogin}
-              className="px-4 py-2 text-xs sm:text-sm font-semibold text-white/90 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+              className="px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer whitespace-nowrap min-h-[36px] flex items-center"
             >
               Sign In
             </button>
@@ -117,10 +119,10 @@ export const GetStartedPage = ({
               id="header-btn-get-started"
               type="button"
               onClick={onNavigateToSignUp}
-              className="px-4 sm:px-5 py-2 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm rounded-full shadow-sm transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+              className="px-3 sm:px-5 py-1.5 sm:py-2 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm rounded-full shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1 sm:gap-1.5 min-h-[36px]"
             >
               <span>Get Started</span>
-              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+              <span className="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>
             </button>
           </div>
         </div>

@@ -85,34 +85,36 @@ export const SignUpPage = ({
       className="bg-[#fff8f7] text-[#201a1b] min-h-screen flex flex-col mesh-academic-bg"
     >
       {/* Top Header */}
-      <header className="fixed top-0 w-full h-[72px] bg-[#4e4353] z-50 shadow-sm flex items-center justify-between px-6 sm:px-8 max-w-[1280px] mx-auto left-0 right-0">
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={onNavigateToGetStarted || onNavigateToLogin}
-            className="text-2xl font-bold text-[#c5b3d3] tracking-tight cursor-pointer hover:opacity-90 transition-opacity flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[24px]">school</span>
-            <span>SkillSwap</span>
-          </button>
-        </div>
-        <div className="flex items-center space-x-4 sm:space-x-6 text-sm">
-          {onNavigateToGetStarted && (
+      <header className="fixed top-0 left-0 right-0 w-full bg-[#4e4353]/95 backdrop-blur-md z-50 shadow-sm border-b border-[#ccc4cd]/20">
+        <div className="max-w-[1280px] mx-auto h-16 sm:h-[72px] flex items-center justify-between px-3.5 sm:px-6 md:px-8 gap-2">
+          <div className="flex items-center min-w-0">
             <button
               type="button"
-              onClick={onNavigateToGetStarted}
-              className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors cursor-pointer text-xs sm:text-sm"
+              onClick={onNavigateToGetStarted || onNavigateToLogin}
+              className="text-lg sm:text-2xl font-bold text-[#c5b3d3] tracking-tight cursor-pointer hover:opacity-90 transition-opacity flex items-center gap-1.5 sm:gap-2 truncate"
             >
-              Get Started Overview
+              <span className="material-symbols-outlined text-[20px] sm:text-[24px] shrink-0">school</span>
+              <span className="truncate">SkillSwap</span>
             </button>
-          )}
-          <button
-            type="button"
-            onClick={onNavigateToLogin}
-            className="text-[#efdbfd] font-semibold hover:underline transition-colors cursor-pointer text-xs sm:text-sm"
-          >
-            Sign In
-          </button>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            {onNavigateToGetStarted && (
+              <button
+                type="button"
+                onClick={onNavigateToGetStarted}
+                className="text-white/80 font-medium hover:text-[#efdbfd] hover:bg-white/10 px-2.5 sm:px-3 py-1.5 rounded-full transition-colors cursor-pointer text-xs sm:text-sm whitespace-nowrap min-h-[36px] flex items-center"
+              >
+                Overview
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onNavigateToLogin}
+              className="px-3 sm:px-4 py-1.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold rounded-full shadow-sm transition-all active:scale-95 cursor-pointer text-xs sm:text-sm whitespace-nowrap min-h-[36px] flex items-center"
+            >
+              Sign In
+            </button>
+          </div>
         </div>
       </header>
 
@@ -235,7 +237,6 @@ export const SignUpPage = ({
                   >
                     University / Academic Institution
                   </label>
-                  <span className="text-[10px] text-[#675975] font-semibold">Default: UIU</span>
                 </div>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] text-[18px]">
@@ -401,12 +402,12 @@ export const SignUpPage = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div>
                   <button
                     type="button"
                     onClick={handleGoogleSignUp}
                     disabled={googleLoading || loading}
-                    className="flex items-center justify-center space-x-2 py-2.5 border border-[#ccc4cd] rounded-full text-xs font-semibold hover:bg-[#ebe0e0] transition-colors cursor-pointer bg-white"
+                    className="w-full flex items-center justify-center space-x-2 py-2.5 border border-[#ccc4cd] rounded-full text-xs font-semibold hover:bg-[#ebe0e0] transition-colors cursor-pointer bg-white"
                   >
                     {googleLoading ? (
                       <div className="w-3.5 h-3.5 border-2 border-[#4e4353] border-t-transparent rounded-full animate-spin"></div>
@@ -430,18 +431,7 @@ export const SignUpPage = ({
                         />
                       </svg>
                     )}
-                    <span>Google</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={onOpenSSO}
-                    className="flex items-center justify-center space-x-2 py-2.5 border border-[#ccc4cd] rounded-full text-xs font-semibold hover:bg-[#ebe0e0] transition-colors cursor-pointer bg-white"
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-[#201a1b]">
-                      account_balance
-                    </span>
-                    <span>University SSO</span>
+                    <span>Continue with Google</span>
                   </button>
                 </div>
 
