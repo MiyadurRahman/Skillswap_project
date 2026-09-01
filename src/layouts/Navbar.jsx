@@ -31,6 +31,16 @@ export const Navbar = ({
               Dashboard
             </button>
             <button
+              onClick={() => onNavigateScreen('skill-manager')}
+              className={`font-medium transition-colors py-1 ${
+                currentScreen === 'skill-manager'
+                  ? 'text-white font-bold border-b-2 border-white pb-0.5'
+                  : 'text-white/80 hover:text-white'
+              }`}
+            >
+              Skill Manager
+            </button>
+            <button
               onClick={() => onNavigateScreen('discover')}
               className={`font-medium transition-colors py-1 ${
                 currentScreen === 'discover'

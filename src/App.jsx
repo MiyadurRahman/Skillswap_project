@@ -33,7 +33,7 @@ function AppContent() {
   useEffect(() => {
     if (currentUser) {
       if (currentScreen === 'login' || currentScreen === 'signup' || currentScreen === 'get-started') {
-        setCurrentScreen('discover');
+        setCurrentScreen('dashboard');
       }
     }
   }, [currentUser]);
@@ -59,10 +59,10 @@ function AppContent() {
     try {
       const res = await signIn('unknown@bscse.uiu.ac.bd', 'password123');
       showToast(`Logged in as ${res.profile?.fullName || 'UIU'}!`);
-      setCurrentScreen('discover');
+      setCurrentScreen('dashboard');
     } catch (err) {
-      showToast('Exploring peer catalog...');
-      setCurrentScreen('discover');
+      showToast('Exploring dashboard...');
+      setCurrentScreen('dashboard');
     }
   };
 

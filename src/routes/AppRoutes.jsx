@@ -5,6 +5,7 @@ import { SignUpPage } from '../pages/SignUpPage';
 import { ProfileSetupPage } from '../pages/ProfileSetupPage';
 import { GetStartedPage } from '../pages/GetStartedPage';
 import { DiscoverPage } from '../pages/DiscoverPage';
+import { SkillManagerPage } from '../pages/SkillManagerPage';
 
 export const AppRoutes = ({
   currentScreen,
@@ -33,11 +34,30 @@ export const AppRoutes = ({
     case 'login':
       return (
         <LoginPage
-          onLoginSuccess={() => setCurrentScreen('discover')}
+          onLoginSuccess={() => setCurrentScreen('dashboard')}
           onNavigateToSignUp={() => setCurrentScreen('signup')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
           onOpenSSO={onOpenSSO}
           onShowToast={onShowToast}
+        />
+      );
+
+    case 'skill-manager':
+      return (
+        <SkillManagerPage
+          userProfile={userProfile}
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onOpenMentorModal={onOpenMentor}
+          onOpenMeetingModal={onOpenMeeting}
+          onOpenWalletModal={onOpenWallet}
+          onShowToast={onShowToast}
+          onSaveProfileSkills={({ skillsTeach, skillsWant }) => {
+            setUserProfile((prev) => ({
+              ...prev,
+              expertiseAreas: skillsTeach,
+              learningGoals: skillsWant,
+            }));
+          }}
         />
       );
 

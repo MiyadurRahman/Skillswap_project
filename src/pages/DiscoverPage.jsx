@@ -293,6 +293,13 @@ export const DiscoverPage = ({
                 Dashboard
               </button>
               <button
+                onClick={() => onNavigateScreen('skill-manager')}
+                className="text-white/80 hover:text-white transition-colors font-medium py-1"
+                id="nav-tab-skill-manager"
+              >
+                Skill Manager
+              </button>
+              <button
                 onClick={() => setActiveTab('discover')}
                 className="text-white font-bold border-b-2 border-white pb-0.5 tracking-wide"
                 id="nav-tab-discover"

@@ -267,6 +267,20 @@ export const DashboardPage = ({
                 Overview
               </button>
               <button
+                onClick={() => onNavigateScreen('skill-manager')}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">school</span>
+                Skill Manager
+              </button>
+              <button
+                onClick={() => onNavigateScreen('discover')}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">explore</span>
+                Discover Peers
+              </button>
+              <button
                 onClick={() => onShowToast('Showing all your peer tutoring sessions')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
               >
