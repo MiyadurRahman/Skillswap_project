@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/AuthContext';
 
@@ -85,7 +86,12 @@ export const SignUpPage = ({
       className="bg-[#fff8f7] text-[#201a1b] min-h-screen flex flex-col mesh-academic-bg"
     >
       {/* Top Header */}
-      <header className="fixed top-0 left-0 right-0 w-full bg-[#4e4353]/95 backdrop-blur-md z-50 shadow-sm border-b border-[#ccc4cd]/20">
+      <motion.header
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45 }}
+        className="fixed top-0 left-0 right-0 w-full bg-[#4e4353]/95 backdrop-blur-md z-50 shadow-sm border-b border-[#ccc4cd]/20"
+      >
         <div className="max-w-[1280px] mx-auto h-16 sm:h-[72px] flex items-center justify-between px-3.5 sm:px-6 md:px-8 gap-2">
           <div className="flex items-center min-w-0">
             <button
@@ -107,20 +113,27 @@ export const SignUpPage = ({
                 Overview
               </button>
             )}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               type="button"
               onClick={onNavigateToLogin}
-              className="px-3 sm:px-4 py-1.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold rounded-full shadow-sm transition-all active:scale-95 cursor-pointer text-xs sm:text-sm whitespace-nowrap min-h-[36px] flex items-center"
+              className="px-3 sm:px-4 py-1.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold rounded-full shadow-sm transition-colors cursor-pointer text-xs sm:text-sm whitespace-nowrap min-h-[36px] flex items-center"
             >
               Sign In
-            </button>
+            </motion.button>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* Main Content Container */}
       <main className="flex-grow flex items-center justify-center pt-[90px] pb-16 px-4 sm:px-8">
-        <div className="max-w-[1100px] w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-white rounded-3xl p-6 sm:p-10 lg:p-12 ambient-lift border border-[#ccc4cd]/30 my-6 shadow-xl">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className="max-w-[1100px] w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-white rounded-3xl p-6 sm:p-10 lg:p-12 ambient-lift border border-[#ccc4cd]/30 my-6 shadow-xl"
+        >
           {/* Left Column: Branding, Imagery & Social Proof */}
           <div className="hidden lg:flex flex-col space-y-8">
             <div className="space-y-3">
@@ -374,11 +387,13 @@ export const SignUpPage = ({
 
               {/* Action Buttons */}
               <div className="pt-2 space-y-3">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   id="signup-submit-btn"
                   type="submit"
                   disabled={loading || googleLoading}
-                  className="w-full py-3.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-sm rounded-full transition-all duration-200 ambient-lift active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 shadow-md"
+                  className="w-full py-3.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-sm rounded-full transition-colors ambient-lift cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 shadow-md"
                 >
                   {loading ? (
                     <>
@@ -391,7 +406,7 @@ export const SignUpPage = ({
                       <span className="material-symbols-outlined text-[18px]">how_to_reg</span>
                     </>
                   )}
-                </button>
+                </motion.button>
 
                 <div className="relative py-1">
                   <div className="absolute inset-0 flex items-center">
@@ -403,7 +418,9 @@ export const SignUpPage = ({
                 </div>
 
                 <div>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
                     type="button"
                     onClick={handleGoogleSignUp}
                     disabled={googleLoading || loading}
@@ -432,7 +449,7 @@ export const SignUpPage = ({
                       </svg>
                     )}
                     <span>Continue with Google</span>
-                  </button>
+                  </motion.button>
                 </div>
 
                 <p className="text-center text-xs text-[#4a454c] pt-2">
@@ -448,7 +465,7 @@ export const SignUpPage = ({
               </div>
             </form>
           </div>
-        </div>
+        </motion.div>
       </main>
 
       {/* Footer */}

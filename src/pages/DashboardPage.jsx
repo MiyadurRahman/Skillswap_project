@@ -1,8 +1,31 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ActiveSessionCard } from '../component/ActiveSessionCard';
 import { MentorCard } from '../component/MentorCard';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/AuthContext';
+
+const dashboardStagger = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const dashboardItem = {
+  hidden: { opacity: 0, y: 15 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.45,
+      ease: [0.25, 0.1, 0.25, 1],
+    },
+  },
+};
 
 export const DashboardPage = ({
   onNavigateScreen,
@@ -310,9 +333,14 @@ export const DashboardPage = ({
         </aside>
 
         {/* Center Main Dashboard Area */}
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-8">
+        <motion.main
+          variants={dashboardStagger}
+          initial="hidden"
+          animate="visible"
+          className="flex-1 p-6 lg:p-8 overflow-y-auto space-y-8"
+        >
           {/* Welcome Banner + Time Credit Stats */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <motion.div variants={dashboardItem} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             <div className="lg:col-span-2 bg-gradient-to-r from-[#675975] to-[#52445f] text-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden">
               <div className="relative z-10 space-y-2">
                 <span className="text-[11px] font-semibold text-[#efdbfd] uppercase tracking-wider bg-white/10 px-3 py-1 rounded-full">
@@ -325,18 +353,22 @@ export const DashboardPage = ({
                   You have <span className="font-bold text-[#efdbfd]">2 upcoming sessions</span> scheduled this week. Your time credit balance is ready for new exchanges.
                 </p>
                 <div className="pt-3 flex flex-wrap gap-3">
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => onShowToast('Initiating peer matching request...')}
-                    className="px-4 py-2 bg-[#c5b3d3] hover:bg-[#a992bb] text-[#52445f] font-bold text-xs rounded-full transition-all cursor-pointer shadow-sm"
+                    className="px-4 py-2 bg-[#c5b3d3] hover:bg-[#a992bb] text-[#52445f] font-bold text-xs rounded-full transition-colors cursor-pointer shadow-sm"
                   >
                     Request New Swap
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => onNavigateScreen('profile-setup')}
-                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-full transition-all border border-white/20 cursor-pointer"
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-full transition-colors border border-white/20 cursor-pointer"
                   >
                     Edit Profile
-                  </button>
+                  </motion.button>
                 </div>
               </div>
 
@@ -345,7 +377,7 @@ export const DashboardPage = ({
             </div>
 
             {/* Time Credit Balance Widget */}
-            <div className="bg-white rounded-3xl p-6 ambient-lift border border-[#ccc4cd]/40 flex flex-col justify-between shadow-xs">
+            <div className="bg-white rounded-3xl p-6 ambient-lift border border-[#ccc4cd]/40 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#7b757d] uppercase tracking-wider">
@@ -353,7 +385,7 @@ export const DashboardPage = ({
                   </span>
                   <button
                     onClick={onOpenWalletModal}
-                    className="text-[#675975] hover:text-[#4e4353] text-xs font-bold flex items-center gap-0.5 cursor-pointer"
+                    className="text-[#675975] hover:text-[#4e4353] text-xs font-bold flex items-center gap-0.5 cursor-pointer transition-colors"
                   >
                     Ledger
                     <span className="material-symbols-outlined text-[16px]">chevron_right</span>
@@ -381,10 +413,10 @@ export const DashboardPage = ({
                 </button>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Section: Upcoming Active Swaps */}
-          <section className="space-y-4">
+          <motion.section variants={dashboardItem} className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-[#201a1b]">Upcoming Active Swaps</h2>
@@ -402,18 +434,22 @@ export const DashboardPage = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {activeSessions.map((session) => (
-                <ActiveSessionCard
+                <motion.div
                   key={session.id}
-                  session={session}
-                  onOpenMeeting={() => onOpenMeetingModal(session)}
-                  onShowToast={onShowToast}
-                />
+                  whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                >
+                  <ActiveSessionCard
+                    session={session}
+                    onOpenMeeting={() => onOpenMeetingModal(session)}
+                    onShowToast={onShowToast}
+                  />
+                </motion.div>
               ))}
             </div>
-          </section>
+          </motion.section>
 
           {/* Section: Learning Velocity & Skill Momentum */}
-          <section className="bg-white rounded-3xl p-6 ambient-lift border border-[#ccc4cd]/40 space-y-4 shadow-xs">
+          <motion.section variants={dashboardItem} className="bg-white rounded-3xl p-6 ambient-lift border border-[#ccc4cd]/40 space-y-4 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h2 className="text-base font-bold text-[#201a1b]">Weekly Learning Velocity</h2>
@@ -436,21 +472,23 @@ export const DashboardPage = ({
                     {bar.hours}
                   </div>
                   <div className="w-full max-w-[40px] bg-[#f0e6e6] rounded-t-xl overflow-hidden flex flex-col justify-end h-full">
-                    <div
-                      style={{ height: bar.height }}
-                      className={`w-full rounded-t-xl transition-all duration-500 ${
+                    <motion.div
+                      initial={{ height: 0 }}
+                      animate={{ height: bar.height }}
+                      transition={{ duration: 0.6, delay: 0.1 + idx * 0.05 }}
+                      className={`w-full rounded-t-xl ${
                         bar.highlight ? 'bg-[#675975]' : 'bg-[#c5b3d3]'
                       }`}
-                    ></div>
+                    ></motion.div>
                   </div>
                   <span className="text-[11px] font-bold text-[#7b757d]">{bar.day}</span>
                 </div>
               ))}
             </div>
-          </section>
+          </motion.section>
 
           {/* Section: Recommended Scholar Mentors */}
-          <section className="space-y-4">
+          <motion.section variants={dashboardItem} className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-[#201a1b]">Recommended Scholar Mentors</h2>
@@ -461,44 +499,57 @@ export const DashboardPage = ({
 
               {/* Filter chips */}
               <div className="flex flex-wrap gap-2">
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => setSelectedTag(null)}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
                     selectedTag === null
-                      ? 'bg-[#675975] text-white'
+                      ? 'bg-[#675975] text-white shadow-xs'
                       : 'bg-white border border-[#ccc4cd] text-[#4a454c] hover:bg-[#ebe0e0]'
                   }`}
                 >
                   All Fields
-                </button>
+                </motion.button>
                 {trendingTags.map((tag) => (
-                  <button
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
                     key={tag}
                     onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
                     className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
                       selectedTag === tag
-                        ? 'bg-[#675975] text-white'
+                        ? 'bg-[#675975] text-white shadow-xs'
                         : 'bg-white border border-[#ccc4cd] text-[#4a454c] hover:bg-[#ebe0e0]'
                     }`}
                   >
                     {tag}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredMentors.map((mentor) => (
-                <MentorCard
-                  key={mentor.id}
-                  mentor={mentor}
-                  onOpenMentorModal={() => onOpenMentorModal(mentor)}
-                  onShowToast={onShowToast}
-                />
-              ))}
-            </div>
-          </section>
-        </main>
+            <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <AnimatePresence mode="popLayout">
+                {filteredMentors.map((mentor) => (
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.25 }}
+                    whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                    key={mentor.id}
+                  >
+                    <MentorCard
+                      mentor={mentor}
+                      onOpenMentorModal={() => onOpenMentorModal(mentor)}
+                      onShowToast={onShowToast}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          </motion.section>
+        </motion.main>
       </div>
     </div>
   );
