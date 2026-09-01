@@ -5,81 +5,107 @@ export const Navbar = ({
   currentScreen,
   userProfile,
   onShowToast,
+  onOpenWalletModal,
 }) => {
   return (
-    <header className="fixed top-0 w-full h-[72px] bg-[#4e4353] shadow-md z-50">
-      <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1280px] mx-auto h-full">
-        <div className="flex items-center gap-6 sm:gap-8">
+    <header className="sticky top-0 w-full h-[68px] bg-[#3e313f] shadow-md z-50">
+      <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1360px] mx-auto h-full">
+        {/* Left: Brand & Nav Links */}
+        <div className="flex items-center gap-8">
           <span
-            onClick={() => onNavigateScreen('dashboard')}
-            className="text-2xl font-bold text-[#c5b3d3] tracking-tight cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => onNavigateScreen('discover')}
+            className="text-2xl font-bold text-white tracking-tight cursor-pointer hover:opacity-95 transition-opacity"
           >
             SkillSwap
           </span>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm">
+          <nav className="hidden md:flex items-center gap-7 text-sm">
             <button
               onClick={() => onNavigateScreen('dashboard')}
-              className={`pb-1 font-medium transition-colors ${
+              className={`font-medium transition-colors py-1 ${
                 currentScreen === 'dashboard'
-                  ? 'text-[#d2c0e0] border-b-2 border-[#d2c0e0] font-bold'
-                  : 'text-white/80 hover:text-[#efdbfd]'
+                  ? 'text-white font-bold border-b-2 border-white pb-0.5'
+                  : 'text-white/80 hover:text-white'
               }`}
             >
               Dashboard
             </button>
             <button
-              onClick={() => onShowToast('Academic skill catalog with 450+ PhD and undergraduate subjects.')}
-              className="text-white/80 hover:text-[#efdbfd] transition-colors"
+              onClick={() => onNavigateScreen('skill-manager')}
+              className={`font-medium transition-colors py-1 ${
+                currentScreen === 'skill-manager'
+                  ? 'text-white font-bold border-b-2 border-white pb-0.5'
+                  : 'text-white/80 hover:text-white'
+              }`}
+            >
+              Skill Manager
+            </button>
+            <button
+              onClick={() => onNavigateScreen('discover')}
+              className={`font-medium transition-colors py-1 ${
+                currentScreen === 'discover'
+                  ? 'text-white font-bold border-b-2 border-white pb-0.5'
+                  : 'text-white/80 hover:text-white'
+              }`}
             >
               Discover
             </button>
             <button
-              onClick={() => onShowToast('Showing upcoming academic swap sessions')}
-              className="text-white/80 hover:text-[#efdbfd] transition-colors"
+              onClick={() => {
+                onShowToast('Showing upcoming academic swap sessions');
+                onNavigateScreen('dashboard');
+              }}
+              className="text-white/80 hover:text-white transition-colors font-medium py-1"
             >
               My Sessions
+            </button>
+            <button
+              onClick={() => onShowToast('You have 2 pending peer exchange requests')}
+              className="text-white/80 hover:text-white transition-colors font-medium py-1"
+            >
+              Requests
             </button>
           </nav>
         </div>
 
-        <div className="flex items-center gap-3 sm:gap-4">
+        {/* Right: Notifications, Wallet, and Profile */}
+        <div className="flex items-center gap-4">
           <button
-            onClick={() => onShowToast('Notifications: 2 pending peer reviews.')}
-            className="p-2 text-white/80 hover:text-white transition-colors"
+            onClick={() => onShowToast('Notifications: 2 pending peer exchange invites')}
+            className="p-2 text-white/80 hover:text-white transition-colors relative"
             title="Notifications"
           >
-            <span className="material-symbols-outlined text-[22px]">notifications</span>
+            <span className="material-symbols-outlined text-[21px]">notifications</span>
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#f0b2aa] rounded-full"></span>
           </button>
           <button
-            onClick={() => onShowToast('Scholar Messages: No unread chats')}
+            onClick={() => {
+              if (onOpenWalletModal) onOpenWalletModal();
+              else onShowToast('Academic Credit Ledger');
+            }}
             className="p-2 text-white/80 hover:text-white transition-colors"
-            title="Messages"
+            title="Credit Ledger & Wallet"
           >
-            <span className="material-symbols-outlined text-[22px]">chat_bubble</span>
+            <span className="material-symbols-outlined text-[21px]">account_balance_wallet</span>
           </button>
+          
           <div
             onClick={() => onNavigateScreen('profile-setup')}
-            className="flex items-center gap-2.5 pl-2 cursor-pointer group"
+            className="flex items-center gap-2 pl-2 cursor-pointer group"
             title="View Profile Settings"
           >
-            <div className="w-9 h-9 rounded-full border-2 border-[#c5b3d3] overflow-hidden group-hover:border-white transition-colors">
+            <span className="hidden sm:inline text-xs font-semibold text-white/90 group-hover:text-white">
+              Profile
+            </span>
+            <div className="w-8 h-8 rounded-full border-2 border-white/40 overflow-hidden group-hover:border-white transition-colors">
               <img
                 src={
                   userProfile?.avatarUrl ||
-                  'https://lh3.googleusercontent.com/aida-public/AB6AXuDO6G8cbuAp-2LMxrLK69_FAO683etxZkNYKSxnqWVjXEOpVUskBDenJqzt4UDpUTacmujIQWfTyfvlb9hOpClMkAeWW7c-Ir8bgu-oI2hZ1JGjMw09r1-koJrc2mY0q2qaTDfYpfz2ixJarx4G1CM85pUri83SzJwUOULa9UeJUDD9sD2iNHLwcY1cdEmoHyzgHkfpikCGutuY_BHUI1YyfaOyPDV9A4mqC4nc1AKhUS6UVEtuSRC_0Q'
+                  'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80'
                 }
                 alt="Profile"
                 className="w-full h-full object-cover"
               />
-            </div>
-            <div className="hidden sm:block text-left">
-              <p className="text-xs font-bold text-white leading-tight">
-                {userProfile?.name || 'Alex Rivera'}
-              </p>
-              <p className="text-[10px] text-[#efdbfd]/80">
-                {userProfile?.academicLevel || 'PhD Scholar'}
-              </p>
             </div>
           </div>
         </div>
@@ -87,3 +113,4 @@ export const Navbar = ({
     </header>
   );
 };
+

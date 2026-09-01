@@ -61,7 +61,7 @@ function AppContent() {
       showToast(`Logged in as ${res.profile?.fullName || 'UIU'}!`);
       setCurrentScreen('dashboard');
     } catch (err) {
-      showToast('Entering dashboard as UIU...');
+      showToast('Exploring dashboard...');
       setCurrentScreen('dashboard');
     }
   };

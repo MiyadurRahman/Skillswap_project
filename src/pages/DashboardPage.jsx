@@ -156,19 +156,19 @@ export const DashboardPage = ({
             <div className="hidden md:flex items-center gap-6">
               <button
                 onClick={() => onNavigateScreen('dashboard')}
-                className="text-[#d2c0e0] border-b-2 border-[#d2c0e0] pb-1 font-bold text-sm cursor-pointer"
+                className="text-white border-b-2 border-white pb-1 font-bold text-sm cursor-pointer"
               >
                 Dashboard
               </button>
               <button
-                onClick={() => onShowToast('Opening academic skill catalog...')}
-                className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors text-sm cursor-pointer"
+                onClick={() => onNavigateScreen('discover')}
+                className="text-white/80 font-medium hover:text-white transition-colors text-sm cursor-pointer"
               >
                 Discover
               </button>
               <button
                 onClick={() => onShowToast('Showing your upcoming 2 peer swaps')}
-                className="text-white/80 font-medium hover:text-[#efdbfd] transition-colors text-sm cursor-pointer"
+                className="text-white/80 font-medium hover:text-white transition-colors text-sm cursor-pointer"
               >
                 My Sessions
               </button>
@@ -265,6 +265,20 @@ export const DashboardPage = ({
               >
                 <span className="material-symbols-outlined text-[18px]">dashboard</span>
                 Overview
+              </button>
+              <button
+                onClick={() => onNavigateScreen('skill-manager')}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">school</span>
+                Skill Manager
+              </button>
+              <button
+                onClick={() => onNavigateScreen('discover')}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">explore</span>
+                Discover Peers
               </button>
               <button
                 onClick={() => onShowToast('Showing all your peer tutoring sessions')}

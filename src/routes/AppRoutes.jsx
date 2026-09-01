@@ -4,6 +4,8 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { SignUpPage } from '../pages/SignUpPage';
 import { ProfileSetupPage } from '../pages/ProfileSetupPage';
 import { GetStartedPage } from '../pages/GetStartedPage';
+import { DiscoverPage } from '../pages/DiscoverPage';
+import { SkillManagerPage } from '../pages/SkillManagerPage';
 
 export const AppRoutes = ({
   currentScreen,
@@ -36,6 +38,37 @@ export const AppRoutes = ({
           onNavigateToSignUp={() => setCurrentScreen('signup')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
           onOpenSSO={onOpenSSO}
+          onShowToast={onShowToast}
+        />
+      );
+
+    case 'skill-manager':
+      return (
+        <SkillManagerPage
+          userProfile={userProfile}
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onOpenMentorModal={onOpenMentor}
+          onOpenMeetingModal={onOpenMeeting}
+          onOpenWalletModal={onOpenWallet}
+          onShowToast={onShowToast}
+          onSaveProfileSkills={({ skillsTeach, skillsWant }) => {
+            setUserProfile((prev) => ({
+              ...prev,
+              expertiseAreas: skillsTeach,
+              learningGoals: skillsWant,
+            }));
+          }}
+        />
+      );
+
+    case 'discover':
+      return (
+        <DiscoverPage
+          userProfile={userProfile}
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onOpenMentorModal={onOpenMentor}
+          onOpenMeetingModal={onOpenMeeting}
+          onOpenWalletModal={onOpenWallet}
           onShowToast={onShowToast}
         />
       );

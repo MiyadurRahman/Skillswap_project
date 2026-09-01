@@ -225,7 +225,7 @@ export const GetStartedPage = ({
                 onClick={onNavigateToSignUp}
                 className="w-full py-2.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <span>Join SkillSwap with UIU or University Email</span>
+                <span>Join SkillSwap</span>
                 <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
               </button>
             </div>
