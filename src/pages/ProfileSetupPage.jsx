@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/AuthContext';
-
-const stepVariants = {
-  initial: { opacity: 0, x: 16 },
-  animate: { opacity: 1, x: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] } },
-  exit: { opacity: 0, x: -16, transition: { duration: 0.2, ease: 'easeIn' } },
-};
 
 export const ProfileSetupPage = ({
   userProfile,
@@ -226,382 +219,333 @@ export const ProfileSetupPage = ({
         </div>
 
         <main>
-          <AnimatePresence mode="wait">
-            {/* STEP 1: Academic Identity */}
-            {currentStep === 1 && (
-              <motion.div
-                key="step-1"
-                variants={stepVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="space-y-6 bg-white rounded-3xl p-6 sm:p-8 ambient-lift border border-[#ccc4cd]/40 shadow-sm"
-              >
-                <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-[#ccc4cd]/30">
-                  <div className="relative group">
-                    <img
-                      src={avatarPreview}
-                      alt="Scholar avatar preview"
-                      className="w-24 h-24 rounded-full object-cover border-4 border-[#c5b3d3] shadow-md"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-xs"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">photo_camera</span>
-                      <span>Change</span>
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                    />
-                  </div>
-
-                  <div className="text-center sm:text-left space-y-1">
-                    <h3 className="text-base font-bold text-[#201a1b]">Profile Photo</h3>
-                    <p className="text-xs text-[#4a454c]">
-                      Upload a high-resolution academic headshot or institutional photo.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-xs text-[#675975] font-bold hover:underline cursor-pointer"
-                    >
-                      Upload Image File
-                    </button>
-                  </div>
+          {/* STEP 1: Academic Identity */}
+          {currentStep === 1 && (
+            <div className="space-y-6 bg-white rounded-3xl p-6 sm:p-8 ambient-lift border border-[#ccc4cd]/40 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-[#ccc4cd]/30">
+                <div className="relative group">
+                  <img
+                    src={avatarPreview}
+                    alt="Scholar avatar preview"
+                    className="w-24 h-24 rounded-full object-cover border-4 border-[#c5b3d3] shadow-md"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-xs"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">photo_camera</span>
+                    <span>Change</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-[#4a454c] block mb-1">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none input-focus-glow"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-[#4a454c] block mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none input-focus-glow"
-                    />
-                  </div>
+                <div className="text-center sm:text-left space-y-1">
+                  <h3 className="text-base font-bold text-[#201a1b]">Profile Photo</h3>
+                  <p className="text-xs text-[#4a454c]">
+                    Upload a high-resolution academic headshot or institutional photo.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs text-[#675975] font-bold hover:underline cursor-pointer"
+                  >
+                    Upload Image File
+                  </button>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-[#4a454c] block mb-1">
-                      Academic Institution
-                    </label>
-                    <input
-                      type="text"
-                      value={university}
-                      onChange={(e) => setUniversity(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none input-focus-glow"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-[#4a454c] block mb-1">
-                      Degree / Status
-                    </label>
-                    <select
-                      value={academicLevel}
-                      onChange={(e) => setAcademicLevel(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none input-focus-glow"
-                    >
-                      <option value="Undergraduate">Undergraduate Student</option>
-                      <option value="Master's Student">Master's Student</option>
-                      <option value="PhD Candidate">PhD Candidate / Researcher</option>
-                      <option value="Postdoctoral Fellow">Postdoctoral Fellow</option>
-                      <option value="Assistant Professor">Faculty / Professor</option>
-                    </select>
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-[#4a454c] block mb-1">
-                    Academic Focus & Research Bio
+                    First Name
                   </label>
-                  <textarea
-                    rows={4}
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="Describe your research area, thesis topic, and study interests..."
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     className="w-full px-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none input-focus-glow"
                   />
                 </div>
-              </motion.div>
-            )}
-
-            {/* STEP 2: Skills Offered & Needed */}
-            {currentStep === 2 && (
-              <motion.div
-                key="step-2"
-                variants={stepVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="space-y-6 bg-white rounded-3xl p-6 sm:p-8 ambient-lift border border-[#ccc4cd]/40 shadow-sm"
-              >
-                {/* Skills Offered */}
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <h3 className="text-sm font-bold text-[#675975]">
-                        Skills You Can Mentor & Teach
-                      </h3>
-                      <p className="text-xs text-[#4a454c]">
-                        Disciplines, software, lab methodologies, or topics you feel confident coaching.
-                      </p>
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      type="button"
-                      onClick={() => setShowSkillInput(true)}
-                      className="px-3 py-1.5 bg-[#675975] text-white rounded-full text-xs font-semibold hover:bg-[#52445f] transition-colors cursor-pointer"
-                    >
-                      + Add Skill
-                    </motion.button>
-                  </div>
-
-                  {showSkillInput && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="flex gap-2 mb-3"
-                    >
-                      <input
-                        type="text"
-                        value={newSkillInput}
-                        onChange={(e) => setNewSkillInput(e.target.value)}
-                        placeholder="e.g. Statistical Analysis in R, LaTeX typesetting"
-                        className="flex-1 px-3 py-2 border border-[#ccc4cd] rounded-xl text-xs"
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddExpertise()}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddExpertise}
-                        className="px-4 py-2 bg-[#675975] text-white rounded-xl text-xs font-bold"
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowSkillInput(false)}
-                        className="px-3 py-2 border border-[#ccc4cd] rounded-xl text-xs"
-                      >
-                        Cancel
-                      </button>
-                    </motion.div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    {expertise.map((skill, index) => (
-                      <motion.span
-                        layout
-                        initial={{ opacity: 0, scale: 0.85 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.85 }}
-                        key={index}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#eeddf2] text-[#6c6071] rounded-full text-xs font-medium"
-                      >
-                        <span>{skill}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExpertise(skill)}
-                          className="hover:text-red-600 transition-colors cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-[14px]">close</span>
-                        </button>
-                      </motion.span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Skills to Learn */}
-                <div className="pt-6 border-t border-[#ccc4cd]/30">
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <h3 className="text-sm font-bold text-[#5c3f40]">
-                        Topics & Skills You Wish to Learn
-                      </h3>
-                      <p className="text-xs text-[#4a454c]">
-                        Academic disciplines or research tools you want peer coaching in.
-                      </p>
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      type="button"
-                      onClick={() => setShowGoalInput(true)}
-                      className="px-3 py-1.5 bg-[#5c3f40] text-white rounded-full text-xs font-semibold hover:bg-[#43292a] transition-colors cursor-pointer"
-                    >
-                      + Add Goal
-                    </motion.button>
-                  </div>
-
-                  {showGoalInput && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="flex gap-2 mb-3"
-                    >
-                      <input
-                        type="text"
-                        value={newGoalInput}
-                        onChange={(e) => setNewGoalInput(e.target.value)}
-                        placeholder="e.g. Deep Learning, Bayesian Inference"
-                        className="flex-1 px-3 py-2 border border-[#ccc4cd] rounded-xl text-xs"
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddGoal()}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddGoal}
-                        className="px-4 py-2 bg-[#5c3f40] text-white rounded-xl text-xs font-bold cursor-pointer"
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowGoalInput(false)}
-                        className="px-3 py-2 border border-[#ccc4cd] rounded-xl text-xs cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </motion.div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    {learningGoals.map((goal, index) => (
-                      <motion.span
-                        layout
-                        initial={{ opacity: 0, scale: 0.85 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.85 }}
-                        key={index}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#ffdada] text-[#5c3f40] rounded-full text-xs font-medium"
-                      >
-                        <span>{goal}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveGoal(goal)}
-                          className="hover:text-red-600 transition-colors cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-[14px]">close</span>
-                        </button>
-                      </motion.span>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* STEP 3: Review & Final Verification */}
-            {currentStep === 3 && (
-              <motion.div
-                key="step-3"
-                variants={stepVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="space-y-6 bg-white rounded-3xl p-6 sm:p-8 ambient-lift border border-[#ccc4cd]/40 shadow-sm"
-              >
-                <div className="flex items-center gap-4 pb-6 border-b border-[#ccc4cd]/30">
-                  <img
-                    src={avatarPreview}
-                    alt="Review Avatar"
-                    className="w-16 h-16 rounded-full object-cover border-2 border-[#675975]"
+                  <label className="text-xs font-semibold text-[#4a454c] block mb-1">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none input-focus-glow"
                   />
-                  <div>
-                    <h2 className="text-xl font-bold text-[#201a1b]">
-                      {firstName} {lastName}
-                    </h2>
-                    <p className="text-xs text-[#675975] font-semibold">
-                      {academicLevel} • {university}
-                    </p>
-                    {currentUser?.email && (
-                      <p className="text-[11px] text-[#7b757d]">{currentUser.email}</p>
-                    )}
-                  </div>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="text-xs font-bold text-[#7b757d] uppercase tracking-wider mb-2">
-                    Academic Focus
-                  </h3>
-                  <p className="text-xs text-[#4a454c] leading-relaxed bg-[#fdf1f1] p-4 rounded-xl">
-                    {bio}
-                  </p>
+                  <label className="text-xs font-semibold text-[#4a454c] block mb-1">
+                    Academic Institution
+                  </label>
+                  <input
+                    type="text"
+                    value={university}
+                    onChange={(e) => setUniversity(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none input-focus-glow"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[#4a454c] block mb-1">
+                    Degree / Status
+                  </label>
+                  <select
+                    value={academicLevel}
+                    onChange={(e) => setAcademicLevel(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none input-focus-glow"
+                  >
+                    <option value="Undergraduate">Undergraduate Student</option>
+                    <option value="Master's Student">Master's Student</option>
+                    <option value="PhD Candidate">PhD Candidate / Researcher</option>
+                    <option value="Postdoctoral Fellow">Postdoctoral Fellow</option>
+                    <option value="Assistant Professor">Faculty / Professor</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[#4a454c] block mb-1">
+                  Academic Focus & Research Bio
+                </label>
+                <textarea
+                  rows={4}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Describe your research area, thesis topic, and study interests..."
+                  className="w-full px-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none input-focus-glow"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Skills Offered & Needed */}
+          {currentStep === 2 && (
+            <div className="space-y-6 bg-white rounded-3xl p-6 sm:p-8 ambient-lift border border-[#ccc4cd]/40 shadow-sm">
+              {/* Skills Offered */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#675975]">
+                      Skills You Can Mentor & Teach
+                    </h3>
+                    <p className="text-xs text-[#4a454c]">
+                      Disciplines, software, lab methodologies, or topics you feel confident coaching.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSkillInput(true)}
+                    className="px-3 py-1.5 bg-[#675975] text-white rounded-full text-xs font-semibold hover:bg-[#52445f] transition-colors cursor-pointer"
+                  >
+                    + Add Skill
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-xs font-bold text-[#675975] uppercase tracking-wider mb-2">
-                      Mentoring Expertise ({expertise.length})
-                    </h3>
-                    <div className="flex flex-wrap gap-1.5">
-                      {expertise.map((s, i) => (
-                        <span key={i} className="text-xs bg-[#eeddf2] text-[#6c6071] px-2.5 py-1 rounded-full font-medium">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
+                {showSkillInput && (
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={newSkillInput}
+                      onChange={(e) => setNewSkillInput(e.target.value)}
+                      placeholder="e.g. Statistical Analysis in R, LaTeX typesetting"
+                      className="flex-1 px-3 py-2 border border-[#ccc4cd] rounded-xl text-xs"
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddExpertise()}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddExpertise}
+                      className="px-4 py-2 bg-[#675975] text-white rounded-xl text-xs font-bold"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSkillInput(false)}
+                      className="px-3 py-2 border border-[#ccc4cd] rounded-xl text-xs"
+                    >
+                      Cancel
+                    </button>
                   </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {expertise.map((skill, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#eeddf2] text-[#6c6071] rounded-full text-xs font-medium"
+                    >
+                      <span>{skill}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExpertise(skill)}
+                        className="hover:text-red-600 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">close</span>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Skills to Learn */}
+              <div className="pt-6 border-t border-[#ccc4cd]/30">
+                <div className="flex justify-between items-center mb-2">
                   <div>
-                    <h3 className="text-xs font-bold text-[#5c3f40] uppercase tracking-wider mb-2">
-                      Learning Goals ({learningGoals.length})
+                    <h3 className="text-sm font-bold text-[#5c3f40]">
+                      Topics & Skills You Wish to Learn
                     </h3>
-                    <div className="flex flex-wrap gap-1.5">
-                      {learningGoals.map((g, i) => (
-                        <span key={i} className="text-xs bg-[#ffdada] text-[#5c3f40] px-2.5 py-1 rounded-full font-medium">
-                          {g}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="text-xs text-[#4a454c]">
+                      Academic disciplines or research tools you want peer coaching in.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowGoalInput(true)}
+                    className="px-3 py-1.5 bg-[#5c3f40] text-white rounded-full text-xs font-semibold hover:bg-[#43292a] transition-colors cursor-pointer"
+                  >
+                    + Add Goal
+                  </button>
+                </div>
+
+                {showGoalInput && (
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={newGoalInput}
+                      onChange={(e) => setNewGoalInput(e.target.value)}
+                      placeholder="e.g. Deep Learning, Bayesian Inference"
+                      className="flex-1 px-3 py-2 border border-[#ccc4cd] rounded-xl text-xs"
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddGoal()}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddGoal}
+                      className="px-4 py-2 bg-[#5c3f40] text-white rounded-xl text-xs font-bold"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowGoalInput(false)}
+                      className="px-3 py-2 border border-[#ccc4cd] rounded-xl text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {learningGoals.map((goal, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#ffdada] text-[#5c3f40] rounded-full text-xs font-medium"
+                    >
+                      <span>{goal}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveGoal(goal)}
+                        className="hover:text-red-600 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">close</span>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3: Review & Final Verification */}
+          {currentStep === 3 && (
+            <div className="space-y-6 bg-white rounded-3xl p-6 sm:p-8 ambient-lift border border-[#ccc4cd]/40 shadow-sm">
+              <div className="flex items-center gap-4 pb-6 border-b border-[#ccc4cd]/30">
+                <img
+                  src={avatarPreview}
+                  alt="Review Avatar"
+                  className="w-16 h-16 rounded-full object-cover border-2 border-[#675975]"
+                />
+                <div>
+                  <h2 className="text-xl font-bold text-[#201a1b]">
+                    {firstName} {lastName}
+                  </h2>
+                  <p className="text-xs text-[#675975] font-semibold">
+                    {academicLevel} • {university}
+                  </p>
+                  {currentUser?.email && (
+                    <p className="text-[11px] text-[#7b757d]">{currentUser.email}</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-bold text-[#7b757d] uppercase tracking-wider mb-2">
+                  Academic Focus
+                </h3>
+                <p className="text-xs text-[#4a454c] leading-relaxed bg-[#fdf1f1] p-4 rounded-xl">
+                  {bio}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-xs font-bold text-[#675975] uppercase tracking-wider mb-2">
+                    Mentoring Expertise ({expertise.length})
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {expertise.map((s, i) => (
+                      <span key={i} className="text-xs bg-[#eeddf2] text-[#6c6071] px-2.5 py-1 rounded-full font-medium">
+                        {s}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <div>
+                  <h3 className="text-xs font-bold text-[#5c3f40] uppercase tracking-wider mb-2">
+                    Learning Goals ({learningGoals.length})
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {learningGoals.map((g, i) => (
+                      <span key={i} className="text-xs bg-[#ffdada] text-[#5c3f40] px-2.5 py-1 rounded-full font-medium">
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Nav Controls */}
           <div className="flex items-center justify-between mt-8">
             {currentStep > 1 ? (
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+              <button
                 type="button"
                 onClick={() => setCurrentStep((prev) => prev - 1)}
                 className="px-6 py-2.5 border border-[#ccc4cd] hover:bg-[#ebe0e0] text-[#201a1b] rounded-full text-xs font-bold transition-colors cursor-pointer"
               >
                 Back
-              </motion.button>
+              </button>
             ) : (
               <div></div>
             )}
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+            <button
               type="button"
               onClick={handleContinue}
               disabled={saving}
-              className="px-8 py-3 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] rounded-full text-xs font-bold transition-colors ambient-lift cursor-pointer flex items-center gap-2 shadow-md disabled:opacity-60"
+              className="px-8 py-3 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] rounded-full text-xs font-bold transition-all duration-200 ambient-lift cursor-pointer flex items-center gap-2 shadow-md disabled:opacity-60"
             >
               {saving ? (
                 <>
@@ -611,7 +555,7 @@ export const ProfileSetupPage = ({
               ) : (
                 <span>{currentStep === 3 ? 'Save & Go to Dashboard' : 'Continue to Next Step'}</span>
               )}
-            </motion.button>
+            </button>
           </div>
         </main>
       </div>

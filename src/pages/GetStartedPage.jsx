@@ -1,40 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { academicAssets } from '../assets';
-
-// Clean, subtle animation presets
-const heroContainerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.05,
-    },
-  },
-};
-
-const fadeInUpVariant = {
-  hidden: { opacity: 0, y: 16 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.5,
-      ease: [0.25, 0.1, 0.25, 1],
-    },
-  },
-};
-
-const cardStaggerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.12,
-    },
-  },
-};
 
 export const GetStartedPage = ({
   onNavigateToSignUp,
@@ -121,14 +86,9 @@ export const GetStartedPage = ({
   ];
 
   return (
-    <div id="screen-get-started" className="min-h-screen bg-[#fff8f7] text-[#201a1b] flex flex-col overflow-x-hidden">
+    <div id="screen-get-started" className="min-h-screen bg-[#fff8f7] text-[#201a1b] flex flex-col">
       {/* Simple Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: 'easeOut' }}
-        className="sticky top-0 z-40 w-full bg-[#4e4353]/95 backdrop-blur-md shadow-sm border-b border-[#ccc4cd]/20"
-      >
+      <header className="sticky top-0 z-40 w-full bg-[#4e4353]/95 backdrop-blur-md shadow-sm border-b border-[#ccc4cd]/20">
         <div className="max-w-[1180px] mx-auto px-3.5 sm:px-6 md:px-8 h-16 sm:h-[68px] flex items-center justify-between gap-2">
           {/* Logo & Brand */}
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
@@ -155,78 +115,63 @@ export const GetStartedPage = ({
             >
               Sign In
             </button>
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+            <button
               id="header-btn-get-started"
               type="button"
               onClick={onNavigateToSignUp}
-              className="px-3 sm:px-5 py-1.5 sm:py-2 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm rounded-full shadow-sm transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1 sm:gap-1.5 min-h-[36px]"
+              className="px-3 sm:px-5 py-1.5 sm:py-2 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm rounded-full shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1 sm:gap-1.5 min-h-[36px]"
             >
               <span>Get Started</span>
               <span className="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>
-            </motion.button>
+            </button>
           </div>
         </div>
-      </motion.header>
+      </header>
 
       {/* Clean Hero Section */}
-      <section className="relative py-14 sm:py-18 px-5 sm:px-8 max-w-[1180px] mx-auto w-full">
-        {/* Soft subtle ambient background blur */}
-        <div className="absolute top-10 left-1/4 w-72 h-72 bg-[#c5b3d3]/20 rounded-full blur-3xl pointer-events-none -z-10" />
-        <div className="absolute bottom-5 right-10 w-80 h-80 bg-[#ffdada]/20 rounded-full blur-3xl pointer-events-none -z-10" />
-
+      <section className="py-14 sm:py-18 px-5 sm:px-8 max-w-[1180px] mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           {/* Left Text */}
-          <motion.div
-            variants={heroContainerVariants}
-            initial="hidden"
-            animate="visible"
-            className="lg:col-span-7 space-y-5"
-          >
-            <motion.div variants={fadeInUpVariant} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f7effa] border border-[#d2c0e0] text-[#52445f] text-xs font-semibold shadow-xs">
+          <div className="lg:col-span-7 space-y-5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f7effa] border border-[#d2c0e0] text-[#52445f] text-xs font-semibold">
               <span className="material-symbols-outlined text-[15px] text-[#675975]">verified</span>
               <span>Inter-University Academic Network</span>
-            </motion.div>
+            </div>
 
-            <motion.h1 variants={fadeInUpVariant} className="text-3xl sm:text-5xl font-extrabold text-[#675975] tracking-tight leading-tight">
+            <h1 className="text-3xl sm:text-5xl font-extrabold text-[#675975] tracking-tight leading-tight">
               Exchange academic skills.{' '}
               <span className="text-[#3c2f47] underline decoration-[#c5b3d3] decoration-4 underline-offset-4">
                 Learn for free.
               </span>
-            </motion.h1>
+            </h1>
 
-            <motion.p variants={fadeInUpVariant} className="text-sm sm:text-base text-[#4a454c] leading-relaxed max-w-xl">
+            <p className="text-sm sm:text-base text-[#4a454c] leading-relaxed max-w-xl">
               Connect with university students and researchers to swap knowledge. Teach what you know, earn time credits, and learn new skills with zero fees.
-            </motion.p>
+            </p>
 
             {/* Clean Single Action Row */}
-            <motion.div variants={fadeInUpVariant} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-              <motion.button
-                whileHover={{ scale: 1.02, y: -1 }}
-                whileTap={{ scale: 0.98 }}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+              <button
                 id="hero-btn-register"
                 type="button"
                 onClick={onNavigateToSignUp}
-                className="px-7 py-3 bg-[#675975] hover:bg-[#52445f] text-white font-bold text-sm sm:text-base rounded-full shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
+                className="px-7 py-3 bg-[#675975] hover:bg-[#52445f] text-white font-bold text-sm sm:text-base rounded-full shadow-md transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
               >
                 <span>Get Started — It's Free</span>
                 <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-              </motion.button>
+              </button>
 
-              <motion.button
-                whileHover={{ scale: 1.02, y: -1 }}
-                whileTap={{ scale: 0.98 }}
+              <button
                 type="button"
                 onClick={onNavigateToLogin}
-                className="px-6 py-3 bg-white hover:bg-[#f7effa] text-[#52445f] font-semibold text-sm rounded-full border border-[#ccc4cd]/60 shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                className="px-6 py-3 bg-white hover:bg-[#f7effa] text-[#52445f] font-semibold text-sm rounded-full border border-[#ccc4cd]/60 shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <span>I have an account</span>
-              </motion.button>
-            </motion.div>
+              </button>
+            </div>
 
             {/* Simple Metrics */}
-            <motion.div variants={fadeInUpVariant} className="pt-5 border-t border-[#ccc4cd]/30 flex items-center gap-8">
+            <div className="pt-5 border-t border-[#ccc4cd]/30 flex items-center gap-8">
               <div>
                 <div className="text-xl sm:text-2xl font-bold text-[#675975]">2,400+</div>
                 <div className="text-[11px] text-[#7b757d]">Students & Mentors</div>
@@ -241,23 +186,18 @@ export const GetStartedPage = ({
                 <div className="text-xl sm:text-2xl font-bold text-[#675975]">Free</div>
                 <div className="text-[11px] text-[#7b757d]">Zero Tuition Fees</div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
 
           {/* Right Preview Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-            className="lg:col-span-5"
-          >
-            <div className="bg-white rounded-2xl p-5 shadow-lg border border-[#ccc4cd]/40 space-y-4 transition-all duration-300 hover:shadow-xl">
+          <div className="lg:col-span-5">
+            <div className="bg-white rounded-2xl p-5 shadow-lg border border-[#ccc4cd]/40 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-[#ccc4cd]/30">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[18px] text-[#675975]">swap_horiz</span>
                   <span className="text-xs font-bold text-[#675975]">Live Exchange Preview</span>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold border border-emerald-200">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold">
                   1 hr = 1 Credit
                 </span>
               </div>
@@ -267,99 +207,73 @@ export const GetStartedPage = ({
                   <img
                     src={academicAssets.avatars.tanvirAhmed}
                     alt="Tanvir Ahmed - UIU Student"
-                    className="w-10 h-10 rounded-full object-cover border border-[#675975]/30 shadow-xs"
+                    className="w-10 h-10 rounded-full object-cover border border-[#675975]/30"
                   />
                   <div>
                     <span className="text-xs font-bold text-[#201a1b] block">Tanvir Ahmed (UIU)</span>
-                    <span className="text-[10px] text-[#675975] font-medium">United International University</span>
+                    <span className="text-[10px] text-[#675975]">United International University</span>
                   </div>
                 </div>
-                <div className="text-xs bg-white p-2.5 rounded-lg border border-[#ccc4cd]/30 shadow-xs">
+                <div className="text-xs bg-white p-2.5 rounded-lg border border-[#ccc4cd]/30">
                   <span className="text-[10px] uppercase font-bold text-[#7b757d] block">Teaching:</span>
                   <span className="font-semibold text-[#201a1b]">Data Structures & Algorithms in C++</span>
                 </div>
               </div>
 
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <button
                 type="button"
                 onClick={onNavigateToSignUp}
-                className="w-full py-2.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                className="w-full py-2.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <span>Join SkillSwap with UIU or University Email</span>
+                <span>Join SkillSwap</span>
                 <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-              </motion.button>
+              </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* How It Works (Simple 3 Steps) */}
       <section className="py-12 bg-white border-y border-[#ccc4cd]/30">
         <div className="max-w-[1180px] mx-auto px-5 sm:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-40px' }}
-            transition={{ duration: 0.5 }}
-            className="text-center max-w-xl mx-auto mb-9 space-y-1"
-          >
+          <div className="text-center max-w-xl mx-auto mb-9 space-y-1">
             <h2 className="text-2xl font-bold text-[#675975]">How It Works</h2>
             <p className="text-xs sm:text-sm text-[#4a454c]">
               Three simple steps to start swapping academic knowledge.
             </p>
-          </motion.div>
+          </div>
 
-          <motion.div
-            variants={cardStaggerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-40px' }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6"
-          >
-            <motion.div
-              variants={fadeInUpVariant}
-              whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="p-5 rounded-2xl bg-[#fff8f7] border border-[#ccc4cd]/40 space-y-2.5 transition-shadow hover:shadow-md"
-            >
-              <div className="w-9 h-9 rounded-xl bg-[#c5b3d3] flex items-center justify-center text-[#3c2f47] font-bold text-sm shadow-xs">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-5 rounded-2xl bg-[#fff8f7] border border-[#ccc4cd]/40 space-y-2.5">
+              <div className="w-9 h-9 rounded-xl bg-[#c5b3d3] flex items-center justify-center text-[#3c2f47] font-bold text-sm">
                 1
               </div>
               <h3 className="text-sm font-bold text-[#675975]">List Your Skills</h3>
               <p className="text-xs text-[#4a454c] leading-relaxed">
                 Add the topics you are confident in, like C++, Python, Math, or LaTeX.
               </p>
-            </motion.div>
+            </div>
 
-            <motion.div
-              variants={fadeInUpVariant}
-              whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="p-5 rounded-2xl bg-[#fff8f7] border border-[#ccc4cd]/40 space-y-2.5 transition-shadow hover:shadow-md"
-            >
-              <div className="w-9 h-9 rounded-xl bg-[#675975] flex items-center justify-center text-white font-bold text-sm shadow-xs">
+            <div className="p-5 rounded-2xl bg-[#fff8f7] border border-[#ccc4cd]/40 space-y-2.5">
+              <div className="w-9 h-9 rounded-xl bg-[#675975] flex items-center justify-center text-white font-bold text-sm">
                 2
               </div>
               <h3 className="text-sm font-bold text-[#675975]">Teach & Earn Credits</h3>
               <p className="text-xs text-[#4a454c] leading-relaxed">
                 Host 1-on-1 sessions. Every hour you mentor earns 1 Time Credit in your wallet.
               </p>
-            </motion.div>
+            </div>
 
-            <motion.div
-              variants={fadeInUpVariant}
-              whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="p-5 rounded-2xl bg-[#fff8f7] border border-[#ccc4cd]/40 space-y-2.5 transition-shadow hover:shadow-md"
-            >
-              <div className="w-9 h-9 rounded-xl bg-[#4e4353] flex items-center justify-center text-[#efdbfd] font-bold text-sm shadow-xs">
+            <div className="p-5 rounded-2xl bg-[#fff8f7] border border-[#ccc4cd]/40 space-y-2.5">
+              <div className="w-9 h-9 rounded-xl bg-[#4e4353] flex items-center justify-center text-[#efdbfd] font-bold text-sm">
                 3
               </div>
               <h3 className="text-sm font-bold text-[#675975]">Learn for Free</h3>
               <p className="text-xs text-[#4a454c] leading-relaxed">
                 Spend your credits to book sessions with peers across partner universities.
               </p>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -373,7 +287,7 @@ export const GetStartedPage = ({
           <button
             type="button"
             onClick={onNavigateToSignUp}
-            className="text-xs font-bold text-[#675975] hover:text-[#3c2f47] flex items-center gap-1 cursor-pointer transition-colors"
+            className="text-xs font-bold text-[#675975] hover:text-[#3c2f47] flex items-center gap-1 cursor-pointer"
           >
             <span>View all</span>
             <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
@@ -381,10 +295,9 @@ export const GetStartedPage = ({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-5 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-5">
           {categories.map((cat) => (
-            <motion.button
-              whileTap={{ scale: 0.95 }}
+            <button
               key={cat.id}
               type="button"
               onClick={() => setSelectedCategory(cat.id)}
@@ -396,95 +309,78 @@ export const GetStartedPage = ({
             >
               <span className="material-symbols-outlined text-[14px]">{cat.icon}</span>
               <span>{cat.label}</span>
-            </motion.button>
+            </button>
           ))}
         </div>
 
         {/* Skills Grid */}
-        <motion.div
-          layout
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-        >
-          <AnimatePresence mode="popLayout">
-            {filteredSkills.map((skill) => (
-              <motion.div
-                layout
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                transition={{ duration: 0.3 }}
-                whileHover={{ y: -4, transition: { duration: 0.18 } }}
-                key={skill.id}
-                className="bg-white rounded-xl p-4 border border-[#ccc4cd]/40 shadow-sm hover:border-[#675975] transition-colors flex flex-col justify-between"
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[10px] font-bold text-[#675975] bg-[#f7effa] px-2 py-0.5 rounded">
-                      {skill.category.toUpperCase()}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {filteredSkills.map((skill) => (
+            <div
+              key={skill.id}
+              className="bg-white rounded-xl p-4 border border-[#ccc4cd]/40 shadow-sm hover:border-[#675975] transition-all flex flex-col justify-between"
+            >
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[10px] font-bold text-[#675975] bg-[#f7effa] px-2 py-0.5 rounded">
+                    {skill.category.toUpperCase()}
+                  </span>
+                  <span className="flex items-center gap-0.5 text-amber-500 font-bold text-[11px]">
+                    <span className="material-symbols-outlined text-[13px]">star</span>
+                    {skill.rating}
+                  </span>
+                </div>
+
+                <h3 className="text-xs font-bold text-[#201a1b] line-clamp-2">{skill.title}</h3>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <img
+                    src={skill.avatarUrl}
+                    alt={skill.mentorName}
+                    className="w-7 h-7 rounded-full object-cover border border-[#ccc4cd]/50"
+                  />
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-semibold text-[#201a1b] block truncate">
+                      {skill.mentorName}
                     </span>
-                    <span className="flex items-center gap-0.5 text-amber-500 font-bold text-[11px]">
-                      <span className="material-symbols-outlined text-[13px]">star</span>
-                      {skill.rating}
+                    <span className="text-[9px] text-[#7b757d] block truncate">
+                      {skill.university}
                     </span>
-                  </div>
-
-                  <h3 className="text-xs font-bold text-[#201a1b] line-clamp-2">{skill.title}</h3>
-
-                  <div className="flex items-center gap-2 pt-1">
-                    <img
-                      src={skill.avatarUrl}
-                      alt={skill.mentorName}
-                      className="w-7 h-7 rounded-full object-cover border border-[#ccc4cd]/50 shadow-xs"
-                    />
-                    <div className="min-w-0">
-                      <span className="text-[11px] font-semibold text-[#201a1b] block truncate">
-                        {skill.mentorName}
-                      </span>
-                      <span className="text-[9px] text-[#7b757d] block truncate">
-                        {skill.university}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {skill.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-[9px] bg-[#fff8f7] text-[#4a454c] px-1.5 py-0.5 rounded border border-[#ccc4cd]/30"
-                      >
-                        {tag}
-                      </span>
-                    ))}
                   </div>
                 </div>
 
-                <div className="pt-3 mt-3 border-t border-[#ccc4cd]/20 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-[#675975]">1.0 Credit/hr</span>
-                  <button
-                    type="button"
-                    onClick={onNavigateToSignUp}
-                    className="text-[11px] font-bold text-[#675975] hover:text-[#3c2f47] cursor-pointer"
-                  >
-                    Request Swap →
-                  </button>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {skill.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-[9px] bg-[#fff8f7] text-[#4a454c] px-1.5 py-0.5 rounded border border-[#ccc4cd]/30"
+                    >
+                      {tag}
+                    </span>
+                  ))}
                 </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+              </div>
+
+              <div className="pt-3 mt-3 border-t border-[#ccc4cd]/20 flex items-center justify-between">
+                <span className="text-[10px] font-bold text-[#675975]">1.0 Credit/hr</span>
+                <button
+                  type="button"
+                  onClick={onNavigateToSignUp}
+                  className="text-[11px] font-bold text-[#675975] hover:text-[#3c2f47] cursor-pointer"
+                >
+                  Request Swap →
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Simple FAQ Section */}
       <section className="py-12 px-5 sm:px-8 max-w-[760px] mx-auto w-full">
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-7"
-        >
+        <div className="text-center mb-7">
           <h2 className="text-2xl font-bold text-[#675975]">Frequently Asked Questions</h2>
-        </motion.div>
+        </div>
 
         <div className="space-y-2.5">
           {faqs.map((item, idx) => {
@@ -492,37 +388,27 @@ export const GetStartedPage = ({
             return (
               <div
                 key={idx}
-                className="bg-white rounded-xl border border-[#ccc4cd]/40 overflow-hidden shadow-xs"
+                className="bg-white rounded-xl border border-[#ccc4cd]/40 overflow-hidden"
               >
                 <button
                   type="button"
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
-                  className="w-full px-4 py-3 text-left font-bold text-xs sm:text-sm text-[#201a1b] flex items-center justify-between gap-3 cursor-pointer hover:bg-[#fff8f7] transition-colors"
+                  className="w-full px-4 py-3 text-left font-bold text-xs sm:text-sm text-[#201a1b] flex items-center justify-between gap-3 cursor-pointer hover:bg-[#fff8f7]"
                 >
                   <span>{item.q}</span>
                   <span
-                    className={`material-symbols-outlined text-[16px] text-[#675975] transition-transform duration-200 ${
+                    className={`material-symbols-outlined text-[16px] text-[#675975] transition-transform ${
                       isOpen ? 'rotate-180' : ''
                     }`}
                   >
                     expand_more
                   </span>
                 </button>
-                <AnimatePresence initial={false}>
-                  {isOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.25, ease: 'easeInOut' }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-4 pb-3 pt-1 text-xs text-[#4a454c] leading-relaxed border-t border-[#ccc4cd]/20">
-                        {item.a}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {isOpen && (
+                  <div className="px-4 pb-3 pt-1 text-xs text-[#4a454c] leading-relaxed border-t border-[#ccc4cd]/20">
+                    {item.a}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -530,40 +416,30 @@ export const GetStartedPage = ({
       </section>
 
       {/* Simple Bottom Banner */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-40px' }}
-        transition={{ duration: 0.5 }}
-        className="py-10 px-5 sm:px-8 bg-[#4e4353] text-white text-center"
-      >
+      <section className="py-10 px-5 sm:px-8 bg-[#4e4353] text-white text-center">
         <div className="max-w-[600px] mx-auto space-y-4">
           <h2 className="text-2xl font-bold">Start exchanging skills today.</h2>
           <p className="text-xs text-white/80">
             Join students from UIU and partner universities across the globe.
           </p>
           <div className="pt-1 flex items-center justify-center gap-3">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+            <button
               type="button"
               onClick={onNavigateToSignUp}
-              className="px-6 py-2.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm rounded-full shadow-md transition-colors cursor-pointer"
+              className="px-6 py-2.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm rounded-full shadow-md transition-all cursor-pointer"
             >
               Create Account
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+            </button>
+            <button
               type="button"
               onClick={onNavigateToLogin}
               className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm rounded-full transition-colors cursor-pointer"
             >
               Sign In
-            </motion.button>
+            </button>
           </div>
         </div>
-      </motion.section>
+      </section>
 
       {/* Simple Footer */}
       <footer className="bg-[#ebe0e0] w-full py-5 text-center text-xs text-[#4a454c]">
@@ -600,4 +476,3 @@ export const GetStartedPage = ({
     </div>
   );
 };
-

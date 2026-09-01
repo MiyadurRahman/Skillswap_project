@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { AUTH_CONFIG } from '../config/authConfig';
 
@@ -116,27 +115,20 @@ export const LoginPage = ({
       id="screen-scholar-login"
       className="min-h-screen flex flex-col justify-center items-center bg-[#fff8f7] px-4 py-12"
     >
-      {/* Main Login Container */}
+      {/* Main Login Container - Clean & Static (No Parallax Animation) */}
       <main className="w-full max-w-[460px] z-10">
         {/* Brand Identity Section */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
-          className="text-center mb-6"
-        >
+        <div className="text-center mb-6">
           <div className="inline-block">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+            <button
               type="button"
               onClick={onNavigateToGetStarted}
-              className="text-2xl font-bold text-[#d2c0e0] tracking-tight mb-2 bg-[#4e4353] hover:bg-[#3c2f47] transition-colors px-5 py-1.5 rounded-xl shadow-md cursor-pointer flex items-center gap-2 mx-auto"
+              className="text-2xl font-bold text-[#d2c0e0] tracking-tight mb-2 bg-[#4e4353] hover:bg-[#3c2f47] transition-all px-5 py-1.5 rounded-xl shadow-md cursor-pointer flex items-center gap-2 mx-auto"
               title="Return to Get Started overview"
             >
               <span className="material-symbols-outlined text-[20px]">school</span>
               <span>SkillSwap</span>
-            </motion.button>
+            </button>
           </div>
           <p className="text-xs sm:text-sm text-[#4a454c] opacity-90 mt-1 font-medium">
             Advancing academic excellence through peer collaboration.
@@ -145,21 +137,16 @@ export const LoginPage = ({
             <button
               type="button"
               onClick={onNavigateToGetStarted}
-              className="text-[11px] text-[#675975] hover:text-[#3c2f47] font-semibold underline mt-1.5 inline-flex items-center gap-1 cursor-pointer transition-colors"
+              className="text-[11px] text-[#675975] hover:text-[#3c2f47] font-semibold underline mt-1.5 inline-flex items-center gap-1 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[13px]">arrow_back</span>
               <span>Back to Get Started & Platform Overview</span>
             </button>
           )}
-        </motion.div>
+        </div>
 
-        {/* Login Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="bg-white rounded-2xl p-6 sm:p-8 border border-[#ccc4cd]/60 shadow-lg"
-        >
+        {/* Login Card - Solid & Stable */}
+        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-[#ccc4cd]/60 shadow-lg">
           <div className="mb-5">
             <h2 className="text-xl font-bold text-[#201a1b] mb-1">Scholar Sign In</h2>
             <p className="text-xs text-[#4a454c]">
@@ -168,25 +155,20 @@ export const LoginPage = ({
           </div>
 
           {/* Error Message Box */}
-          <AnimatePresence>
-            {errorMessage && (
-              <motion.div
-                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
-                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                id="login-error-banner"
-                className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2.5 overflow-hidden"
-              >
-                <span className="material-symbols-outlined text-[18px] text-red-500 shrink-0">
-                  error
-                </span>
-                <div className="flex-1">
-                  <span className="font-semibold block">Authentication Notice</span>
-                  <span>{errorMessage}</span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {errorMessage && (
+            <div
+              id="login-error-banner"
+              className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2.5"
+            >
+              <span className="material-symbols-outlined text-[18px] text-red-500 shrink-0">
+                error
+              </span>
+              <div className="flex-1">
+                <span className="font-semibold block">Authentication Notice</span>
+                <span>{errorMessage}</span>
+              </div>
+            </div>
+          )}
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -252,7 +234,7 @@ export const LoginPage = ({
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] opacity-70 hover:opacity-100 transition-opacity p-1 cursor-pointer"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] opacity-70 hover:opacity-100 transition-opacity p-1"
                 >
                   <span className="material-symbols-outlined text-[18px]">
                     {showPassword ? 'visibility_off' : 'visibility'}
@@ -262,9 +244,7 @@ export const LoginPage = ({
             </div>
 
             {/* Action Button */}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               id="login-submit-btn"
               type="submit"
               disabled={loading || googleLoading}
@@ -281,7 +261,7 @@ export const LoginPage = ({
                   <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </>
               )}
-            </motion.button>
+            </button>
           </form>
 
           {/* Divider */}
@@ -298,9 +278,7 @@ export const LoginPage = ({
 
           {/* One-Click Google Auth */}
           <div>
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               id="btn-login-google"
               type="button"
               onClick={handleGoogleSignIn}
@@ -330,7 +308,7 @@ export const LoginPage = ({
                 </svg>
               )}
               <span>Continue with Google Account</span>
-            </motion.button>
+            </button>
           </div>
 
           {/* Quick Demo Login Downside of Continue With */}
@@ -370,30 +348,23 @@ export const LoginPage = ({
                   </span>
                 </button>
 
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
+                <button
                   id="btn-instant-demo-login"
                   type="button"
                   disabled={loading}
                   onClick={() => handleQuickDemoLogin('uiu')}
-                  className="px-3.5 py-2 bg-[#675975] hover:bg-[#52445f] text-white text-xs font-bold rounded-xl transition-colors shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-2 bg-[#675975] hover:bg-[#52445f] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
                 >
                   <span className="material-symbols-outlined text-[14px]">login</span>
                   <span>Instant Sign In</span>
-                </motion.button>
+                </button>
               </div>
             </div>
           )}
-        </motion.div>
+        </div>
 
         {/* Footer Meta */}
-        <motion.footer
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mt-6 text-center space-y-3"
-        >
+        <footer className="mt-6 text-center space-y-3">
           <p className="text-xs text-[#4a454c]">
             Don't have a scholar account yet?{' '}
             <button
@@ -407,91 +378,77 @@ export const LoginPage = ({
           <div className="flex justify-center gap-5 text-[11px] text-[#4a454c]/70">
             <button
               onClick={() => onShowToast('FERPA & Institutional privacy standards enabled.')}
-              className="hover:text-[#201a1b] transition-colors cursor-pointer"
+              className="hover:text-[#201a1b] transition-colors"
             >
               Privacy Policy
             </button>
             <button
               onClick={() => onShowToast('SkillSwap academic honor code and peer guidelines.')}
-              className="hover:text-[#201a1b] transition-colors cursor-pointer"
+              className="hover:text-[#201a1b] transition-colors"
             >
               Institutional Terms
             </button>
             <button
               onClick={() => onShowToast('Campus Liaison Help Desk: support@skillswap.edu')}
-              className="hover:text-[#201a1b] transition-colors cursor-pointer"
+              className="hover:text-[#201a1b] transition-colors"
             >
               Help Center
             </button>
           </div>
-        </motion.footer>
+        </footer>
       </main>
 
       {/* Forgot Password Dialog */}
-      <AnimatePresence>
-        {resetModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.25 }}
-              className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-[#ccc4cd]"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#675975] text-[22px]">
-                    lock_reset
-                  </span>
-                  <h3 className="text-base font-bold text-[#201a1b]">Reset Password</h3>
-                </div>
+      {resetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-[#ccc4cd]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#675975] text-[22px]">
+                  lock_reset
+                </span>
+                <h3 className="text-base font-bold text-[#201a1b]">Reset Password</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResetModalOpen(false)}
+                className="text-[#7b757d] hover:text-[#201a1b] p-1 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <p className="text-xs text-[#4a454c] mb-4">
+              Enter your registered academic email and we will send you a secure link to reset your password.
+            </p>
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              <input
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="scholar@university.edu"
+                required
+                className="w-full px-4 py-2.5 border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none focus:border-[#675975]"
+              />
+              <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setResetModalOpen(false)}
-                  className="text-[#7b757d] hover:text-[#201a1b] p-1 cursor-pointer"
+                  className="px-4 py-2 border border-[#ccc4cd] rounded-xl text-xs font-semibold text-[#4a454c] hover:bg-gray-50 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="px-5 py-2 bg-[#675975] hover:bg-[#52445f] text-white rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
                 </button>
               </div>
-              <p className="text-xs text-[#4a454c] mb-4">
-                Enter your registered academic email and we will send you a secure link to reset your password.
-              </p>
-              <form onSubmit={handlePasswordReset} className="space-y-4">
-                <input
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="scholar@university.edu"
-                  required
-                  className="w-full px-4 py-2.5 border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none focus:border-[#675975]"
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setResetModalOpen(false)}
-                    className="px-4 py-2 border border-[#ccc4cd] rounded-xl text-xs font-semibold text-[#4a454c] hover:bg-gray-50 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={resetLoading}
-                    className="px-5 py-2 bg-[#675975] hover:bg-[#52445f] text-white rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                  >
-                    {resetLoading ? 'Sending...' : 'Send Reset Link'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

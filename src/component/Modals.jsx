@@ -1,18 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { academicAssets } from '../assets';
-
-const modalBackdropVariants = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 },
-};
-
-const modalContentVariants = {
-  initial: { opacity: 0, scale: 0.95, y: 12 },
-  animate: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] } },
-  exit: { opacity: 0, scale: 0.95, y: 12, transition: { duration: 0.2 } },
-};
 
 export const Modals = ({
   activeModal,
@@ -69,32 +56,23 @@ export const Modals = ({
     },
   ];
 
+  if (!activeModal) return null;
+
   return (
-    <AnimatePresence>
-      {activeModal && (
-        <motion.div
-          key="modal-backdrop"
-          variants={modalBackdropVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          id="modal-backdrop"
-          className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) onClose();
-          }}
+    <div
+      id="modal-backdrop"
+      className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      {/* 1. Live Meeting Call Modal */}
+      {activeModal === 'meeting' && (
+        <div
+          id="modal-meeting-room"
+          className="bg-[#201a1b] text-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl border border-white/20 flex flex-col max-h-[90vh]"
         >
-          {/* 1. Live Meeting Call Modal */}
-          {activeModal === 'meeting' && (
-            <motion.div
-              variants={modalContentVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              id="modal-meeting-room"
-              className="bg-[#201a1b] text-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl border border-white/20 flex flex-col max-h-[90vh]"
-            >
-              {/* Header */}
+          {/* Header */}
           <div className="bg-[#352f2f] px-6 py-4 flex items-center justify-between border-b border-white/10">
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
@@ -286,372 +264,360 @@ export const Modals = ({
               End Session
             </button>
           </div>
-            </motion.div>
-          )}
+        </div>
+      )}
 
-          {/* 2. Time Credit Ledger Drawer Modal */}
-          {activeModal === 'wallet' && (
-            <motion.div
-              variants={modalContentVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              id="modal-wallet-drawer"
-              className="bg-white text-[#201a1b] w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
+      {/* 2. Time Credit Ledger Drawer Modal */}
+      {activeModal === 'wallet' && (
+        <div
+          id="modal-wallet-drawer"
+          className="bg-white text-[#201a1b] w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
+        >
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-[#efdbfd] flex items-center justify-center text-[#52445f]">
+              <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-[#201a1b]">Academic Credit Ledger</h3>
+              <p className="text-xs text-[#4a454c]">
+                Verified 1:1 time credit balances and transaction proofs
+              </p>
+            </div>
+          </div>
+
+          {/* Balance Spotlight */}
+          <div className="bg-[#fdf1f1] border border-[#ccc4cd]/40 rounded-2xl p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#7b757d]">
+                Available Balance
+              </span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-4xl font-extrabold text-[#675975]">
+                  {creditBalance.toFixed(1)}
+                </span>
+                <span className="text-sm font-semibold text-[#4a454c]">Academic Hours</span>
+              </div>
+              <p className="text-xs text-[#4a454c]/80 mt-1">
+                ≈ 24 verified peer mentoring sessions available
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setCreditBalance((prev) => prev + 1.0);
+                onShowToast('Earned +1.0 Hour Credit by offering peer tutoring!');
+              }}
+              className="px-4 py-2 bg-[#675975] text-white rounded-full text-xs font-semibold hover:bg-[#52445f] transition-all shadow-sm active:scale-95"
             >
-              <button
-                onClick={onClose}
-                className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d] cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+              + Deposit Swap Hours
+            </button>
+          </div>
 
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-[#efdbfd] flex items-center justify-center text-[#52445f]">
-                  <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-[#201a1b]">Academic Credit Ledger</h3>
-                  <p className="text-xs text-[#4a454c]">
-                    Verified 1:1 time credit balances and transaction proofs
-                  </p>
-                </div>
-              </div>
-
-              {/* Balance Spotlight */}
-              <div className="bg-[#fdf1f1] border border-[#ccc4cd]/40 rounded-2xl p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#7b757d]">
-                    Available Balance
-                  </span>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-4xl font-extrabold text-[#675975]">
-                      {creditBalance.toFixed(1)}
-                    </span>
-                    <span className="text-sm font-semibold text-[#4a454c]">Academic Hours</span>
-                  </div>
-                  <p className="text-xs text-[#4a454c]/80 mt-1">
-                    ≈ 24 verified peer mentoring sessions available
-                  </p>
-                </div>
+          {/* Filters */}
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-xs font-bold text-[#4a454c] uppercase tracking-wider">
+              Recent Transactions
+            </h4>
+            <div className="flex items-center gap-1 bg-[#f7ebeb] p-1 rounded-xl text-xs">
+              {['all', 'earned', 'spent'].map((type) => (
                 <button
-                  onClick={() => {
-                    setCreditBalance((prev) => prev + 1.0);
-                    onShowToast('Earned +1.0 Hour Credit by offering peer tutoring!');
-                  }}
-                  className="px-4 py-2 bg-[#675975] text-white rounded-full text-xs font-semibold hover:bg-[#52445f] transition-all shadow-sm active:scale-95 cursor-pointer"
+                  key={type}
+                  onClick={() => setFilterType(type)}
+                  className={`px-3 py-1 rounded-lg capitalize font-medium transition-colors ${
+                    filterType === type
+                      ? 'bg-white text-[#675975] font-bold shadow-xs'
+                      : 'text-[#7b757d] hover:text-[#201a1b]'
+                  }`}
                 >
-                  + Deposit Swap Hours
+                  {type}
                 </button>
-              </div>
+              ))}
+            </div>
+          </div>
 
-              {/* Filters */}
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-xs font-bold text-[#4a454c] uppercase tracking-wider">
-                  Recent Transactions
-                </h4>
-                <div className="flex items-center gap-1 bg-[#f7ebeb] p-1 rounded-xl text-xs">
-                  {['all', 'earned', 'spent'].map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setFilterType(type)}
-                      className={`px-3 py-1 rounded-lg capitalize font-medium transition-colors cursor-pointer ${
-                        filterType === type
-                          ? 'bg-white text-[#675975] font-bold shadow-xs'
-                          : 'text-[#7b757d] hover:text-[#201a1b]'
+          {/* List */}
+          <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+            {transactions
+              .filter((tx) => (filterType === 'all' ? true : tx.type === filterType))
+              .map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between p-3.5 bg-white border border-[#ccc4cd]/40 rounded-xl hover:border-[#c5b3d3] transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                        tx.type === 'earned'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-rose-100 text-rose-700'
                       }`}
                     >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* List */}
-              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                {transactions
-                  .filter((tx) => (filterType === 'all' ? true : tx.type === filterType))
-                  .map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="flex items-center justify-between p-3.5 bg-white border border-[#ccc4cd]/40 rounded-xl hover:border-[#c5b3d3] transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                            tx.type === 'earned'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-rose-100 text-rose-700'
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[18px]">
-                            {tx.type === 'earned' ? 'arrow_downward' : 'arrow_upward'}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-[#201a1b]">{tx.title}</p>
-                          <p className="text-[11px] text-[#7b757d]">
-                            {tx.partner} • {tx.date}
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        className={`text-xs font-bold ${
-                          tx.type === 'earned' ? 'text-emerald-700' : 'text-rose-700'
-                        }`}
-                      >
-                        {tx.amount}
+                      <span className="material-symbols-outlined text-[18px]">
+                        {tx.type === 'earned' ? 'arrow_downward' : 'arrow_upward'}
                       </span>
                     </div>
-                  ))}
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-[#ccc4cd]/30 flex justify-between items-center text-xs text-[#7b757d]">
-                <span>SkillSwap Time Bank Contract: 0x93F...A2E</span>
-                <button
-                  onClick={() => onShowToast('Exporting academic credit ledger PDF...')}
-                  className="text-[#675975] font-bold hover:underline cursor-pointer"
-                >
-                  Export Statement (PDF)
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* 3. Mentor Profile Modal */}
-          {activeModal === 'mentor' && selectedMentor && (
-            <motion.div
-              variants={modalContentVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              id="modal-mentor-detail"
-              className="bg-white text-[#201a1b] w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
-            >
-              <button
-                onClick={onClose}
-                className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d] cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-
-              <div className="flex flex-col items-center text-center">
-                <div className="relative mb-3">
-                  <img
-                    src={selectedMentor.avatarUrl}
-                    alt={selectedMentor.name}
-                    className="w-20 h-20 rounded-full object-cover border-4 border-[#c5b3d3] shadow-md"
-                  />
-                  {selectedMentor.isOnline && (
-                    <span className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></span>
-                  )}
-                </div>
-
-                <h3 className="text-xl font-bold text-[#201a1b]">{selectedMentor.name}</h3>
-                <p className="text-xs text-[#675975] font-semibold">{selectedMentor.institution}</p>
-                <p className="text-xs text-[#4a454c] mt-1">{selectedMentor.field}</p>
-
-                <div className="flex items-center gap-1 text-amber-500 text-xs font-bold mt-2">
-                  <span className="material-symbols-outlined text-[16px]">star</span>
-                  <span>{selectedMentor.rating}</span>
-                  <span className="text-[#7b757d] font-normal">
-                    ({selectedMentor.reviewsCount} peer reviews)
+                    <div>
+                      <p className="text-xs font-bold text-[#201a1b]">{tx.title}</p>
+                      <p className="text-[11px] text-[#7b757d]">
+                        {tx.partner} • {tx.date}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-xs font-bold ${
+                      tx.type === 'earned' ? 'text-emerald-700' : 'text-rose-700'
+                    }`}
+                  >
+                    {tx.amount}
                   </span>
                 </div>
-              </div>
+              ))}
+          </div>
 
-              <div className="mt-6 space-y-4">
-                <div>
-                  <h4 className="text-xs font-bold text-[#7b757d] uppercase tracking-wider mb-2">
-                    Verified Topics
-                  </h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedMentor.badges?.map((badge, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs bg-[#eeddf2] text-[#6c6071] px-3 py-1 rounded-full font-medium"
-                      >
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-[#fdf1f1] rounded-2xl p-4 border border-[#ccc4cd]/30">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-[#7b757d]">Rate:</span>
-                    <span className="font-bold text-[#675975]">
-                      {selectedMentor.hourlyRateCredits || 1.0} Credit / hour
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs mt-1">
-                    <span className="text-[#7b757d]">Next Available:</span>
-                    <span className="font-semibold text-[#201a1b]">Tomorrow, 10:00 AM</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onShowToast(`Message sent to ${selectedMentor.name}`);
-                    }}
-                    className="flex-1 py-2.5 border border-[#ccc4cd] rounded-full text-xs font-semibold hover:bg-[#ebe0e0] transition-colors cursor-pointer"
-                  >
-                    Send Message
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onShowToast(`Requested 1.0 hr swap session with ${selectedMentor.name}!`);
-                      onClose();
-                    }}
-                    className="flex-1 py-2.5 bg-[#675975] hover:bg-[#52445f] text-white rounded-full text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
-                  >
-                    Book Swap (1.0 Cr)
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* 4. Strategic Analytical Report Modal */}
-          {activeModal === 'report' && (
-            <motion.div
-              variants={modalContentVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              id="modal-admin-report"
-              className="bg-white text-[#201a1b] w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
+          <div className="mt-6 pt-4 border-t border-[#ccc4cd]/30 flex justify-between items-center text-xs text-[#7b757d]">
+            <span>SkillSwap Time Bank Contract: 0x93F...A2E</span>
+            <button
+              onClick={() => onShowToast('Exporting academic credit ledger PDF...')}
+              className="text-[#675975] font-bold hover:underline"
             >
-              <button
-                onClick={onClose}
-                className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+              Export Statement (PDF)
+            </button>
+          </div>
+        </div>
+      )}
 
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-[#c5b3d3] flex items-center justify-center text-[#52445f]">
-                  <span className="material-symbols-outlined text-xl">insights</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-[#201a1b]">Campus Intelligence Report</h3>
-                  <p className="text-xs text-[#7b757d]">Generated Q3 Academic Skill Analytics</p>
-                </div>
+      {/* 3. Mentor Profile Modal */}
+      {activeModal === 'mentor' && selectedMentor && (
+        <div
+          id="modal-mentor-detail"
+          className="bg-white text-[#201a1b] w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
+        >
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+
+          <div className="flex flex-col items-center text-center">
+            <div className="relative mb-3">
+              <img
+                src={selectedMentor.avatarUrl}
+                alt={selectedMentor.name}
+                className="w-20 h-20 rounded-full object-cover border-4 border-[#efdbfd] shadow-md"
+              />
+              {selectedMentor.isOnline && (
+                <span className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></span>
+              )}
+            </div>
+
+            <h3 className="text-lg font-bold text-[#201a1b] flex items-center gap-1.5">
+              {selectedMentor.name}
+              <span className="material-symbols-outlined text-[18px] text-[#675975]">
+                verified
+              </span>
+            </h3>
+            <p className="text-xs text-[#675975] font-semibold">{selectedMentor.institution}</p>
+            <p className="text-xs text-[#4a454c] mt-1">{selectedMentor.field}</p>
+
+            <div className="flex items-center gap-4 my-4 bg-[#fdf1f1] px-5 py-2.5 rounded-2xl border border-[#ccc4cd]/30">
+              <div className="text-center">
+                <span className="text-xs text-[#7b757d] block">Rating</span>
+                <span className="text-sm font-bold text-amber-600 flex items-center justify-center gap-0.5">
+                  <span className="material-symbols-outlined text-xs fill text-amber-500">star</span>
+                  {selectedMentor.rating}
+                </span>
               </div>
-
-              <div className="space-y-3.5 text-xs text-[#4a454c] leading-relaxed mb-6">
-                <div className="bg-[#fdf1f1] p-4 rounded-xl border border-[#ccc4cd]/30">
-                  <h4 className="font-bold text-[#675975] mb-1">
-                    Highest Demand Inter-Faculty Swaps
-                  </h4>
-                  <p>
-                    Computer Science & Biology cross-registrations increased by <strong>42%</strong>.
-                    Researchers are actively trading Deep Learning coaching for Molecular Biology CRISPR
-                    lab protocols.
-                  </p>
-                </div>
-
-                <div className="bg-[#fdf1f1] p-4 rounded-xl border border-[#ccc4cd]/30">
-                  <h4 className="font-bold text-[#675975] mb-1">Time Credit Liquidity Index</h4>
-                  <p>
-                    Platform circulation velocity is optimal at <strong>1.4 swaps/credit/month</strong>.
-                    No inflation or deflation detected across the 12 participating research universities.
-                  </p>
-                </div>
+              <div className="h-6 w-px bg-[#ccc4cd]/40"></div>
+              <div className="text-center">
+                <span className="text-xs text-[#7b757d] block">Exchanges</span>
+                <span className="text-sm font-bold text-[#201a1b]">
+                  {selectedMentor.reviewsCount}
+                </span>
               </div>
-
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 border border-[#ccc4cd] rounded-full text-xs font-semibold hover:bg-[#ebe0e0]"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => {
-                    onShowToast('Exported Full Institutional PDF (42 pages)');
-                    onClose();
-                  }}
-                  className="px-5 py-2 bg-[#675975] text-white rounded-full text-xs font-bold hover:bg-[#52445f]"
-                >
-                  Download Full PDF
-                </button>
+              <div className="h-6 w-px bg-[#ccc4cd]/40"></div>
+              <div className="text-center">
+                <span className="text-xs text-[#7b757d] block">Cost</span>
+                <span className="text-sm font-bold text-[#675975]">
+                  {selectedMentor.hourlyRateCredits} credit/hr
+                </span>
               </div>
-            </motion.div>
-          )}
+            </div>
 
-          {/* 5. SSO Provider Modal */}
-          {activeModal === 'sso' && (
-            <motion.div
-              variants={modalContentVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              id="modal-sso-login"
-              className="bg-white text-[#201a1b] w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
-            >
-              <button
-                onClick={onClose}
-                className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d] cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-
-              <div className="text-center mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-[#efdbfd] text-[#52445f] mx-auto flex items-center justify-center mb-3">
-                  <span className="material-symbols-outlined text-2xl">account_balance</span>
-                </div>
-                <h3 className="text-lg font-bold text-[#201a1b]">Federated University SSO</h3>
-                <p className="text-xs text-[#4a454c] mt-1">
-                  Select your academic institution to authenticate securely via Shibboleth or InCommon
-                </p>
-              </div>
-
-              <div className="space-y-2.5 mb-6">
-                {[
-                  { name: 'United International University (UIU)', domain: 'uiu.ac.bd' },
-                  { name: 'Stanford University', domain: 'stanford.edu' },
-                  { name: 'Massachusetts Institute of Tech', domain: 'mit.edu' },
-                  { name: 'Harvard University', domain: 'harvard.edu' },
-                  { name: 'University of California, Berkeley', domain: 'berkeley.edu' },
-                  { name: 'Oxford University (EduID)', domain: 'ox.ac.uk' },
-                ].map((inst, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      onShowToast(`Authenticated via ${inst.name} SSO!`);
-                      onClose();
-                    }}
-                    className="w-full flex items-center justify-between p-3 border border-[#ccc4cd]/40 rounded-xl hover:bg-[#fdf1f1] hover:border-[#675975] transition-all text-left group cursor-pointer"
+            {/* Badges */}
+            <div className="w-full text-left mb-5">
+              <span className="text-xs font-bold text-[#4a454c] uppercase tracking-wider block mb-2">
+                Specialized Topics
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedMentor.badges.map((b, i) => (
+                  <span
+                    key={i}
+                    className="text-xs bg-[#eeddf2] text-[#6c6071] px-3 py-1 rounded-full font-medium"
                   >
-                    <div>
-                      <p className="text-xs font-bold text-[#201a1b] group-hover:text-[#675975]">
-                        {inst.name}
-                      </p>
-                      <p className="text-[11px] text-[#7b757d]">{inst.domain}</p>
-                    </div>
-                    <span className="material-symbols-outlined text-[18px] text-[#7b757d] group-hover:translate-x-1 transition-transform">
-                      chevron_right
-                    </span>
-                  </button>
+                    {b}
+                  </span>
                 ))}
               </div>
+            </div>
 
-              <div className="text-center">
-                <button
-                  onClick={() => onShowToast('Contact institutional IT coordinator')}
-                  className="text-xs text-[#675975] font-semibold hover:underline cursor-pointer"
-                >
-                  Don't see your university? Request node federated access
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </motion.div>
+            <div className="w-full grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  onShowToast(`Proposal sent to ${selectedMentor.name}! Waiting for confirmation.`);
+                  onClose();
+                }}
+                className="w-full py-3 bg-[#c5b3d3] hover:bg-[#a992bb] text-[#52445f] font-bold text-xs rounded-full transition-colors shadow-sm"
+              >
+                Propose 1 Hr Swap
+              </button>
+              <button
+                onClick={() => {
+                  onShowToast(`Opened instant chat with ${selectedMentor.name}`);
+                  onClose();
+                }}
+                className="w-full py-3 border border-[#ccc4cd] hover:bg-[#ebe0e0] text-[#201a1b] font-semibold text-xs rounded-full transition-colors"
+              >
+                Direct Message
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-    </AnimatePresence>
+
+      {/* 4. Strategic Analytical Report Modal */}
+      {activeModal === 'report' && (
+        <div
+          id="modal-admin-report"
+          className="bg-white text-[#201a1b] w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
+        >
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-[#c5b3d3] flex items-center justify-center text-[#52445f]">
+              <span className="material-symbols-outlined text-xl">insights</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-[#201a1b]">Campus Intelligence Report</h3>
+              <p className="text-xs text-[#7b757d]">Generated Q3 Academic Skill Analytics</p>
+            </div>
+          </div>
+
+          <div className="space-y-3.5 text-xs text-[#4a454c] leading-relaxed mb-6">
+            <div className="bg-[#fdf1f1] p-4 rounded-xl border border-[#ccc4cd]/30">
+              <h4 className="font-bold text-[#675975] mb-1">
+                Highest Demand Inter-Faculty Swaps
+              </h4>
+              <p>
+                Computer Science & Biology cross-registrations increased by <strong>42%</strong>.
+                Researchers are actively trading Deep Learning coaching for Molecular Biology CRISPR
+                lab protocols.
+              </p>
+            </div>
+
+            <div className="bg-[#fdf1f1] p-4 rounded-xl border border-[#ccc4cd]/30">
+              <h4 className="font-bold text-[#675975] mb-1">Time Credit Liquidity Index</h4>
+              <p>
+                Platform circulation velocity is optimal at <strong>1.4 swaps/credit/month</strong>.
+                No inflation or deflation detected across the 12 participating research universities.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-[#ccc4cd] rounded-full text-xs font-semibold hover:bg-[#ebe0e0]"
+            >
+              Close
+            </button>
+            <button
+              onClick={() => {
+                onShowToast('Exported Full Institutional PDF (42 pages)');
+                onClose();
+              }}
+              className="px-5 py-2 bg-[#675975] text-white rounded-full text-xs font-bold hover:bg-[#52445f]"
+            >
+              Download Full PDF
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 5. SSO Provider Modal */}
+      {activeModal === 'sso' && (
+        <div
+          id="modal-sso-login"
+          className="bg-white text-[#201a1b] w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
+        >
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-[#efdbfd] text-[#52445f] mx-auto flex items-center justify-center mb-3">
+              <span className="material-symbols-outlined text-2xl">account_balance</span>
+            </div>
+            <h3 className="text-lg font-bold text-[#201a1b]">Federated University SSO</h3>
+            <p className="text-xs text-[#4a454c] mt-1">
+              Select your academic institution to authenticate securely via Shibboleth or InCommon
+            </p>
+          </div>
+
+          <div className="space-y-2.5 mb-6">
+            {[
+              { name: 'United International University (UIU)', domain: 'uiu.ac.bd' },
+              { name: 'Stanford University', domain: 'stanford.edu' },
+              { name: 'Massachusetts Institute of Tech', domain: 'mit.edu' },
+              { name: 'Harvard University', domain: 'harvard.edu' },
+              { name: 'University of California, Berkeley', domain: 'berkeley.edu' },
+              { name: 'Oxford University (EduID)', domain: 'ox.ac.uk' },
+            ].map((inst, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  onShowToast(`Authenticated via ${inst.name} SSO!`);
+                  onClose();
+                }}
+                className="w-full flex items-center justify-between p-3 border border-[#ccc4cd]/40 rounded-xl hover:bg-[#fdf1f1] hover:border-[#675975] transition-all text-left group"
+              >
+                <div>
+                  <p className="text-xs font-bold text-[#201a1b] group-hover:text-[#675975]">
+                    {inst.name}
+                  </p>
+                  <p className="text-[11px] text-[#7b757d]">{inst.domain}</p>
+                </div>
+                <span className="material-symbols-outlined text-[18px] text-[#7b757d] group-hover:translate-x-1 transition-transform">
+                  chevron_right
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <button
+              onClick={() => onShowToast('Contact institutional IT coordinator')}
+              className="text-xs text-[#675975] font-semibold hover:underline"
+            >
+              Don't see your university? Request node federated access
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
