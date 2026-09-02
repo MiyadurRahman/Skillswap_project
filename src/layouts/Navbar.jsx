@@ -1,4 +1,5 @@
 import React from 'react';
+import { resolveAvatarForName } from '../assets';
 
 export const Navbar = ({
   onNavigateScreen,
@@ -101,7 +102,7 @@ export const Navbar = ({
               <img
                 src={
                   userProfile?.avatarUrl ||
-                  'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80'
+                  resolveAvatarForName(userProfile?.name || 'Scholar', 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80')
                 }
                 alt="Profile"
                 className="w-full h-full object-cover"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { academicAssets } from '../assets';
+import { academicAssets, resolveAvatarForName } from '../assets';
 import { useAuth } from '../context/AuthContext';
 
 export const ProfileSetupPage = ({
@@ -48,7 +48,11 @@ export const ProfileSetupPage = ({
       if (userProfile.university) setUniversity(userProfile.university);
       if (userProfile.academicLevel) setAcademicLevel(userProfile.academicLevel);
       if (userProfile.bio) setBio(userProfile.bio);
-      if (userProfile.avatarUrl) setAvatarPreview(userProfile.avatarUrl);
+      if (userProfile.avatarUrl) {
+        setAvatarPreview(userProfile.avatarUrl);
+      } else {
+        setAvatarPreview(resolveAvatarForName(userProfile.name || firstName || 'Scholar', academicAssets.avatars.defaultMaleScholar));
+      }
       if (userProfile.expertiseAreas && userProfile.expertiseAreas.length > 0) {
         setExpertise(userProfile.expertiseAreas);
       }
@@ -124,10 +128,10 @@ export const ProfileSetupPage = ({
         if (onUpdateProfile) {
           onUpdateProfile(payload);
         }
-        onShowToast('Academic profile updated & synchronized in Firestore!');
+        onShowToast('Academic profile updated & saved successfully!');
         onNavigateScreen('dashboard');
       } catch (err) {
-        onShowToast('Profile saved locally. Synchronized with cloud.');
+        onShowToast('Profile saved locally.');
         if (onUpdateProfile) onUpdateProfile(payload);
         onNavigateScreen('dashboard');
       } finally {
@@ -550,7 +554,7 @@ export const ProfileSetupPage = ({
               {saving ? (
                 <>
                   <div className="w-3.5 h-3.5 border-2 border-[#3c2f47] border-t-transparent rounded-full animate-spin"></div>
-                  <span>Saving to Cloud...</span>
+                  <span>Saving profile...</span>
                 </>
               ) : (
                 <span>{currentStep === 3 ? 'Save & Go to Dashboard' : 'Continue to Next Step'}</span>

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { resolveAvatarForName } from '../assets';
 import { useAuth } from '../context/AuthContext';
 
 export const SkillManagerPage = ({
@@ -159,7 +160,7 @@ export const SkillManagerPage = ({
 
   const userAvatar =
     userProfile?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
+    resolveAvatarForName(userProfile?.name || currentUser?.displayName || 'Scholar', 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80');
 
   const userRole = userProfile?.academicLevel || 'PhD Candidate';
 
