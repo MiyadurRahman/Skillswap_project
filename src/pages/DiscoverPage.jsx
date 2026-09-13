@@ -8,6 +8,7 @@ export const DiscoverPage = ({
   onOpenWalletModal,
   onShowToast,
   userProfile: propProfile,
+  onSelectPeerProfile,
 }) => {
   const { currentUser, userProfile: authProfile, logOut } = useAuth();
   const userProfile = authProfile || propProfile || {};
@@ -34,18 +35,55 @@ export const DiscoverPage = ({
     {
       id: 'peer-1',
       name: 'Dr. Elena Vance',
-      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=240&auto=format&fit=crop&q=80',
-      title: 'PhD Candidate in Neural Computing',
+      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&auto=format&fit=crop&q=80',
+      title: 'Senior Fellow in Behavioral Economics',
       rating: 4.9,
-      reviewsCount: 48,
-      skills: ['MACHINE LEARNING', 'PYTORCH', 'STATISTICS'],
-      primaryField: 'Data Science',
+      reviewsCount: 124,
+      skills: ['BEHAVIORAL MODELING', 'STATISTICAL ANALYSIS (R)', 'GAME THEORY'],
+      primaryField: 'Academic Writing',
       academicLevel: 'PhD Candidate',
-      nextAvailable: 'Today, 4:00 PM',
+      nextAvailable: 'Available: Tue, Thu, Sat',
       isOnline: true,
-      institution: 'Stanford AI & Neural Computing Lab',
-      bio: 'Postdoctoral researcher in neural dynamics and deep generative models. Available for paper reviews and PyTorch implementation.',
+      institution: 'Oxford Center for Behavioral Dynamics',
+      bio: 'With over 15 years in academic research and cross-disciplinary studies, I specialize in the intersection of cognitive psychology and market dynamics. My goal is to bridge the gap between theoretical frameworks and practical application through collaborative peer-to-peer exchange.',
+      credentials: ['PhD from Oxford', 'Verified Scholar'],
+      responseSpeed: 'Usually responds in 2h',
+      skillsTeach: [
+        'Behavioral Modeling',
+        'Statistical Analysis (R)',
+        'Game Theory',
+        'Cognitive Bias Research',
+        'Academic Writing',
+      ],
+      skillsWant: [
+        'Advanced Python',
+        'Machine Learning Basics',
+        'Data Visualization',
+        'Public Speaking',
+      ],
+      availability: 'Available: Tue, Thu, Sat',
+      preferredMode: 'Preferred: Virtual / Zoom',
+      swapsCount: 48,
+      learnersCount: '2.1k',
       hourlyCredits: 1.0,
+      reviews: [
+        {
+          id: 'rev-1',
+          name: 'Marcus Thorne',
+          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote: "Elena's session on Game Theory was transformative. She has a way of making complex mathematical concepts feel intuitive. Looking forward to our next swap!",
+          meta: 'Oct 14, 2024 • Swapped for Python Intro',
+        },
+        {
+          id: 'rev-2',
+          name: 'Dr. Sarah L.',
+          avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote: "Fantastic collaboration. Her statistical analysis skills are top-notch. She really helped me refine my research paper methodology.",
+          meta: 'Sep 28, 2024 • Swapped for Data Viz',
+        },
+      ],
     },
     {
       id: 'peer-2',
@@ -60,8 +98,45 @@ export const DiscoverPage = ({
       nextAvailable: 'Wed, 10:00 AM',
       isOnline: false,
       institution: 'Department of Comparative Literature',
-      bio: 'Graduate fellow in narrative structures and literary critique. Specializes in thesis editing and academic peer argumentation.',
+      bio: 'Graduate fellow in narrative structures and literary critique. Specializes in thesis editing, continental philosophy, and academic peer argumentation.',
       hourlyCredits: 1.0,
+      credentials: ['Master of Letters', 'Verified Scholar'],
+      responseSpeed: 'Usually responds in 1h',
+      skillsTeach: [
+        'Critical Theory',
+        'Thesis Editing',
+        'Continental Philosophy',
+        'Rhetorical Analysis',
+        'Academic Peer Review',
+      ],
+      skillsWant: [
+        'Python for Text Mining',
+        'Digital Humanities',
+        'LaTeX Typesetting',
+        'Data Visualization',
+      ],
+      availability: 'Available: Mon, Wed, Fri',
+      preferredMode: 'Preferred: Google Meet / Audio',
+      swapsCount: 32,
+      learnersCount: '1.4k',
+      reviews: [
+        {
+          id: 'rev-j1',
+          name: 'Clara Oswald',
+          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote: "Julian helped restructure my doctoral thesis proposal. His feedback on rhetoric and argumentation gave my research real clarity.",
+          meta: 'Nov 02, 2024 • Swapped for Qualitative Methods',
+        },
+        {
+          id: 'rev-j2',
+          name: 'David Tennant',
+          avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80',
+          rating: 4.8,
+          quote: "Incredible literary analysis session. We broke down post-structuralist critique line-by-line.",
+          meta: 'Oct 19, 2024 • Swapped for History of Science',
+        },
+      ],
     },
     {
       id: 'peer-3',
@@ -76,8 +151,45 @@ export const DiscoverPage = ({
       nextAvailable: 'Tue, 2:00 PM',
       isOnline: true,
       institution: 'Human-Computer Interaction Institute',
-      bio: 'Doctoral researcher focusing on usability testing methodologies and academic dashboard experience architectures.',
+      bio: 'Doctoral researcher focusing on usability testing methodologies, cognitive accessibility, and academic dashboard experience architectures.',
       hourlyCredits: 1.0,
+      credentials: ['PhD Candidate at HCI Institute', 'Verified Scholar'],
+      responseSpeed: 'Usually responds in 30m',
+      skillsTeach: [
+        'User Research',
+        'Figma Prototyping',
+        'Usability Testing',
+        'Design Systems',
+        'Information Architecture',
+      ],
+      skillsWant: [
+        'Full-Stack React',
+        'Tailwind CSS',
+        'Accessible Frontends',
+        'Product Analytics',
+      ],
+      availability: 'Available: Tue, Thu, Sun',
+      preferredMode: 'Preferred: Figma Live / Zoom',
+      swapsCount: 65,
+      learnersCount: '2.8k',
+      reviews: [
+        {
+          id: 'rev-s1',
+          name: 'Dr. Michael Chen',
+          avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote: "Sarah reviewed our academic portal interface and provided actionable heuristics that boosted our study participant retention.",
+          meta: 'Oct 22, 2024 • Swapped for React State Hooks',
+        },
+        {
+          id: 'rev-s2',
+          name: 'Maya Lin',
+          avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote: "Her mastery of Figma auto-layout and design token semantics is unmatched. Best mentor on SkillSwap!",
+          meta: 'Oct 08, 2024 • Swapped for CSS Grid',
+        },
+      ],
     },
     {
       id: 'peer-4',
@@ -92,8 +204,36 @@ export const DiscoverPage = ({
       nextAvailable: 'Today, 7:00 PM',
       isOnline: true,
       institution: 'Robotics & Autonomous Systems Lab',
-      bio: 'Master\'s researcher working on ROS2 locomotion controllers and reinforcement learning algorithms for bipedal motion.',
+      bio: 'Master\'s researcher working on ROS2 locomotion controllers and reinforcement learning algorithms for bipedal robotic motion.',
       hourlyCredits: 1.0,
+      credentials: ['Robotics Systems Fellow', 'Verified Scholar'],
+      responseSpeed: 'Usually responds in 3h',
+      skillsTeach: [
+        'Modern C++ (20/23)',
+        'ROS2 Architecture',
+        'Reinforcement Learning',
+        'Gazebo Simulation',
+        'Kinematics & Dynamics',
+      ],
+      skillsWant: [
+        'Mathematical Optimization',
+        'Kalman Filtering',
+        'Research Manuscript Preparation',
+      ],
+      availability: 'Available: Mon, Thu, Sat',
+      preferredMode: 'Preferred: Discord / Zoom Screen Share',
+      swapsCount: 41,
+      learnersCount: '1.9k',
+      reviews: [
+        {
+          id: 'rev-m1',
+          name: 'Ethan Ross',
+          avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote: "Markus walked me through debugging ROS2 action servers in real time. Saved me days of troubleshooting.",
+          meta: 'Oct 15, 2024 • Swapped for Linear Algebra',
+        },
+      ],
     },
     {
       id: 'peer-5',
@@ -108,8 +248,36 @@ export const DiscoverPage = ({
       nextAvailable: 'Tomorrow, 2:00 PM',
       isOnline: true,
       institution: 'United International University (UIU)',
-      bio: 'ICPC coach and algorithms educator. Passionate about helping students break down NP-complete problems and dynamic programming trees.',
+      bio: 'ICPC coach and algorithms educator. Passionate about helping students break down NP-complete problems, dynamic programming memoization, and graph network flows.',
       hourlyCredits: 1.0,
+      credentials: ['PhD in Computer Science', 'ICPC World Finals Coach'],
+      responseSpeed: 'Usually responds in 1h',
+      skillsTeach: [
+        'Dynamic Programming',
+        'Advanced Graph Theory',
+        'Algorithm Complexity (Big-O)',
+        'Competitive C++ Techniques',
+        'Combinatorics & Number Theory',
+      ],
+      skillsWant: [
+        'Quantum Computing Basics',
+        'Distributed Consensus Protocols',
+        'GPU CUDA Acceleration',
+      ],
+      availability: 'Available: Daily (Evening Slots)',
+      preferredMode: 'Preferred: Zoom Whiteboard / Visual Studio Live',
+      swapsCount: 112,
+      learnersCount: '4.5k',
+      reviews: [
+        {
+          id: 'rev-r1',
+          name: 'Tahmid Khan',
+          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote: "Dr. Rafiqul's intuition on tree DP and shortest paths opened up entirely new angles for my research paper algorithms.",
+          meta: 'Nov 01, 2024 • Swapped for Neural Networks',
+        },
+      ],
     },
     {
       id: 'peer-6',
@@ -124,8 +292,36 @@ export const DiscoverPage = ({
       nextAvailable: 'Thursday, 3:30 PM',
       isOnline: false,
       institution: 'Oxford Department of Economics',
-      bio: 'Empirical microeconomics researcher working on randomized control trials and econometric policy evaluations.',
+      bio: 'Empirical microeconomics researcher working on randomized control trials, econometric policy evaluations, and panel data econometric models.',
       hourlyCredits: 1.0,
+      credentials: ['DPhil at Oxford Economics', 'Verified Scholar'],
+      responseSpeed: 'Usually responds in 2h',
+      skillsTeach: [
+        'Econometric Modeling',
+        'R Programming (Tidyverse)',
+        'Causal Inference & DiD',
+        'Instrumental Variables',
+        'Stata Panel Regressions',
+      ],
+      skillsWant: [
+        'Machine Learning in Python',
+        'High Performance Computing',
+        'Public Policy Briefing',
+      ],
+      availability: 'Available: Thu, Fri, Sat',
+      preferredMode: 'Preferred: Zoom / Overleaf Live',
+      swapsCount: 39,
+      learnersCount: '1.6k',
+      reviews: [
+        {
+          id: 'rev-so1',
+          name: 'James Harrington',
+          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote: "Sofia explained difference-in-differences estimators with unparalleled clarity. Superb peer scholar.",
+          meta: 'Oct 29, 2024 • Swapped for Macro Models',
+        },
+      ],
     },
     {
       id: 'peer-7',
@@ -140,8 +336,36 @@ export const DiscoverPage = ({
       nextAvailable: 'Friday, 11:00 AM',
       isOnline: true,
       institution: 'UIU NLP Center',
-      bio: 'Researcher in low-resource language processing, transformer distillation, and peer academic paper formatting.',
+      bio: 'Researcher in low-resource language processing, transformer distillation, attention mechanisms, and peer academic paper formatting.',
       hourlyCredits: 1.0,
+      credentials: ['NLP Research Scholar', 'Verified Scholar'],
+      responseSpeed: 'Usually responds in 45m',
+      skillsTeach: [
+        'Transformer Architectures',
+        'PyTorch Model Fine-Tuning',
+        'Hugging Face Pipelines',
+        'LaTeX Academic Formatting',
+        'Attention Visualization',
+      ],
+      skillsWant: [
+        'MLOps Infrastructure',
+        'Vector Databases (Milvus/Pinecone)',
+        'Latent Diffusion Models',
+      ],
+      availability: 'Available: Mon, Wed, Sat',
+      preferredMode: 'Preferred: Google Meet / Colab',
+      swapsCount: 54,
+      learnersCount: '2.3k',
+      reviews: [
+        {
+          id: 'rev-ma1',
+          name: 'Nadia Ahmed',
+          avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote: "Mahir solved our GPU out-of-memory errors during transformer training in under 20 minutes!",
+          meta: 'Oct 24, 2024 • Swapped for Cloud Deployments',
+        },
+      ],
     },
     {
       id: 'peer-8',
@@ -156,8 +380,36 @@ export const DiscoverPage = ({
       nextAvailable: 'Tomorrow, 5:00 PM',
       isOnline: true,
       institution: 'UIU Software Engineering Club',
-      bio: 'Peer tutor in distributed systems, full-stack reactive design, and containerized research pipelines.',
+      bio: 'Peer tutor in distributed systems, full-stack reactive design, containerized research pipelines, and microservice architectures.',
       hourlyCredits: 1.0,
+      credentials: ['Cloud Systems Lead', 'Verified Scholar'],
+      responseSpeed: 'Usually responds in 2h',
+      skillsTeach: [
+        'Full-Stack React & Vite',
+        'Node.js Microservices',
+        'Docker Containers',
+        'CI/CD GitHub Actions',
+        'RESTful & GraphQL API Design',
+      ],
+      skillsWant: [
+        'Kubernetes Cluster Admin',
+        'Rust Programming',
+        'System Security Hardening',
+      ],
+      availability: 'Available: Tue, Wed, Fri',
+      preferredMode: 'Preferred: Zoom / VS Code Live',
+      swapsCount: 78,
+      learnersCount: '3.1k',
+      reviews: [
+        {
+          id: 'rev-ab1',
+          name: 'Fariha Yasmin',
+          avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote: "Abrar set up our containerized dev environment seamlessly. Clear explanations and great patience.",
+          meta: 'Oct 18, 2024 • Swapped for UI Design',
+        },
+      ],
     },
   ];
 
@@ -241,24 +493,45 @@ export const DiscoverPage = ({
   );
 
   const handleOpenPeer = (peer) => {
-    if (onOpenMentorModal) {
-      onOpenMentorModal({
+    if (onSelectPeerProfile) {
+      onSelectPeerProfile({
         id: peer.id,
         name: peer.name,
         title: peer.title,
-        field: peer.primaryField,
-        institution: peer.institution,
         rating: peer.rating,
-        reviewsCount: peer.reviewsCount,
+        reviewsCount: peer.reviewsCount || 48,
         avatarUrl: peer.avatarUrl,
         isOnline: peer.isOnline,
-        badges: peer.skills,
-        hourlyRateCredits: peer.hourlyCredits,
         bio: peer.bio,
+        credentials: peer.credentials || ['Verified Scholar', peer.academicLevel || 'PhD Researcher'],
+        responseSpeed: peer.responseSpeed || 'Usually responds in 2h',
+        skillsTeach: peer.skillsTeach || (peer.skills ? peer.skills.map(s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())) : ['Peer Tutoring', 'Academic Research']),
+        skillsWant: peer.skillsWant || ['Advanced Python', 'Machine Learning Basics', 'Data Visualization', 'Public Speaking'],
+        availability: peer.availability || (peer.nextAvailable ? `Available: ${peer.nextAvailable}` : 'Available: Tue, Thu, Sat'),
+        preferredMode: peer.preferredMode || 'Preferred: Virtual / Zoom',
+        swapsCount: peer.swapsCount || (peer.reviewsCount ? Math.floor(peer.reviewsCount * 0.4) : 48),
+        learnersCount: peer.learnersCount || '1.8k',
+        reviews: peer.reviews || [
+          {
+            id: 'rev-1',
+            name: 'Marcus Thorne',
+            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
+            rating: 5,
+            quote: `Outstanding collaboration session with ${peer.name}. Deep academic rigor and clear explanations.`,
+            meta: 'Recent • Swapped for Peer Exchange',
+          },
+          {
+            id: 'rev-2',
+            name: 'Dr. Sarah L.',
+            avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=240&auto=format&fit=crop&q=80',
+            rating: 5,
+            quote: `High quality academic feedback and methodology review. Helped strengthen our paper analysis.`,
+            meta: '2 weeks ago • Swapped for Research Consulting',
+          },
+        ],
       });
-    } else {
-      onShowToast(`Viewing profile of ${peer.name}`);
     }
+    onNavigateScreen('public-profile');
   };
 
   const handleFindPeerCTA = () => {
@@ -580,8 +853,17 @@ export const DiscoverPage = ({
               {paginatedPeers.map((peer) => (
                 <div
                   key={peer.id}
-                  className="bg-white border border-[#ebd8d4] rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-[#cfb3be] transition-all flex flex-col justify-between group"
+                  onClick={() => handleOpenPeer(peer)}
+                  className="bg-white border border-[#ebd8d4] rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-[#bfa8c7] transition-all flex flex-col justify-between group cursor-pointer"
                   id={`peer-card-${peer.id}`}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleOpenPeer(peer);
+                    }
+                  }}
                 >
                   <div>
                     {/* Top: Avatar, Name, Rating Badge & Title */}
@@ -592,7 +874,7 @@ export const DiscoverPage = ({
                             src={peer.avatarUrl}
                             alt={peer.name}
                             referrerPolicy="no-referrer"
-                            className="w-13 h-13 rounded-full object-cover border-2 border-[#eedfdc] shadow-2xs"
+                            className="w-13 h-13 rounded-full object-cover border-2 border-[#eedfdc] shadow-2xs group-hover:border-[#473b4b] transition-colors"
                           />
                           {peer.isOnline ? (
                             <span
@@ -653,8 +935,11 @@ export const DiscoverPage = ({
                     </div>
 
                     <button
-                      onClick={() => handleOpenPeer(peer)}
-                      className="px-4 py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold tracking-wide transition-colors shadow-2xs active:scale-95"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenPeer(peer);
+                      }}
+                      className="px-4 py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold tracking-wide transition-colors shadow-2xs active:scale-95 cursor-pointer"
                       id={`btn-view-profile-${peer.id}`}
                     >
                       View Profile

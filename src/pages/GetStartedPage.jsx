@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { academicAssets } from '../assets';
+import { AUTH_CONFIG } from '../config/authConfig';
 
 export const GetStartedPage = ({
   onNavigateToSignUp,
   onNavigateToLogin,
   onShowToast,
   onOpenSSO,
+  onExploreDemo,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [activeFaq, setActiveFaq] = useState(0);
@@ -189,6 +191,17 @@ export const GetStartedPage = ({
                 <span className="material-symbols-outlined text-[18px] text-[#675975]">login</span>
                 <span>Sign In to Account</span>
               </button>
+
+              {onExploreDemo && AUTH_CONFIG.SHOW_DEMO_LOGIN && (
+                <button
+                  type="button"
+                  onClick={onExploreDemo}
+                  className="px-6 py-3.5 bg-[#f7effa] hover:bg-[#ebd9f8] text-[#52445f] font-semibold text-sm rounded-full border border-[#d2c0e0]/70 shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[#675975]">bolt</span>
+                  <span>Explore Live Demo</span>
+                </button>
+              )}
             </div>
 
             {/* Metrics Row */}
