@@ -1,5 +1,4 @@
 import React from 'react';
-import { resolveAvatarForName } from '../assets';
 
 export const Navbar = ({
   onNavigateScreen,
@@ -23,7 +22,7 @@ export const Navbar = ({
           <nav className="hidden md:flex items-center gap-7 text-sm">
             <button
               onClick={() => onNavigateScreen('dashboard')}
-              className={`font-medium transition-colors py-1 ${
+              className={`font-medium transition-colors py-1 cursor-pointer ${
                 currentScreen === 'dashboard'
                   ? 'text-white font-bold border-b-2 border-white pb-0.5'
                   : 'text-white/80 hover:text-white'
@@ -32,18 +31,8 @@ export const Navbar = ({
               Dashboard
             </button>
             <button
-              onClick={() => onNavigateScreen('skill-manager')}
-              className={`font-medium transition-colors py-1 ${
-                currentScreen === 'skill-manager'
-                  ? 'text-white font-bold border-b-2 border-white pb-0.5'
-                  : 'text-white/80 hover:text-white'
-              }`}
-            >
-              Skill Manager
-            </button>
-            <button
               onClick={() => onNavigateScreen('discover')}
-              className={`font-medium transition-colors py-1 ${
+              className={`font-medium transition-colors py-1 cursor-pointer ${
                 currentScreen === 'discover'
                   ? 'text-white font-bold border-b-2 border-white pb-0.5'
                   : 'text-white/80 hover:text-white'
@@ -52,19 +41,35 @@ export const Navbar = ({
               Discover
             </button>
             <button
-              onClick={() => {
-                onShowToast('Showing upcoming academic swap sessions');
-                onNavigateScreen('dashboard');
-              }}
-              className="text-white/80 hover:text-white transition-colors font-medium py-1"
+              onClick={() => onNavigateScreen('requests')}
+              className={`font-medium transition-colors py-1 cursor-pointer flex items-center gap-1.5 ${
+                currentScreen === 'requests'
+                  ? 'text-white font-bold border-b-2 border-white pb-0.5'
+                  : 'text-white/80 hover:text-white'
+              }`}
+            >
+              <span>Requests</span>
+              <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
+            </button>
+            <button
+              onClick={() => onNavigateScreen('session-details')}
+              className={`font-medium transition-colors py-1 cursor-pointer ${
+                currentScreen === 'session-details'
+                  ? 'text-white font-bold border-b-2 border-white pb-0.5'
+                  : 'text-white/80 hover:text-white'
+              }`}
             >
               My Sessions
             </button>
             <button
-              onClick={() => onShowToast('You have 2 pending peer exchange requests')}
-              className="text-white/80 hover:text-white transition-colors font-medium py-1"
+              onClick={() => onNavigateScreen('skill-manager')}
+              className={`font-medium transition-colors py-1 cursor-pointer ${
+                currentScreen === 'skill-manager'
+                  ? 'text-white font-bold border-b-2 border-white pb-0.5'
+                  : 'text-white/80 hover:text-white'
+              }`}
             >
-              Requests
+              Skill Manager
             </button>
           </nav>
         </div>
@@ -102,7 +107,7 @@ export const Navbar = ({
               <img
                 src={
                   userProfile?.avatarUrl ||
-                  resolveAvatarForName(userProfile?.name || 'Scholar', 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80')
+                  'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80'
                 }
                 alt="Profile"
                 className="w-full h-full object-cover"

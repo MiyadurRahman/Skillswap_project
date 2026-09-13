@@ -5,15 +5,118 @@ import { AppRoutes } from './routes/AppRoutes';
 import { Modals } from './component/Modals';
 import { ScreenSwitcher } from './component/ScreenSwitcher';
 import { academicAssets } from './assets';
+import { initialSessions } from './data/sessionsData';
+import {
+  initialIncomingRequests,
+  initialOutgoingRequests,
+  drJulianVance,
+} from './data/requestsData';
 
 function AppContent() {
   const { currentUser, userProfile: authProfile, signIn, loading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState('get-started');
   const [activeModal, setActiveModal] = useState(null);
-  const [selectedSession, setSelectedSession] = useState(null);
+
+  // Dynamic sessions management
+  const [sessions, setSessions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('skillswap_sessions');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn('Failed to load sessions from storage:', e);
+    }
+    return initialSessions;
+  });
+
+  // Dynamic requests management
+  const [incomingRequests, setIncomingRequests] = useState(() => {
+    try {
+      const saved = localStorage.getItem('skillswap_incoming_requests');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn('Failed to load incoming requests:', e);
+    }
+    return initialIncomingRequests;
+  });
+
+  const [outgoingRequests, setOutgoingRequests] = useState(() => {
+    try {
+      const saved = localStorage.getItem('skillswap_outgoing_requests');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn('Failed to load outgoing requests:', e);
+    }
+    return initialOutgoingRequests;
+  });
+
+  const [selectedMentorForRequest, setSelectedMentorForRequest] = useState(drJulianVance);
+
+  const [selectedSession, setSelectedSession] = useState(() => {
+    return sessions[0] || initialSessions[0];
+  });
+
   const [selectedMentor, setSelectedMentor] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+
+  // Persist sessions
+  useEffect(() => {
+    try {
+      localStorage.setItem('skillswap_sessions', JSON.stringify(sessions));
+    } catch (e) {
+      console.warn('Failed to save sessions:', e);
+    }
+  }, [sessions]);
+
+  // Persist incoming and outgoing requests
+  useEffect(() => {
+    try {
+      localStorage.setItem('skillswap_incoming_requests', JSON.stringify(incomingRequests));
+    } catch (e) {
+      console.warn('Failed to save incoming requests:', e);
+    }
+  }, [incomingRequests]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('skillswap_outgoing_requests', JSON.stringify(outgoingRequests));
+    } catch (e) {
+      console.warn('Failed to save outgoing requests:', e);
+    }
+  }, [outgoingRequests]);
+
+  const handleCreateSession = (newSession) => {
+    const created = {
+      id: `session-${Date.now()}`,
+      status: 'Accepted',
+      duration: '90 Minutes',
+      method: 'Video Call',
+      platform: 'SkillSwap Connect',
+      notes: [],
+      ...newSession,
+    };
+    setSessions((prev) => [created, ...prev]);
+    setSelectedSession(created);
+    // Award 250 credits to the mentor
+    setLocalProfile((prev) => ({
+      ...prev,
+      timeCredits: Number((prev.timeCredits + 2.5).toFixed(1)),
+    }));
+    setCurrentScreen('session-details');
+    showToast(`✨ Session scheduled with ${created.partner?.name || 'peer'}!`);
+  };
+
+  const handleUpdateSession = (updatedSession) => {
+    setSessions((prev) =>
+      prev.map((s) => (s.id === updatedSession.id ? updatedSession : s))
+    );
+    setSelectedSession(updatedSession);
+  };
+
+  const handleSelectSession = (session) => {
+    setSelectedSession(session);
+    setCurrentScreen('session-details');
+  };
 
   const [localProfile, setLocalProfile] = useState({
     name: 'Alex Rivera',
@@ -96,6 +199,18 @@ function AppContent() {
         onExploreDemo={handleExploreDemo}
         selectedProfile={selectedProfile}
         setSelectedProfile={setSelectedProfile}
+        sessions={sessions}
+        selectedSession={selectedSession}
+        setSelectedSession={setSelectedSession}
+        onCreateSession={handleCreateSession}
+        onUpdateSession={handleUpdateSession}
+        onSelectSession={handleSelectSession}
+        incomingRequests={incomingRequests}
+        onUpdateIncomingRequests={setIncomingRequests}
+        outgoingRequests={outgoingRequests}
+        onUpdateOutgoingRequests={setOutgoingRequests}
+        selectedMentorForRequest={selectedMentorForRequest}
+        setSelectedMentorForRequest={setSelectedMentorForRequest}
       />
 
       {/* Reusable Modals & Dialogs */}

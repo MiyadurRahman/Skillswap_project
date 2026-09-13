@@ -9,6 +9,7 @@ export const PublicProfilePage = ({
   onShowToast,
   userProfile: currentLoggedProfile,
   profileData: customProfile,
+  onCreateSession,
 }) => {
   const { userProfile: authProfile } = useAuth();
   const activeUser = authProfile || currentLoggedProfile || {};
@@ -111,7 +112,51 @@ export const PublicProfilePage = ({
   const handleSendSessionRequest = (e) => {
     e.preventDefault();
     setIsRequestModalOpen(false);
-    onShowToast(`✨ Session request sent to ${profile.name} for ${selectedSlot}!`);
+
+    const newSession = {
+      id: `session-${Date.now()}`,
+      title: sessionTopic || (profile.skillsTeach && profile.skillsTeach[0]) || 'Academic Peer Exchange',
+      status: 'Accepted',
+      description: `In-depth collaborative academic session on ${sessionTopic || (profile.skillsTeach && profile.skillsTeach[0]) || 'academic peer tutoring'}. Exchange focused on practical modeling and theoretical foundations.`,
+      learningGoals: (profile.skillsTeach || ['Methodological Rigor', 'Statistical Modeling']).slice(0, 3).map((s) => `Master core foundations of ${s}`),
+      duration: '90 Minutes',
+      method: 'Video Call',
+      platform: 'SkillSwap Connect',
+      date: selectedSlot.includes(',') ? selectedSlot.split(',')[0] : 'Wednesday, Oct 24',
+      time: selectedSlot.includes(',') ? selectedSlot.split(',')[1].trim() : '02:30 PM — 04:00 PM',
+      partner: {
+        id: profile.id,
+        name: profile.name,
+        title: profile.title,
+        avatarUrl: profile.avatarUrl,
+        isOnline: profile.isOnline,
+        badges: (profile.skillsTeach || ['Peer Scholar']).slice(0, 2),
+        skillsTeach: profile.skillsTeach || [],
+        skillsWant: profile.skillsWant || [],
+        rating: profile.rating,
+        reviewsCount: profile.reviewsCount,
+        credentials: profile.credentials || ['Verified Scholar'],
+        responseSpeed: profile.responseSpeed || 'Usually responds in 2h',
+        availability: profile.availability || 'Available on request',
+        preferredMode: profile.preferredMode || 'SkillSwap Connect Video Call',
+      },
+      notes: [
+        {
+          id: `note-${Date.now()}`,
+          authorName: profile.name,
+          authorAvatar: profile.avatarUrl,
+          timestamp: 'Just now',
+          text: `Looking forward to our session! I'll share the preliminary reading materials and references for ${sessionTopic || profile.skillsTeach?.[0] || 'our discussion'} shortly.`,
+        },
+      ],
+    };
+
+    if (onCreateSession) {
+      onCreateSession(newSession);
+    } else {
+      onShowToast(`✨ Session scheduled with ${profile.name}!`);
+      onNavigateScreen('session-details');
+    }
   };
 
   const handleSendMessage = (e) => {
@@ -158,21 +203,19 @@ export const PublicProfilePage = ({
                 Discover
               </button>
               <button
-                onClick={() => {
-                  onShowToast('Showing upcoming academic swap sessions');
-                  onNavigateScreen('dashboard');
-                }}
+                onClick={() => onNavigateScreen('requests')}
+                className="text-white/80 hover:text-white transition-colors font-medium py-1 flex items-center gap-1.5"
+                id="public-nav-requests"
+              >
+                <span>Requests</span>
+                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
+              </button>
+              <button
+                onClick={() => onNavigateScreen('session-details')}
                 className="text-white/80 hover:text-white transition-colors font-medium py-1"
                 id="public-nav-sessions"
               >
                 My Sessions
-              </button>
-              <button
-                onClick={() => onShowToast('You have 2 pending peer exchange requests')}
-                className="text-white/80 hover:text-white transition-colors font-medium py-1"
-                id="public-nav-requests"
-              >
-                Requests
               </button>
             </nav>
           </div>

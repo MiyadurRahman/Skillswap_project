@@ -9,6 +9,8 @@ export const DiscoverPage = ({
   onShowToast,
   userProfile: propProfile,
   onSelectPeerProfile,
+  onCreateSession,
+  onSelectSession,
 }) => {
   const { currentUser, userProfile: authProfile, logOut } = useAuth();
   const userProfile = authProfile || propProfile || {};
@@ -30,8 +32,111 @@ export const DiscoverPage = ({
   const [activeTrendingTag, setActiveTrendingTag] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Request Session from Discover Modal states
+  const [requestingPeer, setRequestingPeer] = useState(null);
+  const [reqTopic, setReqTopic] = useState('');
+  const [reqSlot, setReqSlot] = useState('');
+  const [reqOfferedSkill, setReqOfferedSkill] = useState('Python Data Science');
+  const [reqNote, setReqNote] = useState('');
+
   // Comprehensive dataset matching the exact screenshot plus more
   const allPeers = [
+    {
+      id: 'peer-aris-thorne',
+      name: 'Dr. Aris Thorne',
+      avatarUrl:
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      title: 'Senior Researcher, Data Science',
+      rating: 4.9,
+      reviewsCount: 88,
+      skills: ['STATISTICS', 'R-PROGRAMMING', 'QUANTITATIVE METHODS'],
+      primaryField: 'Data Science',
+      academicLevel: 'PhD Candidate',
+      nextAvailable: 'Wednesday, Oct 24 (02:30 PM)',
+      isOnline: true,
+      institution: 'Stanford Institute for Computational Research',
+      bio: 'Senior researcher focused on structural equation modeling (SEM), multivariate psychometrics, and reproducible statistical programming in R.',
+      credentials: ['PhD in Computational Statistics', 'Verified Senior Researcher'],
+      responseSpeed: 'Usually responds in 1h',
+      skillsTeach: [
+        'Advanced Quantitative Methods',
+        'Structural Equation Modeling (SEM)',
+        'R-Programming',
+        'Multivariate Statistics',
+        'Psychometrics',
+      ],
+      skillsWant: [
+        'Deep Learning in PyTorch',
+        'Qualitative Interview Design',
+        'LaTeX Typography',
+      ],
+      availability: 'Available: Wed, Oct 24 (02:30 PM)',
+      preferredMode: 'Preferred: SkillSwap Connect Video Call',
+      swapsCount: 88,
+      learnersCount: '1.9k',
+      hourlyCredits: 1.0,
+      reviews: [
+        {
+          id: 'rev-aris-1',
+          name: 'PhD Candidate',
+          avatarUrl:
+            'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote:
+            "Dr. Thorne's SEM breakdown made latent variable modeling immediately actionable for my dissertation dataset.",
+          meta: 'Oct 20, 2024 • Swapped for Python Prep',
+        },
+      ],
+    },
+    {
+      id: 'peer-julian-vance',
+      name: 'Dr. Julian Vance',
+      avatarUrl:
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+      title: 'PhD in Quantum Computing • Stanford University',
+      rating: 5.0,
+      reviewsCount: 450,
+      skills: ['QUANTUM MECHANICS', 'QISKIT PROGRAMMING', 'ALGORITHMS'],
+      primaryField: 'Data Science',
+      academicLevel: 'Postdoctoral Fellow',
+      nextAvailable: 'Monday, Oct 28 (09:00 AM)',
+      isOnline: true,
+      institution: 'Stanford University Department of Physics & Quantum Lab',
+      bio: 'Quantum information scientist specializing in Hamiltonian simulation, NISQ error mitigation, and quantum circuit synthesis using Qiskit.',
+      credentials: ['PhD from Stanford University', 'Top 1% Mentor 2023', 'Verified Quantum Researcher'],
+      responseSpeed: 'Usually responds in 12h',
+      skillsTeach: [
+        'Quantum Mechanics',
+        'Qiskit Programming',
+        'Quantum Information Theory',
+        'Quantum Error Correction',
+      ],
+      skillsWant: [
+        'Cryogenic Hardware Interfacing',
+        'Tensor Networks',
+        'Category Theory',
+      ],
+      availability: 'Available: Mon, Wed, Fri (Morning & Afternoon)',
+      preferredMode: 'Preferred: SkillSwap Connect Video Call',
+      swapsCount: 450,
+      learnersCount: '3.8k',
+      hourlyCredits: 2.5,
+      cost: 250,
+      badge1: 'Top 1% Mentor 2023',
+      badge2: '450+ Sessions Completed',
+      reviews: [
+        {
+          id: 'rev-jv-1',
+          name: 'Priya Patel',
+          avatarUrl:
+            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=240&auto=format&fit=crop&q=80',
+          rating: 5,
+          quote:
+            "Dr. Vance's explanation of VQE and entanglement distillation was incredible. The session took my quantum circuit from theory into a working simulation.",
+          meta: 'Oct 22, 2024 • Quantum Mechanics Swap',
+        },
+      ],
+    },
     {
       id: 'peer-1',
       name: 'Dr. Elena Vance',
@@ -534,6 +639,73 @@ export const DiscoverPage = ({
     onNavigateScreen('public-profile');
   };
 
+  const handleOpenRequestModal = (peer) => {
+    setRequestingPeer(peer);
+    setReqTopic(peer.skillsTeach?.[0] || peer.skills?.[0] || 'Quantitative Methods');
+    setReqSlot(peer.nextAvailable || 'Wednesday, Oct 24 (02:30 PM)');
+    setReqOfferedSkill('Python Data Science');
+    setReqNote('');
+  };
+
+  const handleConfirmDiscoverSession = (e) => {
+    e.preventDefault();
+    if (!requestingPeer) return;
+
+    const newSession = {
+      id: `session-${Date.now()}`,
+      title: reqTopic || requestingPeer.skillsTeach?.[0] || 'Academic Peer Session',
+      status: 'Accepted',
+      description: `Collaborative academic peer session focusing on ${reqTopic || requestingPeer.skillsTeach?.[0]} with ${requestingPeer.name}.`,
+      learningGoals: (requestingPeer.skillsTeach || ['Methodological Rigor', 'Statistical Modeling']).slice(0, 3).map((s) => `Master core foundations of ${s}`),
+      duration: '90 Minutes',
+      method: 'Video Call',
+      platform: 'SkillSwap Connect',
+      date: reqSlot.includes('(') ? reqSlot.split('(')[0].trim() : reqSlot.includes(',') ? reqSlot.split(',')[0].trim() : 'Wednesday, Oct 24',
+      time: reqSlot.includes('(') ? reqSlot.split('(')[1].replace(')', '').trim() : '02:30 PM — 04:00 PM',
+      partner: {
+        id: requestingPeer.id,
+        name: requestingPeer.name,
+        title: requestingPeer.title,
+        avatarUrl: requestingPeer.avatarUrl,
+        isOnline: requestingPeer.isOnline,
+        badges: (requestingPeer.badges || requestingPeer.skills || ['Scholar']).slice(0, 2),
+        skillsTeach: requestingPeer.skillsTeach || [],
+        skillsWant: requestingPeer.skillsWant || [],
+        rating: requestingPeer.rating,
+        reviewsCount: requestingPeer.reviewsCount,
+        credentials: requestingPeer.credentials || ['Verified Scholar'],
+        responseSpeed: requestingPeer.responseSpeed || 'Usually responds in 1h',
+        availability: requestingPeer.availability || 'Available on request',
+        preferredMode: requestingPeer.preferredMode || 'SkillSwap Connect Video Call',
+      },
+      notes: reqNote ? [
+        {
+          id: `note-${Date.now()}`,
+          authorName: userProfile?.name || 'You',
+          authorAvatar: userAvatar,
+          timestamp: 'Just now',
+          text: reqNote,
+        },
+      ] : [
+        {
+          id: `note-${Date.now()}`,
+          authorName: requestingPeer.name,
+          authorAvatar: requestingPeer.avatarUrl,
+          timestamp: 'Just now',
+          text: `Session confirmed for ${reqTopic}! Looking forward to our collaborative swap.`,
+        },
+      ],
+    };
+
+    if (onCreateSession) {
+      onCreateSession(newSession);
+    } else {
+      onShowToast(`✨ Session scheduled with ${requestingPeer.name}!`);
+      onNavigateScreen('session-details');
+    }
+    setRequestingPeer(null);
+  };
+
   const handleFindPeerCTA = () => {
     onShowToast(`Found ${filteredPeers.length} verified academic peers matching your criteria.`);
   };
@@ -580,21 +752,19 @@ export const DiscoverPage = ({
                 Discover
               </button>
               <button
-                onClick={() => {
-                  onShowToast('Navigating to your scheduled academic exchange sessions');
-                  onNavigateScreen('dashboard');
-                }}
+                onClick={() => onNavigateScreen('requests')}
+                className="text-white/80 hover:text-white transition-colors font-medium py-1 flex items-center gap-1.5"
+                id="nav-tab-requests"
+              >
+                <span>Requests</span>
+                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
+              </button>
+              <button
+                onClick={() => onNavigateScreen('session-details')}
                 className="text-white/80 hover:text-white transition-colors font-medium py-1"
                 id="nav-tab-sessions"
               >
                 My Sessions
-              </button>
-              <button
-                onClick={() => onShowToast('You have 2 pending peer exchange requests')}
-                className="text-white/80 hover:text-white transition-colors font-medium py-1"
-                id="nav-tab-requests"
-              >
-                Requests
               </button>
             </nav>
           </div>
@@ -934,16 +1104,32 @@ export const DiscoverPage = ({
                       <span>Next available: {peer.nextAvailable}</span>
                     </div>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenPeer(peer);
-                      }}
-                      className="px-4 py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold tracking-wide transition-colors shadow-2xs active:scale-95 cursor-pointer"
-                      id={`btn-view-profile-${peer.id}`}
-                    >
-                      View Profile
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenRequestModal(peer);
+                        }}
+                        className="px-3.5 py-2 bg-[#eeddf2] hover:bg-[#e2c7e8] text-[#47364d] rounded-xl text-xs font-bold tracking-wide transition-colors shadow-2xs active:scale-95 cursor-pointer flex items-center gap-1.5"
+                        id={`btn-request-session-${peer.id}`}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          calendar_add_on
+                        </span>
+                        <span>Request Session</span>
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenPeer(peer);
+                        }}
+                        className="px-4 py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold tracking-wide transition-colors shadow-2xs active:scale-95 cursor-pointer"
+                        id={`btn-view-profile-${peer.id}`}
+                      >
+                        View Profile
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1094,10 +1280,7 @@ export const DiscoverPage = ({
         <div className="fixed bottom-6 right-6 z-30">
           <button
             onClick={() => {
-              onShowToast('Requesting a peer skill swap session...');
-              if (onOpenMentorModal) {
-                onOpenMentorModal(allPeers[0]);
-              }
+              handleOpenRequestModal(allPeers[0]);
             }}
             className="w-12 h-12 rounded-2xl bg-[#c5b3d3] hover:bg-[#b39dc3] text-[#2c1d30] shadow-lg flex items-center justify-center text-2xl font-bold transition-transform active:scale-95 border border-white/40"
             title="Create / Request a Skill Swap"
@@ -1107,6 +1290,137 @@ export const DiscoverPage = ({
           </button>
         </div>
       </footer>
+
+      {/* DYNAMIC REQUEST SESSION MODAL IN DISCOVER */}
+      {requestingPeer && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header with Peer Preview */}
+            <div className="flex items-start justify-between border-b border-[#f4e8e5] pb-4">
+              <div className="flex items-center gap-3.5">
+                <img
+                  src={requestingPeer.avatarUrl}
+                  alt={requestingPeer.name}
+                  referrerPolicy="no-referrer"
+                  className="w-12 h-12 rounded-full object-cover border-2 border-[#ebd8d4]"
+                />
+                <div>
+                  <h3 className="font-bold text-base text-[#201a1b]">
+                    Request Session with {requestingPeer.name}
+                  </h3>
+                  <p className="text-xs text-[#705e69]">
+                    {requestingPeer.title} • ★ {requestingPeer.rating}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRequestingPeer(null)}
+                className="text-[#8c7b86] hover:text-[#201a1b] p-1 rounded-lg hover:bg-[#fbf4f2]"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Request Form */}
+            <form onSubmit={handleConfirmDiscoverSession} className="space-y-4 text-xs">
+              {/* Topic Select */}
+              <div>
+                <label className="block font-bold text-[#201a1b] mb-1.5">
+                  Academic Focus / Topic:
+                </label>
+                <input
+                  type="text"
+                  value={reqTopic}
+                  onChange={(e) => setReqTopic(e.target.value)}
+                  placeholder="e.g. Structural Equation Modeling (SEM) in R"
+                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
+                  required
+                />
+              </div>
+
+              {/* Proposed Slot */}
+              <div>
+                <label className="block font-bold text-[#201a1b] mb-1.5">
+                  Preferred Time Slot:
+                </label>
+                <input
+                  type="text"
+                  value={reqSlot}
+                  onChange={(e) => setReqSlot(e.target.value)}
+                  placeholder="e.g. Wednesday, Oct 24 (02:30 PM)"
+                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
+                  required
+                />
+                <p className="text-[11px] text-[#705e69] mt-1">
+                  Peer availability: {requestingPeer.nextAvailable || 'Flexible schedule'}
+                </p>
+              </div>
+
+              {/* What You Offer */}
+              <div>
+                <label className="block font-bold text-[#201a1b] mb-1.5">
+                  Knowledge You Offer in Exchange:
+                </label>
+                <input
+                  type="text"
+                  value={reqOfferedSkill}
+                  onChange={(e) => setReqOfferedSkill(e.target.value)}
+                  placeholder="e.g. Python Data Science / LaTeX Typesetting"
+                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
+                />
+              </div>
+
+              {/* Pre-Session Notes */}
+              <div>
+                <label className="block font-bold text-[#201a1b] mb-1.5">
+                  Pre-Session Note or Agenda (Optional):
+                </label>
+                <textarea
+                  rows={3}
+                  value={reqNote}
+                  onChange={(e) => setReqNote(e.target.value)}
+                  placeholder="Add specific dataset links, hypothesis questions, or syllabus references..."
+                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl p-3 text-xs text-[#201a1b] focus:outline-none focus:border-[#57445f]"
+                />
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="pt-3 flex items-center justify-between border-t border-[#f4e8e5]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenPeer(requestingPeer);
+                    setRequestingPeer(null);
+                  }}
+                  className="text-xs font-semibold text-[#57445f] hover:underline"
+                >
+                  View Full Scholar Profile ›
+                </button>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRequestingPeer(null)}
+                    className="px-4 py-2 text-xs font-semibold text-[#705e69] hover:text-[#201a1b]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-[#473b4b] hover:bg-[#342738] text-white font-bold text-xs rounded-xl shadow-xs active:scale-98 transition-all cursor-pointer flex items-center gap-1.5"
+                    id="btn-confirm-discover-request"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      event_available
+                    </span>
+                    <span>Confirm & View Details</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

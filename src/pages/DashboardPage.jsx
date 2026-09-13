@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ActiveSessionCard } from '../component/ActiveSessionCard';
 import { MentorCard } from '../component/MentorCard';
-import { academicAssets, resolveAvatarForName } from '../assets';
+import { academicAssets } from '../assets';
 import { useAuth } from '../context/AuthContext';
 
 export const DashboardPage = ({
@@ -11,13 +11,28 @@ export const DashboardPage = ({
   onOpenMentorModal,
   onShowToast,
   userProfile: propProfile,
+  sessions = [],
+  onSelectSession,
 }) => {
   const { currentUser, userProfile: authProfile, logOut } = useAuth();
   const userProfile = authProfile || propProfile || {};
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState(null);
 
-  const activeSessions = [
+  // Map dynamic sessions or fallback to initial defaults
+  const activeSessions = sessions.length > 0 ? sessions.map((s) => ({
+    id: s.id,
+    title: s.title,
+    category: s.partner?.badges?.[0] || 'Exchange',
+    type: 'Academic Swap',
+    mentorName: s.partner?.name || 'Academic Peer',
+    dateStr: s.date || 'Upcoming',
+    iconName: 'psychology',
+    bgCategoryColor: 'bg-[#ffdada]',
+    textCategoryColor: 'text-[#5c3f40]',
+    status: s.status || 'upcoming',
+    rawSession: s,
+  })) : [
     {
       id: 'session-1',
       title: 'Data Structures & Dynamic Programming',
@@ -127,16 +142,16 @@ export const DashboardPage = ({
     try {
       await logOut();
       onShowToast('Successfully logged out.');
-      if (onNavigateScreen) onNavigateScreen('login');
+      onNavigateScreen('login');
     } catch (e) {
       onShowToast('Logged out.');
-      if (onNavigateScreen) onNavigateScreen('login');
+      onNavigateScreen('login');
     }
   };
 
-  const displayName = userProfile?.name || currentUser?.displayName || (currentUser?.isDemo ? 'Unknown' : 'Tanvir Ahmed');
+  const displayName = userProfile?.name || currentUser?.displayName || 'Tanvir Ahmed';
   const firstName = displayName.split(' ')[0];
-  const userAvatar = userProfile?.avatarUrl || resolveAvatarForName(displayName, currentUser?.isDemo ? academicAssets.avatars.defaultMaleScholar : academicAssets.avatars.tanvirAhmed);
+  const userAvatar = userProfile?.avatarUrl || academicAssets.avatars.tanvirAhmed;
   const userCredits = userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5;
   const userRole = userProfile?.academicLevel || 'BSc in CSE';
   const userInstitution = userProfile?.university || 'United International University (UIU)';
@@ -148,27 +163,36 @@ export const DashboardPage = ({
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1280px] mx-auto h-full">
           <div className="flex items-center gap-6 sm:gap-8">
             <span
-              onClick={() => onNavigateScreen && onNavigateScreen('dashboard')}
+              onClick={() => onNavigateScreen('dashboard')}
               className="text-2xl font-bold text-[#c5b3d3] tracking-tight cursor-pointer hover:opacity-90 transition-opacity"
             >
               SkillSwap
             </span>
             <div className="hidden md:flex items-center gap-6">
               <button
-                onClick={() => onNavigateScreen && onNavigateScreen('dashboard')}
+                onClick={() => onNavigateScreen('dashboard')}
                 className="text-white border-b-2 border-white pb-1 font-bold text-sm cursor-pointer"
               >
                 Dashboard
               </button>
               <button
-                onClick={() => onNavigateScreen && onNavigateScreen('discover')}
+                onClick={() => onNavigateScreen('discover')}
                 className="text-white/80 font-medium hover:text-white transition-colors text-sm cursor-pointer"
               >
                 Discover
               </button>
               <button
-                onClick={() => onShowToast && onShowToast('Showing your upcoming 2 peer swaps')}
+                onClick={() => onNavigateScreen('requests')}
+                className="text-white/80 font-medium hover:text-white transition-colors text-sm cursor-pointer flex items-center gap-1.5"
+                id="dash-nav-requests"
+              >
+                <span>Requests</span>
+                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
+              </button>
+              <button
+                onClick={() => onNavigateScreen('session-details')}
                 className="text-white/80 font-medium hover:text-white transition-colors text-sm cursor-pointer"
+                id="dash-nav-sessions"
               >
                 My Sessions
               </button>
@@ -188,14 +212,14 @@ export const DashboardPage = ({
             </div>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => onShowToast && onShowToast('Notifications: 2 pending peer reviews.')}
+                onClick={() => onShowToast('Notifications: 2 pending peer reviews.')}
                 className="p-2 text-white/80 hover:text-white transition-colors cursor-pointer"
                 title="Notifications"
               >
                 <span className="material-symbols-outlined text-[22px]">notifications</span>
               </button>
               <button
-                onClick={() => onShowToast && onShowToast('Scholar Messages: No unread chats')}
+                onClick={() => onShowToast('Scholar Messages: No unread chats')}
                 className="p-2 text-white/80 hover:text-white transition-colors cursor-pointer"
                 title="Messages"
               >
@@ -203,7 +227,7 @@ export const DashboardPage = ({
               </button>
             </div>
             <div
-              onClick={() => onNavigateScreen && onNavigateScreen('profile-setup')}
+              onClick={() => onNavigateScreen('profile-setup')}
               className="flex items-center gap-2 pl-2 border-l border-white/10 cursor-pointer group"
               title="Edit Profile"
             >
@@ -236,7 +260,7 @@ export const DashboardPage = ({
           <div className="space-y-6">
             {/* User Mini Profile Card */}
             <div
-              onClick={() => onNavigateScreen && onNavigateScreen('profile-setup')}
+              onClick={() => onNavigateScreen('profile-setup')}
               className="flex items-center gap-3 pb-6 border-b border-[#ccc4cd]/30 cursor-pointer group"
             >
               <div className="w-12 h-12 rounded-full border-2 border-[#675975] overflow-hidden relative shrink-0">
@@ -260,28 +284,39 @@ export const DashboardPage = ({
             {/* Navigation links */}
             <nav className="space-y-1">
               <button
-                onClick={() => onNavigateScreen && onNavigateScreen('dashboard')}
+                onClick={() => onNavigateScreen('dashboard')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 bg-[#eeddf2] text-[#6c6071] rounded-xl font-bold text-xs cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">dashboard</span>
                 Overview
               </button>
               <button
-                onClick={() => onNavigateScreen && onNavigateScreen('skill-manager')}
+                onClick={() => onNavigateScreen('skill-manager')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">school</span>
                 Skill Manager
               </button>
               <button
-                onClick={() => onNavigateScreen && onNavigateScreen('discover')}
+                onClick={() => onNavigateScreen('discover')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">explore</span>
                 Discover Peers
               </button>
               <button
-                onClick={() => onShowToast && onShowToast('Showing all your peer tutoring sessions')}
+                onClick={() => onNavigateScreen('requests')}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+                id="btn-nav-session-requests-dash"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[18px]">inbox</span>
+                  <span>Session Requests</span>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
+              </button>
+              <button
+                onClick={() => onShowToast('Showing all your peer tutoring sessions')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">calendar_today</span>
@@ -295,7 +330,7 @@ export const DashboardPage = ({
                 Time Credit Ledger
               </button>
               <button
-                onClick={() => onNavigateScreen && onNavigateScreen('profile-setup')}
+                onClick={() => onNavigateScreen('profile-setup')}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">person</span>
@@ -307,7 +342,7 @@ export const DashboardPage = ({
           {/* Quick Action & Signout */}
           <div className="pt-6 border-t border-[#ccc4cd]/30 space-y-2">
             <button
-              onClick={() => onShowToast && onShowToast('Opening Matchmaking engine: finding optimal peer swap...')}
+              onClick={() => onShowToast('Opening Matchmaking engine: finding optimal peer swap...')}
               className="w-full bg-[#675975] hover:bg-[#52445f] text-white py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">person_search</span>
@@ -340,13 +375,13 @@ export const DashboardPage = ({
                 </p>
                 <div className="pt-3 flex flex-wrap gap-3">
                   <button
-                    onClick={() => onShowToast && onShowToast('Initiating peer matching request...')}
+                    onClick={() => onShowToast('Initiating peer matching request...')}
                     className="px-4 py-2 bg-[#c5b3d3] hover:bg-[#a992bb] text-[#52445f] font-bold text-xs rounded-full transition-all cursor-pointer shadow-sm"
                   >
                     Request New Swap
                   </button>
                   <button
-                    onClick={() => onNavigateScreen && onNavigateScreen('profile-setup')}
+                    onClick={() => onNavigateScreen('profile-setup')}
                     className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-full transition-all border border-white/20 cursor-pointer"
                   >
                     Edit Profile
@@ -378,7 +413,7 @@ export const DashboardPage = ({
                   <span className="text-sm font-semibold text-[#4a454c]">Credit Hours</span>
                 </div>
                 <p className="text-xs text-[#4a454c]/80 mt-1">
-                  Verified local time-credit ledger.
+                  Cloud verified on Firestore ledger.
                 </p>
               </div>
 
@@ -407,7 +442,7 @@ export const DashboardPage = ({
                 </p>
               </div>
               <button
-                onClick={() => onShowToast && onShowToast('Opening Schedule Calendar...')}
+                onClick={() => onShowToast('Opening Schedule Calendar...')}
                 className="text-xs text-[#675975] font-bold hover:underline cursor-pointer"
               >
                 View Full Calendar
@@ -419,7 +454,14 @@ export const DashboardPage = ({
                 <ActiveSessionCard
                   key={session.id}
                   session={session}
-                  onOpenMeeting={() => onOpenMeetingModal && onOpenMeetingModal(session)}
+                  onOpenMeeting={() => onOpenMeetingModal(session.rawSession || session)}
+                  onViewDetails={() => {
+                    if (onSelectSession) {
+                      onSelectSession(session.rawSession || session);
+                    } else {
+                      onNavigateScreen('session-details');
+                    }
+                  }}
                   onShowToast={onShowToast}
                 />
               ))}
@@ -506,7 +548,7 @@ export const DashboardPage = ({
                 <MentorCard
                   key={mentor.id}
                   mentor={mentor}
-                  onOpenMentorModal={() => onOpenMentorModal && onOpenMentorModal(mentor)}
+                  onOpenMentorModal={() => onOpenMentorModal(mentor)}
                   onShowToast={onShowToast}
                 />
               ))}
