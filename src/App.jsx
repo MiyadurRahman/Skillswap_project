@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppRoutes } from './routes/AppRoutes';
 import { Modals } from './component/Modals';
+import { NotificationBell } from './component/NotificationBell';
+import { ChatPanel } from './component/ChatPanel';
 import { ScreenSwitcher } from './component/ScreenSwitcher';
 import { academicAssets } from './assets';
 import { initialSessions } from './data/sessionsData';
+import { initialConversations, initialMessages, demoChatPeers } from './data/chatData';
 import {
   initialIncomingRequests,
   initialOutgoingRequests,
@@ -16,6 +19,12 @@ import {
   subscribeOutgoingRequests,
   subscribeSessions,
   subscribeAllUsers,
+  subscribeConversations,
+  subscribeConversationMessages,
+  ensureConversation,
+  sendMessage,
+  markConversationRead,
+  getConversationId,
   createRequest,
   acceptRequest,
   declineRequest,
@@ -39,7 +48,7 @@ const toMentorModel = (user) => {
     title: user.title || 'Peer Scholar',
     avatarUrl: user.avatarUrl,
     isOnline: user.isOnline !== false,
-    university: user.university,
+    university: user.university || user.institution,
     cost: 250,
     skills:
       skillNames.length > 0
@@ -126,6 +135,19 @@ function AppContent() {
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Chat: conversations list, active chat (with peer), and live messages.
+  const [conversations, setConversations] = useState(() => {
+    try {
+      const saved = localStorage.getItem('skillswap_conversations');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn('Failed to load conversations:', e);
+    }
+    return initialConversations;
+  });
+  const [chatMessages, setChatMessages] = useState({});
+  const [activeChat, setActiveChat] = useState(null);
+
   const selectedSession =
     sessions.find((s) => s.id === selectedSessionId) || sessions[0] || null;
 
@@ -140,11 +162,22 @@ function AppContent() {
       subscribeOutgoingRequests(myUid, setOutgoingRequests),
       subscribeSessions(myUid, setSessions),
       subscribeAllUsers(setRealtimeUsers),
+      subscribeConversations(myUid, setConversations),
     ];
     setSelectedSessionId(null);
 
     return () => unsubscribers.forEach((u) => u());
   }, [isRealtime, myUid]);
+
+  // Live messages for the currently open chat (realtime mode only).
+  useEffect(() => {
+    const convId = activeChat?.conversation?.id;
+    if (!isRealtime || !myUid || !convId) return;
+    const unsub = subscribeConversationMessages(convId, (msgs) => {
+      setChatMessages((prev) => ({ ...prev, [convId]: msgs }));
+    });
+    return () => unsub();
+  }, [isRealtime, myUid, activeChat?.conversation?.id]);
 
   // When leaving realtime mode, fall back to the local demo dataset.
   useEffect(() => {
@@ -158,11 +191,17 @@ function AppContent() {
         setOutgoingRequests(
           JSON.parse(localStorage.getItem('skillswap_outgoing_requests')) || initialOutgoingRequests
         );
+        setConversations(
+          JSON.parse(localStorage.getItem('skillswap_conversations')) || initialConversations
+        );
+        setChatMessages({});
+        setActiveChat(null);
         setSelectedSessionId(null);
       } catch (e) {
         setSessions(initialSessions);
         setIncomingRequests(initialIncomingRequests);
         setOutgoingRequests(initialOutgoingRequests);
+        setConversations(initialConversations);
       }
     };
     restore();
@@ -177,6 +216,26 @@ function AppContent() {
       console.warn('Failed to save sessions:', e);
     }
   }, [sessions, isRealtime]);
+
+  // Persist demo-mode conversations + chat messages so chats survive reloads
+  // (same localStorage keys openChatSeed already reads to restore).
+  useEffect(() => {
+    if (isRealtime) return;
+    try {
+      localStorage.setItem('skillswap_conversations', JSON.stringify(conversations));
+    } catch (e) {
+      console.warn('Failed to save conversations:', e);
+    }
+  }, [conversations, isRealtime]);
+
+  useEffect(() => {
+    if (isRealtime) return;
+    try {
+      localStorage.setItem('skillswap_chat_messages', JSON.stringify(chatMessages));
+    } catch (e) {
+      console.warn('Failed to save chat messages:', e);
+    }
+  }, [chatMessages, isRealtime]);
 
   useEffect(() => {
     if (isRealtime) return;
@@ -195,6 +254,45 @@ function AppContent() {
       console.warn('Failed to save outgoing requests:', e);
     }
   }, [outgoingRequests, isRealtime]);
+
+  useEffect(() => {
+    if (isRealtime) return;
+    try {
+      localStorage.setItem('skillswap_conversations', JSON.stringify(conversations));
+      localStorage.setItem('skillswap_chat_messages', JSON.stringify(chatMessages));
+    } catch (e) {
+      console.warn('Failed to save conversations:', e);
+    }
+  }, [conversations, chatMessages, isRealtime]);
+
+  // Enrich conversations with the peer's live profile (avatar/name/title).
+  const conversationsWithPeers = useMemo(() => {
+    const userMap = {};
+    realtimeUsers.forEach((u) => {
+      userMap[u.uid || u.id] = u;
+    });
+    return conversations.map((c) => {
+      const peerUid = c.participantIds?.find((id) => id !== myUid);
+      const u = userMap[peerUid];
+      if (u) {
+        return {
+          ...c,
+          peer: {
+            uid: peerUid,
+            name: u.name,
+            title: u.title,
+            avatarUrl: u.avatarUrl,
+          },
+        };
+      }
+      return c;
+    });
+  }, [conversations, realtimeUsers, myUid]);
+
+  // Peers selectable for a new chat.
+  const chatPeers = isRealtime
+    ? realtimeUsers.filter((u) => u.uid && u.uid !== myUid)
+    : demoChatPeers;
 
   // ===========================================================================
   // ACTIONS
@@ -334,6 +432,146 @@ function AppContent() {
     return cancelOutgoingRequest(requestId);
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Chat handlers
+  // ---------------------------------------------------------------------------
+  const openChatSeed = useCallback(
+    (convo, peer) => {
+      setActiveChat({ conversation: convo, peer });
+      if (!isRealtime) {
+        setChatMessages((prev) => {
+          const convId = convo.id;
+          const seeded =
+            (() => {
+              try {
+                return JSON.parse(localStorage.getItem('skillswap_chat_messages') || '{}')[convId];
+              } catch (e) {
+                return undefined;
+              }
+            })() || initialMessages[convId] || [];
+          return { ...prev, [convId]: prev[convId] || seeded };
+        });
+      }
+    },
+    [isRealtime]
+  );
+
+  const handleOpenChat = useCallback(
+    ({ conversation, peer }) => {
+      openChatSeed(conversation, peer);
+      if (isRealtime && (conversation.unread?.[myUid] || 0) > 0) {
+        markConversationRead(conversation.id, myUid).catch((e) =>
+          console.warn('Mark conversation read failed:', e)
+        );
+      }
+    },
+    [isRealtime, myUid, openChatSeed]
+  );
+
+  const handleNewChat = useCallback(
+    (peer) => {
+      if (!peer?.uid) return;
+      const convId = getConversationId(myUid, peer.uid);
+      const convo = {
+        id: convId,
+        participantIds: [myUid, peer.uid],
+        peer: {
+          uid: peer.uid,
+          name: peer.name || 'Scholar',
+          title: peer.title || 'Peer Scholar',
+          avatarUrl: peer.avatarUrl,
+        },
+        unread: { [myUid]: 0, [peer.uid]: 0 },
+        updatedAt: Date.now(),
+      };
+      openChatSeed(convo, convo.peer);
+      if (isRealtime) {
+        ensureConversation(myUid, peer.uid).catch((e) =>
+          console.warn('Could not create conversation:', e)
+        );
+      }
+    },
+    [isRealtime, myUid, openChatSeed]
+  );
+
+  const handleSendChatMessage = useCallback(
+    async (text) => {
+      const chat = activeChat;
+      if (!chat?.conversation?.id) return;
+      const { conversation, peer } = chat;
+      const convId = conversation.id;
+      const peerUid =
+        peer?.uid || conversation.participantIds?.find((id) => id !== myUid);
+      if (!peerUid || !myUid) return;
+
+      if (isRealtime) {
+        try {
+          await sendMessage({
+            conversationId: convId,
+            fromUid: myUid,
+            toUid: peerUid,
+            fromName: myProfile?.name || 'Scholar',
+            text,
+          });
+        } catch (e) {
+          console.warn('Send message failed:', e);
+          showToast('Could not send message. Please try again.');
+        }
+        return;
+      }
+
+      const msg = {
+        id: `msg-${Date.now()}`,
+        conversationId: convId,
+        participantIds: [myUid, peerUid],
+        fromUid: myUid,
+        toUid: peerUid,
+        text,
+        createdAt: Date.now(),
+        read: false,
+      };
+      setChatMessages((prev) => ({
+        ...prev,
+        [convId]: [...(prev[convId] || []), msg],
+      }));
+      const updatedConv = {
+        ...conversation,
+        lastText: text,
+        lastFrom: myUid,
+        lastFromName: myProfile?.name || 'You',
+        updatedAt: msg.createdAt,
+        unread: {
+          ...(conversation.unread || {}),
+          [peerUid]: (conversation.unread?.[peerUid] || 0) + 1,
+        },
+      };
+      setConversations((prev) => [updatedConv, ...prev.filter((c) => c.id !== convId)]);
+    },
+    [activeChat, isRealtime, myUid, myProfile, showToast]
+  );
+
+  const handleMarkChatRead = useCallback(
+    (convId, uid) => {
+      if (isRealtime) {
+        markConversationRead(convId, uid).catch((e) =>
+          console.warn('Mark conversation read failed:', e)
+        );
+        return;
+      }
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convId ? { ...c, unread: { ...(c.unread || {}), [uid]: 0 } } : c
+        )
+      );
+    },
+    [isRealtime]
+  );
+
+  const handleCloseChat = useCallback(() => {
+    setActiveChat(null);
+    setChatMessages({});
+  }, []);
+
   const handleRequestRealtime = useCallback((peer) => {
     const model = toMentorModel(peer);
     setSelectedMentorForRequest(model);
@@ -369,6 +607,40 @@ function AppContent() {
     setActiveModal('mentor');
   };
 
+  // Open a real chat with a mentor/scholar (uses the chat panel + local or
+  // Firestore conversation, depending on mode).
+  const handleMessageMentor = useCallback(
+    (mentor) => {
+      const source = mentor?.rawUser || mentor || {};
+      handleNewChat({
+        uid: source.uid || source.id,
+        name: source.name || 'Scholar',
+        title: source.title || source.field || 'Peer Scholar',
+        avatarUrl: source.avatarUrl,
+      });
+    },
+    [handleNewChat]
+  );
+
+  // "Propose swap" routes into the real request-session form prefilled with the
+  // chosen scholar (same flow as Discover's "Request Session" button).
+  const handleProposeSwap = useCallback(
+    (mentor) => {
+      setActiveModal(null);
+      handleRequestRealtime(mentor?.rawUser || mentor);
+    },
+    [handleRequestRealtime]
+  );
+
+  // "Direct Message" from the mentor modal opens the global chat drawer.
+  const handleDirectMessage = useCallback(
+    (mentor) => {
+      setActiveModal(null);
+      handleMessageMentor(mentor);
+    },
+    [handleMessageMentor]
+  );
+
   const handleExploreDemo = async () => {
     try {
       const res = await signIn('unknown@bscse.uiu.ac.bd', 'password123');
@@ -390,6 +662,32 @@ function AppContent() {
           <span className="material-symbols-outlined text-[18px] text-[#efdbfd]">info</span>
           <span>{toastMessage}</span>
         </div>
+      )}
+
+      {/* Global notification bell (messaging) */}
+      {currentUser && !activeChat && (
+        <div className="fixed top-16 right-4 z-[108]">
+          <NotificationBell
+            conversations={conversationsWithPeers}
+            myUid={myUid}
+            peers={chatPeers}
+            onOpenChat={handleOpenChat}
+            onNewChat={handleNewChat}
+          />
+        </div>
+      )}
+
+      {/* Global chat drawer */}
+      {activeChat && activeChat.conversation?.id && (
+        <ChatPanel
+          conversation={activeChat.conversation}
+          peer={activeChat.peer}
+          myUid={myUid}
+          messages={chatMessages[activeChat.conversation.id] || []}
+          onSend={handleSendChatMessage}
+          onClose={handleCloseChat}
+          onMarkRead={handleMarkChatRead}
+        />
       )}
 
       <AppRoutes
@@ -420,6 +718,7 @@ function AppContent() {
         realtime={isRealtime}
         realtimeUsers={realtimeUsers}
         onRequestRealtime={handleRequestRealtime}
+        onMessageMentor={handleMessageMentor}
         onAcceptRequest={handleAcceptIncoming}
         onDeclineRequest={handleDeclineIncoming}
         onRescheduleRequest={handleRescheduleIncoming}
@@ -434,6 +733,8 @@ function AppContent() {
         selectedSession={selectedSession}
         selectedMentor={selectedMentor}
         onShowToast={showToast}
+        onProposeSwap={handleProposeSwap}
+        onDirectMessage={handleDirectMessage}
       />
     </div>
   );

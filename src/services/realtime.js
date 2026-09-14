@@ -8,9 +8,11 @@ import {
   onSnapshot,
   query,
   where,
+  orderBy,
   getDocs,
   getDoc,
   arrayUnion,
+  increment,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { resolveAvatarForName, academicAssets } from '../assets';
@@ -461,5 +463,138 @@ export const updateSession = async (sessionId, fields) => {
 export const addSessionNote = async (sessionId, note) => {
   await updateDoc(doc(db, 'sessions', sessionId), {
     notes: arrayUnion(note),
+  });
+};
+
+// ---------------------------------------------------------------------------
+// Chat / conversations
+// ---------------------------------------------------------------------------
+
+// Deterministic id for a 1:1 conversation between two users.
+export const getConversationId = (uidA, uidB) => [uidA, uidB].sort().join('__');
+
+// Get or create the conversation document between two users.
+export const ensureConversation = async (uidA, uidB) => {
+  const convId = getConversationId(uidA, uidB);
+  const ref = doc(db, 'conversations', convId);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    return { id: snap.id, ...snap.data() };
+  }
+  const data = {
+    participantIds: [uidA, uidB],
+    lastText: '',
+    lastFrom: '',
+    lastFromName: '',
+    unread: { [uidA]: 0, [uidB]: 0 },
+    updatedAt: Date.now(),
+  };
+  await setDoc(ref, data);
+  return { id: convId, ...data };
+};
+
+const mapConversation = (doc) => {
+  const d = doc.data();
+  return {
+    id: doc.id,
+    participantIds: d.participantIds || [],
+    lastText: d.lastText || '',
+    lastFrom: d.lastFrom || '',
+    lastFromName: d.lastFromName || '',
+    unread: d.unread || {},
+    updatedAt: d.updatedAt || 0,
+  };
+};
+
+const mapMessage = (doc) => {
+  const d = doc.data();
+  return {
+    id: doc.id,
+    conversationId: d.conversationId,
+    participantIds: d.participantIds || [],
+    fromUid: d.fromUid,
+    toUid: d.toUid,
+    text: d.text || '',
+    createdAt: d.createdAt || 0,
+    read: d.read || false,
+  };
+};
+
+// Live list of the current user's conversations, newest activity first.
+export const subscribeConversations = (uid, callback) => {
+  const q = query(
+    collection(db, 'conversations'),
+    where('participantIds', 'array-contains', uid)
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list = snap.docs
+        .map(mapConversation)
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      callback(list);
+    },
+    (err) => console.warn('Conversations listener error:', err)
+  );
+};
+
+// Live messages of a single conversation (oldest first).
+export const subscribeConversationMessages = (conversationId, callback) => {
+  const q = query(
+    collection(db, 'conversations', conversationId, 'messages'),
+    orderBy('createdAt', 'asc')
+  );
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map(mapMessage)),
+    (err) => console.warn('Messages listener error:', err)
+  );
+};
+
+// Send a message, creating the conversation if needed and bumping the
+// recipient's unread counter. Both writes happen in a single atomic batch, so
+// a message can never be sent to a non-existent conversation.
+export const sendMessage = async ({ conversationId, participantIds, fromUid, toUid, fromName, text }) => {
+  const convId = conversationId || getConversationId(fromUid, toUid);
+  const convRef = doc(db, 'conversations', convId);
+  const msgRef = doc(collection(db, 'conversations', convId, 'messages'));
+  const now = Date.now();
+
+  const batch = writeBatch(db);
+  batch.set(
+    convRef,
+    {
+      participantIds: participantIds || [fromUid, toUid],
+      lastText: text,
+      lastFrom: fromUid,
+      lastFromName: fromName || 'Scholar',
+      updatedAt: now,
+    },
+    { merge: true }
+  );
+  batch.set(msgRef, {
+    conversationId: convId,
+    participantIds: participantIds || [fromUid, toUid],
+    fromUid,
+    toUid,
+    text,
+    createdAt: now,
+    read: false,
+  });
+
+  // Commit the message + conversation atomically, then bump the recipient's
+  // unread counter. increment() creates `unread.<toUid>` if it does not exist,
+  // so a brand-new conversation gets `{ toUid: 1 }` without ever clobbering an
+  // existing recipient count (which a merge-set of the whole map would do).
+  await batch.commit();
+  await updateDoc(convRef, {
+    [`unread.${toUid}`]: increment(1),
+  });
+};
+
+// Reset the current user's unread counter for a conversation.
+export const markConversationRead = async (conversationId, uid) => {
+  await updateDoc(doc(db, 'conversations', conversationId), {
+    [`unread.${uid}`]: 0,
   });
 };

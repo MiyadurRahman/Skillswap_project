@@ -39,6 +39,7 @@ export const AppRoutes = ({
   realtime = false,
   realtimeUsers = [],
   onRequestRealtime,
+  onMessageMentor,
   onAcceptRequest,
   onDeclineRequest,
   onRescheduleRequest,
@@ -177,6 +178,9 @@ export const AppRoutes = ({
           sessions={sessions}
           onSelectSession={onSelectSession}
           realtime={realtime}
+          realtimeUsers={realtimeUsers}
+          onRequestRealtime={onRequestRealtime}
+          onMessageMentor={onMessageMentor}
         />
       );
 

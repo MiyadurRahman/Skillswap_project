@@ -1,18 +1,26 @@
 import React from 'react';
+import { resolveAvatarForName } from '../assets';
 
-export const MentorCard = ({ mentor, onSelect, onShowToast }) => {
+export const MentorCard = ({ mentor, onSelect, onMessage, onShowToast }) => {
   return (
     <div
       id={`mentor-card-${mentor.id}`}
       className="bg-white rounded-2xl p-4 ambient-lift border border-[#ccc4cd]/40 hover:border-[#c5b3d3] transition-all flex items-center justify-between gap-3"
     >
       <div className="flex items-center gap-3">
-        <div className="relative">
-          <img
-            src={mentor.avatarUrl}
-            alt={mentor.name}
-            className="w-12 h-12 rounded-full object-cover border border-[#ccc4cd]/50 shadow-sm"
-          />
+        <div className="relative shrink-0">
+          <div className="w-12 h-12 rounded-full overflow-hidden border border-[#ccc4cd]/50 shadow-sm bg-[#eeddf2]">
+            <img
+              src={mentor.avatarUrl}
+              alt={mentor.name}
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = resolveAvatarForName(mentor.name);
+              }}
+              className="w-full h-full object-cover"
+            />
+          </div>
           {mentor.isOnline && (
             <span
               title="Online now"
@@ -56,7 +64,13 @@ export const MentorCard = ({ mentor, onSelect, onShowToast }) => {
           Book Swap
         </button>
         <button
-          onClick={() => onShowToast(`Sent connection invitation to ${mentor.name}`)}
+          onClick={() => {
+            if (onMessage) {
+              onMessage(mentor);
+            } else if (onShowToast) {
+              onShowToast(`Sent connection invitation to ${mentor.name}`);
+            }
+          }}
           className="px-3 py-1 bg-[#fdf1f1] hover:bg-[#f7ebeb] text-[#675975] rounded-full text-[11px] font-medium transition-colors text-center"
         >
           Message

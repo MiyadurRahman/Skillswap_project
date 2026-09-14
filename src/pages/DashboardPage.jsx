@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ActiveSessionCard } from '../component/ActiveSessionCard';
 import { MentorCard } from '../component/MentorCard';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/AuthContext';
+import { allPeers } from '../data/peersData';
 
 export const DashboardPage = ({
   onNavigateScreen,
@@ -14,6 +15,9 @@ export const DashboardPage = ({
   sessions = [],
   onSelectSession,
   realtime = false,
+  realtimeUsers = [],
+  onRequestRealtime,
+  onMessageMentor,
 }) => {
   const { currentUser, userProfile: authProfile, logOut } = useAuth();
   const userProfile = authProfile || propProfile || {};
@@ -60,7 +64,35 @@ export const DashboardPage = ({
     },
   ];
 
-  const mentors = [
+  // Normalize a peer (demo allPeers or realtime Firestore user) into the shape
+  // MentorCard / the mentor modal expects.
+  const toMentorCard = (peer) => {
+    const skillNames = Array.isArray(peer.skillsTeach)
+      ? peer.skillsTeach.map((s) => (typeof s === 'string' ? s : s?.name)).filter(Boolean)
+      : Array.isArray(peer.skills)
+        ? peer.skills.map((s) => (typeof s === 'string' ? s : s?.name)).filter(Boolean)
+        : [];
+    return {
+      id: peer.uid || peer.id || `peer-${peer.name}`,
+      name: peer.name || 'Scholar',
+      field: peer.title || peer.primaryField || 'Academic Scholar',
+      institution: peer.university || peer.institution || 'University',
+      rating: peer.rating ?? 4.8,
+      reviewsCount: peer.reviewsCount ?? 0,
+      avatarUrl: peer.avatarUrl,
+      isOnline: peer.isOnline !== false,
+      badges:
+        skillNames.length > 0
+          ? skillNames.slice(0, 3)
+          : peer.badges && peer.badges.length > 0
+            ? peer.badges
+            : ['Verified Scholar'],
+      hourlyRateCredits: peer.hourlyCredits ?? peer.hourlyRateCredits ?? 1.0,
+      rawUser: peer,
+    };
+  };
+
+  const fallbackMentors = [
     {
       id: 'mentor-1',
       name: 'Dr. Rafiqul Islam',
@@ -111,6 +143,16 @@ export const DashboardPage = ({
     },
   ];
 
+  // The same scholars Discover shows: live Firestore users in realtime mode,
+  // the shared demo peer dataset otherwise.
+  const recommendedMentors = useMemo(() => {
+    const source = realtime
+      ? realtimeUsers.filter((u) => u.uid && u.uid !== currentUser?.uid)
+      : allPeers;
+    const mapped = source.map(toMentorCard);
+    return mapped.length > 0 ? mapped : fallbackMentors;
+  }, [realtime, realtimeUsers, currentUser?.uid]);
+
   const weeklyGrowthBars = [
     { day: 'MON', height: '30%', hours: '1.5 hrs' },
     { day: 'TUE', height: '50%', hours: '2.5 hrs' },
@@ -121,9 +163,19 @@ export const DashboardPage = ({
     { day: 'SUN', height: '95%', hours: '4.5 hrs' },
   ];
 
-  const trendingTags = ['Python for Bio', 'LATEX Mastery', 'GIS Mapping', 'Sociology 101'];
+  // Derive trending tags from the actual recommended scholars so the filter
+  // chips always match real skills instead of stale hardcoded strings.
+  const trendingTags = useMemo(() => {
+    const seen = [];
+    recommendedMentors.forEach((m) => {
+      (m.badges || []).forEach((b) => {
+        if (b && !seen.includes(b)) seen.push(b);
+      });
+    });
+    return seen.slice(0, 5);
+  }, [recommendedMentors]);
 
-  const filteredMentors = mentors.filter((m) => {
+  const filteredMentors = recommendedMentors.filter((m) => {
     if (selectedTag && !m.badges.some((b) => b.toLowerCase().includes(selectedTag.toLowerCase())) && !m.field.toLowerCase().includes(selectedTag.toLowerCase())) {
       return false;
     }
@@ -343,7 +395,7 @@ export const DashboardPage = ({
           {/* Quick Action & Signout */}
           <div className="pt-6 border-t border-[#ccc4cd]/30 space-y-2">
             <button
-              onClick={() => onShowToast('Opening Matchmaking engine: finding optimal peer swap...')}
+              onClick={() => onNavigateScreen('discover')}
               className="w-full bg-[#675975] hover:bg-[#52445f] text-white py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">person_search</span>
@@ -376,7 +428,7 @@ export const DashboardPage = ({
                 </p>
                 <div className="pt-3 flex flex-wrap gap-3">
                   <button
-                    onClick={() => onShowToast('Initiating peer matching request...')}
+                    onClick={() => onNavigateScreen('discover')}
                     className="px-4 py-2 bg-[#c5b3d3] hover:bg-[#a992bb] text-[#52445f] font-bold text-xs rounded-full transition-all cursor-pointer shadow-sm"
                   >
                     Request New Swap
@@ -568,7 +620,20 @@ export const DashboardPage = ({
                 <MentorCard
                   key={mentor.id}
                   mentor={mentor}
-                  onOpenMentorModal={() => onOpenMentorModal(mentor)}
+                  onSelect={() => {
+                    if (onRequestRealtime && mentor.rawUser) {
+                      onRequestRealtime(mentor.rawUser);
+                    } else if (onOpenMentorModal) {
+                      onOpenMentorModal(mentor);
+                    }
+                  }}
+                  onMessage={() => {
+                    if (onMessageMentor && mentor.rawUser) {
+                      onMessageMentor(mentor.rawUser);
+                    } else if (onOpenMentorModal) {
+                      onOpenMentorModal(mentor);
+                    }
+                  }}
                   onShowToast={onShowToast}
                 />
               ))}
