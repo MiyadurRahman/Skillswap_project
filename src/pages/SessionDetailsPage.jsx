@@ -13,6 +13,7 @@ export const SessionDetailsPage = ({
   onUpdateSession,
   onAddSessionNote,
   realtime = false,
+  onMessageMentor,
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
   const userRole = authProfile?.academicLevel || 'PhD Candidate';
@@ -105,8 +106,6 @@ export const SessionDetailsPage = ({
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState('Thursday, Oct 25');
   const [rescheduleTime, setRescheduleTime] = useState('03:30 PM — 05:00 PM');
-  const [isMessageOpen, setIsMessageOpen] = useState(false);
-  const [messageInput, setMessageInput] = useState('');
   const [showSessionsDropdown, setShowSessionsDropdown] = useState(false);
 
   // Partner first name for quick button text (e.g. "Message Aris")
@@ -236,15 +235,6 @@ export const SessionDetailsPage = ({
       onSelectPeerProfile(session.partner);
     }
     onNavigateScreen('public-profile');
-  };
-
-  // Send message to partner
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!messageInput.trim()) return;
-    setIsMessageOpen(false);
-    setMessageInput('');
-    onShowToast?.(`💬 Message dispatched to ${session.partner?.name || 'partner'}!`);
   };
 
   return (
@@ -853,7 +843,19 @@ export const SessionDetailsPage = ({
                 {/* Partner Action Buttons */}
                 <div className="w-full space-y-2.5 pt-2 border-t border-[#f4e8e5]">
                   <button
-                    onClick={() => setIsMessageOpen(true)}
+                    onClick={() => {
+                      const partner = session.partner || {};
+                      if (onMessageMentor) {
+                        onMessageMentor({
+                          uid: partner.uid || partner.id,
+                          name: partner.name || 'Partner',
+                          title: partner.title || 'Peer Scholar',
+                          avatarUrl: partner.avatarUrl,
+                        });
+                      } else if (onShowToast) {
+                        onShowToast(`Opening chat with ${partner.name || 'partner'}...`);
+                      }
+                    }}
                     className="w-full py-2.5 px-4 text-[#201a1b] hover:bg-[#fbf4f2] border border-[#eddcd8] rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                     id="btn-message-partner"
                   >
@@ -1000,63 +1002,6 @@ export const SessionDetailsPage = ({
                   className="px-5 py-2 bg-[#57445f] hover:bg-[#43334a] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
                 >
                   Confirm Reschedule
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: Message Partner Dialog */}
-      {isMessageOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-[#f4e8e5] pb-3">
-              <div className="flex items-center gap-2.5">
-                <img
-                  src={session.partner?.avatarUrl}
-                  alt={session.partner?.name}
-                  referrerPolicy="no-referrer"
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-                <div>
-                  <h3 className="font-bold text-sm text-[#201a1b]">
-                    Message {session.partner?.name}
-                  </h3>
-                  <p className="text-[10px] text-[#705e69]">SkillSwap Direct Academic Inquiry</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsMessageOpen(false)}
-                className="text-[#8c7b86] hover:text-[#201a1b] cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleSendMessage} className="space-y-4 text-xs">
-              <textarea
-                rows={4}
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                placeholder={`Hi ${partnerFirstName}, I wanted to ask regarding our upcoming session...`}
-                className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl p-3 text-xs text-[#201a1b] focus:outline-none focus:border-[#57445f]"
-                autoFocus
-              />
-
-              <div className="flex justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsMessageOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-[#705e69] hover:text-[#201a1b]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-[#57445f] hover:bg-[#43334a] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
-                >
-                  Send Message
                 </button>
               </div>
             </form>

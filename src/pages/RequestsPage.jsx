@@ -29,6 +29,7 @@ export const RequestsPage = ({
   onSendRequest,
   onCancelOutgoingRequest,
   onConfirmRescheduleRequest,
+  onMessageMentor,
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
@@ -81,9 +82,6 @@ export const RequestsPage = ({
   const [newProposedDate, setNewProposedDate] = useState('2024-10-28');
   const [newProposedSlot, setNewProposedSlot] = useState('Afternoon (14:00 - 15:30)');
   const [rescheduleNote, setRescheduleNote] = useState('');
-
-  const [messagingReq, setMessagingReq] = useState(null);
-  const [quickMessageText, setQuickMessageText] = useState('');
 
   // Incoming pending count
   const pendingCount = incomingList.filter((r) => r.status === 'pending').length;
@@ -361,12 +359,19 @@ export const RequestsPage = ({
     onShowToast('Reschedule declined. Request has been withdrawn.');
   };
 
-  // Handler: Send Quick Message
-  const handleConfirmQuickMessage = () => {
-    if (!messagingReq || !quickMessageText.trim()) return;
-    onShowToast(`Message delivered to ${messagingReq.requester.name}`);
-    setMessagingReq(null);
-    setQuickMessageText('');
+  // Handler: Open the real chat drawer with a scholar/requester/mentor.
+  const openRealChat = (person) => {
+    if (!person) return;
+    if (onMessageMentor) {
+      onMessageMentor({
+        uid: person.uid || person.id,
+        name: person.name || 'Scholar',
+        title: person.title || person.badge1 || 'Peer Scholar',
+        avatarUrl: person.avatarUrl,
+      });
+    } else {
+      onShowToast(`Opening chat with ${person.name || 'Scholar'}...`);
+    }
   };
 
   // Handler: Submit the "Request a Learning Session" Form (from Screenshot)
@@ -904,10 +909,7 @@ export const RequestsPage = ({
                         </button>
 
                         <button
-                          onClick={() => {
-                            setMessagingReq(req);
-                            setQuickMessageText('');
-                          }}
+                          onClick={() => openRealChat(req.requester)}
                           className="text-xs font-semibold text-[#705e69] hover:text-[#201a1b] flex items-center gap-1 cursor-pointer"
                         >
                           <span className="material-symbols-outlined text-[15px]">mail</span>
@@ -1150,9 +1152,16 @@ export const RequestsPage = ({
                     )}
 
                     <div className="flex items-center justify-between gap-3 pt-2">
-                      <p className="text-xs text-[#705e69] italic">
+                      <p className="text-xs text-[#705e69] italic flex-1 min-w-0">
                         "{req.goals}"
                       </p>
+                      <button
+                        onClick={() => openRealChat(req.mentor)}
+                        className="text-xs font-semibold text-[#57445f] hover:underline flex items-center gap-1 cursor-pointer shrink-0"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">chat_bubble</span>
+                        <span>Message Mentor</span>
+                      </button>
                       {req.status === 'pending' && (
                         <button
                           onClick={() => {
@@ -1233,6 +1242,20 @@ export const RequestsPage = ({
                     <span>{currentMentor.badge2 || '450+ Sessions Completed'}</span>
                   </div>
                 </div>
+
+                {/* Reach out before you book */}
+                <button
+                  onClick={() => openRealChat(currentMentor)}
+                  className="w-full py-2.5 bg-[#eeddf2] hover:bg-[#e2c7e8] text-[#473b4b] rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">chat_bubble</span>
+                  <span>
+                    Message{' '}
+                    {currentMentor.name
+                      .replace(/^(Dr\.|Prof\.|Mr\.|Ms\.|Mrs\.)\s+/, '')
+                      .split(' ')[0] || currentMentor.name}
+                  </span>
+                </button>
               </div>
 
               {/* Booking Policy Card (Blush Background matching Screenshot) */}
@@ -1412,6 +1435,16 @@ export const RequestsPage = ({
                         id="btn-cancel-request"
                       >
                         Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openRealChat(currentMentor)}
+                        className="text-sm font-semibold text-[#524156] hover:text-[#201a1b] px-4 py-2 cursor-pointer transition-colors flex items-center gap-1.5"
+                        id="btn-message-current-mentor"
+                      >
+                        <span className="material-symbols-outlined text-[17px]">chat_bubble</span>
+                        <span>Message</span>
                       </button>
 
                       <button
@@ -1669,38 +1702,6 @@ export const RequestsPage = ({
                 className="px-4 py-2 bg-[#473b4b] text-white font-bold text-xs rounded-xl"
               >
                 Send Proposal
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Message Modal */}
-      {messagingReq && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <h3 className="font-bold text-base text-[#201a1b]">
-              Send Pre-Session Message to {messagingReq.requester.name}
-            </h3>
-            <textarea
-              rows={4}
-              value={quickMessageText}
-              onChange={(e) => setQuickMessageText(e.target.value)}
-              placeholder="Ask a clarifying question about their dataset, goals, or prerequisites..."
-              className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl p-3 text-xs text-[#201a1b]"
-            />
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setMessagingReq(null)}
-                className="px-4 py-2 text-xs font-semibold text-[#705e69]"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmQuickMessage}
-                className="px-4 py-2 bg-[#473b4b] text-white font-bold text-xs rounded-xl"
-              >
-                Send Message
               </button>
             </div>
           </div>

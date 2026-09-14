@@ -10,19 +10,16 @@ export const PublicProfilePage = ({
   userProfile: currentLoggedProfile,
   profileData: customProfile,
   onCreateSession,
+  onMessageMentor,
 }) => {
   const { userProfile: authProfile } = useAuth();
   const activeUser = authProfile || currentLoggedProfile || {};
 
-  // Session Request Dialog state
+  // Message Dialog state (real chat is opened via the global drawer)
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState('Thu, 3:00 PM');
   const [offeredSkill, setOfferedSkill] = useState('Python Data Science');
   const [sessionTopic, setSessionTopic] = useState('Introduction to Behavioral Economics and Market Heuristics');
-
-  // Message Dialog state
-  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
-  const [messageText, setMessageText] = useState('');
 
   // Reviews expansion state
   const [showAllReviews, setShowAllReviews] = useState(false);
@@ -157,14 +154,6 @@ export const PublicProfilePage = ({
       onShowToast(`✨ Session scheduled with ${profile.name}!`);
       onNavigateScreen('session-details');
     }
-  };
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!messageText.trim()) return;
-    setIsMessageModalOpen(false);
-    setMessageText('');
-    onShowToast(`💬 Direct academic inquiry dispatched to ${profile.name}!`);
   };
 
   const userAvatar =
@@ -540,7 +529,18 @@ export const PublicProfilePage = ({
                 </button>
 
                 <button
-                  onClick={() => setIsMessageModalOpen(true)}
+                  onClick={() => {
+                    if (onMessageMentor) {
+                      onMessageMentor({
+                        uid: profile.uid || profile.id,
+                        name: profile.name || 'Scholar',
+                        title: profile.title || 'Peer Scholar',
+                        avatarUrl: profile.avatarUrl,
+                      });
+                    } else {
+                      onShowToast(`Opening chat with ${profile.name}...`);
+                    }
+                  }}
                   className="w-full py-3.5 px-4 bg-white hover:bg-[#fbf0ee] border-2 border-[#4a3b47] text-[#4a3b47] rounded-full text-xs font-bold uppercase tracking-wider transition-all active:scale-[0.98]"
                   id="btn-message-scholar"
                 >
@@ -715,63 +715,7 @@ export const PublicProfilePage = ({
         </div>
       )}
 
-      {/* DIRECT MESSAGE MODAL */}
-      {isMessageModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-[#ecd9d5] max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between border-b border-[#f4e7e4] pb-3">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#4a3b47]">chat</span>
-                <h3 className="font-bold text-base text-[#201a1b]">
-                  Message {profile.name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsMessageModalOpen(false)}
-                className="text-[#8e7a87] hover:text-[#201a1b] p-1"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleSendMessage} className="space-y-4 text-xs">
-              <p className="text-[11px] text-[#786571]">
-                Initiate a discussion on mutual skills, scheduling options, or thesis methodology support.
-              </p>
-
-              <div>
-                <label className="font-bold text-[#453742] block mb-1">
-                  Your Message
-                </label>
-                <textarea
-                  rows={4}
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  placeholder={`Hello ${profile.name}, I noticed your expertise in Behavioral Economics and would love to propose a 1-on-1 intellectual exchange...`}
-                  className="w-full bg-[#fdf8f7] border border-[#e2d0cd] rounded-xl p-3 text-[#201a1b] focus:outline-none focus:border-[#4a3b47]"
-                  required
-                ></textarea>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsMessageModalOpen(false)}
-                  className="px-4 py-2 font-semibold text-[#786571] hover:text-[#201a1b]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-[#4a3b47] hover:bg-[#342738] text-white font-bold rounded-xl transition-colors shadow-xs"
-                >
-                  Send Inquiry
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* DIRECT MESSAGE opens the real global chat drawer (no fake modal) */}
 
     </div>
   );

@@ -174,6 +174,7 @@ function AppContent() {
     const convId = activeChat?.conversation?.id;
     if (!isRealtime || !myUid || !convId) return;
     const unsub = subscribeConversationMessages(convId, (msgs) => {
+      console.info('[chat] subscription', convId, `${msgs.length} msgs`, msgs.map((m) => `${m.fromUid.slice(0,6)}`).join(', '));
       setChatMessages((prev) => ({ ...prev, [convId]: msgs }));
     });
     return () => unsub();
@@ -184,16 +185,14 @@ function AppContent() {
     if (isRealtime) return;
     const restore = () => {
       try {
-        setSessions(JSON.parse(localStorage.getItem('skillswap_sessions')) || initialSessions);
-        setIncomingRequests(
-          JSON.parse(localStorage.getItem('skillswap_incoming_requests')) || initialIncomingRequests
-        );
-        setOutgoingRequests(
-          JSON.parse(localStorage.getItem('skillswap_outgoing_requests')) || initialOutgoingRequests
-        );
-        setConversations(
-          JSON.parse(localStorage.getItem('skillswap_conversations')) || initialConversations
-        );
+        const sessions = JSON.parse(localStorage.getItem('skillswap_sessions'));
+        setSessions(Array.isArray(sessions) ? sessions : initialSessions);
+        const inc = JSON.parse(localStorage.getItem('skillswap_incoming_requests'));
+        setIncomingRequests(Array.isArray(inc) ? inc : initialIncomingRequests);
+        const out = JSON.parse(localStorage.getItem('skillswap_outgoing_requests'));
+        setOutgoingRequests(Array.isArray(out) ? out : initialOutgoingRequests);
+        const convs = JSON.parse(localStorage.getItem('skillswap_conversations'));
+        setConversations(Array.isArray(convs) ? convs : initialConversations);
         setChatMessages({});
         setActiveChat(null);
         setSelectedSessionId(null);
@@ -207,6 +206,19 @@ function AppContent() {
     restore();
   }, [isRealtime]);
 
+  // Hydrate conversations + chat history from localStorage on mount so the UI
+  // isn't blank while the Firestore subscriptions are still connecting.
+  useEffect(() => {
+    try {
+      const conv = JSON.parse(localStorage.getItem('skillswap_conversations') || '[]');
+      if (Array.isArray(conv)) setConversations(conv);
+      const msgs = JSON.parse(localStorage.getItem('skillswap_chat_messages') || '{}');
+      if (msgs && typeof msgs === 'object' && !Array.isArray(msgs)) setChatMessages(msgs);
+    } catch (e) {
+      // Fresh session — no cache to restore.
+    }
+  }, []);
+
   // Persist demo data to localStorage only (realtime data lives in Firestore).
   useEffect(() => {
     if (isRealtime) return;
@@ -217,25 +229,22 @@ function AppContent() {
     }
   }, [sessions, isRealtime]);
 
-  // Persist demo-mode conversations + chat messages so chats survive reloads
-  // (same localStorage keys openChatSeed already reads to restore).
+  // Persist conversations so the UI isn't blank while subscriptions connect.
   useEffect(() => {
-    if (isRealtime) return;
     try {
       localStorage.setItem('skillswap_conversations', JSON.stringify(conversations));
     } catch (e) {
       console.warn('Failed to save conversations:', e);
     }
-  }, [conversations, isRealtime]);
+  }, [conversations]);
 
   useEffect(() => {
-    if (isRealtime) return;
     try {
       localStorage.setItem('skillswap_chat_messages', JSON.stringify(chatMessages));
     } catch (e) {
       console.warn('Failed to save chat messages:', e);
     }
-  }, [chatMessages, isRealtime]);
+  }, [chatMessages]);
 
   useEffect(() => {
     if (isRealtime) return;
@@ -513,8 +522,9 @@ function AppContent() {
             fromName: myProfile?.name || 'Scholar',
             text,
           });
+          console.info('[chat] sent ->', { convId, fromUid: myUid, toUid: peerUid, text });
         } catch (e) {
-          console.warn('Send message failed:', e);
+          console.warn('[chat] send failed:', { convId, fromUid: myUid, toUid: peerUid }, e);
           showToast('Could not send message. Please try again.');
         }
         return;

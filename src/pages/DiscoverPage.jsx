@@ -15,6 +15,7 @@ export const DiscoverPage = ({
   realtime = false,
   realtimeUsers = [],
   onRequestRealtime,
+  onMessageMentor,
 }) => {
   const { currentUser, userProfile: authProfile, logOut } = useAuth();
   const userProfile = authProfile || propProfile || {};
@@ -608,6 +609,7 @@ export const DiscoverPage = ({
                           </span>
                         ))}
                       </div>
+                      <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => onRequestRealtime && onRequestRealtime(person)}
                         className="w-full py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
@@ -615,8 +617,18 @@ export const DiscoverPage = ({
                         <span className="material-symbols-outlined text-[15px]">
                           calendar_add_on
                         </span>
-                        <span>Request Session</span>
+                        <span>Request</span>
                       </button>
+                      <button
+                        onClick={() => onMessageMentor && onMessageMentor(person)}
+                        className="w-full py-2 bg-[#eeddf2] hover:bg-[#e2c7e8] text-[#473b4b] rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          chat_bubble
+                        </span>
+                        <span>Message</span>
+                      </button>
+                    </div>
                     </div>
                   ))}
                 </div>

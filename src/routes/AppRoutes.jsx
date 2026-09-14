@@ -74,6 +74,7 @@ export const AppRoutes = ({
           onSendRequest={onSendRequest}
           onCancelOutgoingRequest={onCancelOutgoingRequest}
           onConfirmRescheduleRequest={onConfirmRescheduleRequest}
+          onMessageMentor={onMessageMentor}
         />
       );
 
@@ -91,6 +92,7 @@ export const AppRoutes = ({
           onUpdateSession={onUpdateSession}
           onAddSessionNote={onAddSessionNote}
           realtime={realtime}
+          onMessageMentor={onMessageMentor}
         />
       );
 
@@ -105,6 +107,7 @@ export const AppRoutes = ({
           onOpenMentorModal={onOpenMentor}
           onShowToast={onShowToast}
           onCreateSession={onCreateSession}
+          onMessageMentor={onMessageMentor}
         />
       );
     case 'get-started':
@@ -163,6 +166,7 @@ export const AppRoutes = ({
           realtime={realtime}
           realtimeUsers={realtimeUsers}
           onRequestRealtime={onRequestRealtime}
+          onMessageMentor={onMessageMentor}
         />
       );
 
