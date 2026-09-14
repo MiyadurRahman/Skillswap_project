@@ -278,10 +278,7 @@ export const DashboardPage = ({
               <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
             </button>
             <button
-              onClick={() => {
-                onDone();
-                onShowToast('Showing all your peer tutoring sessions');
-              }}
+              onClick={() => go('schedule')}
               className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">calendar_today</span>
@@ -527,7 +524,7 @@ export const DashboardPage = ({
                 </p>
               </div>
               <button
-                onClick={() => onShowToast('Opening Schedule Calendar...')}
+                onClick={() => onNavigateScreen('schedule')}
                 className="text-xs text-[#675975] font-bold hover:underline cursor-pointer"
               >
                 View Full Calendar

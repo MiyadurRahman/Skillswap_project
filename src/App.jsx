@@ -34,6 +34,7 @@ import {
   updateSession,
   addSessionNote,
   buildRequesterSnapshot,
+  resolveSessionTimes,
 } from './services/realtime';
 
 // Convert a real Firestore user into the shape the request form expects.
@@ -356,13 +357,21 @@ function AppContent() {
 
   const handleUpdateSession = useCallback(
     (updatedSession) => {
+      const next = {
+        status: updatedSession.status,
+        date: updatedSession.date,
+        time: updatedSession.time,
+        title: updatedSession.title,
+      };
+      const { startAt, endAt } = resolveSessionTimes(updatedSession);
+      if (startAt) {
+        next.startAt = startAt;
+        next.endAt = endAt;
+      }
       if (isRealtime && updatedSession?.id) {
-        updateSession(updatedSession.id, {
-          status: updatedSession.status,
-          date: updatedSession.date,
-          time: updatedSession.time,
-          title: updatedSession.title,
-        }).catch((e) => console.warn('Update session failed:', e));
+        updateSession(updatedSession.id, next).catch((e) =>
+          console.warn('Update session failed:', e)
+        );
         return;
       }
       setSessions((prev) =>

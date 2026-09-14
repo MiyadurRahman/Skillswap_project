@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MobileNav } from '../component/MobileNav';
+import { resolveSessionTimes } from '../services/realtime';
 
 export const SessionDetailsPage = ({
   session: activeSessionProp,
@@ -105,8 +106,13 @@ export const SessionDetailsPage = ({
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
-  const [rescheduleDate, setRescheduleDate] = useState('Thursday, Oct 25');
-  const [rescheduleTime, setRescheduleTime] = useState('03:30 PM — 05:00 PM');
+  const defaultStart = session?.startMs || resolveSessionTimes(session)?.startAt;
+  const [rescheduleDate, setRescheduleDate] = useState(
+    defaultStart
+      ? `${new Date(defaultStart).getFullYear()}-${String(new Date(defaultStart).getMonth() + 1).padStart(2, '0')}-${String(new Date(defaultStart).getDate()).padStart(2, '0')}`
+      : ''
+  );
+  const [rescheduleTime, setRescheduleTime] = useState(session?.time || 'Morning (09:00 - 12:00)');
   const [showSessionsDropdown, setShowSessionsDropdown] = useState(false);
 
   // Partner first name for quick button text (e.g. "Message Aris")
@@ -165,7 +171,15 @@ export const SessionDetailsPage = ({
       onUpdateSession(updatedSession);
     }
     setIsRescheduleOpen(false);
-    onShowToast?.(`Session rescheduled to ${rescheduleDate} at ${rescheduleTime}`);
+    const pretty =
+      rescheduleDate && /^\d{4}-\d{2}-\d{2}$/.test(rescheduleDate)
+        ? new Date(`${rescheduleDate}T00:00:00`).toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+          })
+        : rescheduleDate;
+    onShowToast?.(`Session rescheduled to ${pretty} (${rescheduleTime})`);
   };
 
   // Cancel Handler
@@ -204,11 +218,19 @@ export const SessionDetailsPage = ({
 
   // Add to Calendar .ics exporter
   const handleAddToCalendar = () => {
+    const start = session.startMs || resolveSessionTimes(session)?.startAt || Date.now();
+    const end = session.endMs || start + 60 * 60 * 1000;
+    const toICS = (ms) =>
+      new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
     const icsData = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//SkillSwap Academic//EN',
       'BEGIN:VEVENT',
+      `UID:${session.id}@skillswap`,
+      `DTSTAMP:${toICS(Date.now())}`,
+      `DTSTART:${toICS(start)}`,
+      `DTEND:${toICS(end)}`,
       `SUMMARY:${session.title} with ${session.partner?.name || 'Peer'}`,
       `DESCRIPTION:${session.description || 'Academic SkillSwap session'}`,
       `LOCATION:${session.platform || 'SkillSwap Connect'}`,
@@ -976,10 +998,10 @@ export const SessionDetailsPage = ({
                   Select New Date:
                 </label>
                 <input
-                  type="text"
+                  type="date"
                   value={rescheduleDate}
                   onChange={(e) => setRescheduleDate(e.target.value)}
-                  placeholder="e.g. Thursday, Oct 25"
+                  min={new Date().toISOString().slice(0, 10)}
                   className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
                   required
                 />
@@ -989,14 +1011,16 @@ export const SessionDetailsPage = ({
                 <label className="block font-bold text-[#201a1b] mb-1.5">
                   Select New Time Slot:
                 </label>
-                <input
-                  type="text"
+                <select
                   value={rescheduleTime}
                   onChange={(e) => setRescheduleTime(e.target.value)}
-                  placeholder="e.g. 03:30 PM — 05:00 PM"
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
+                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f] cursor-pointer"
                   required
-                />
+                >
+                  <option value="Morning (09:00 - 12:00)">Morning (09:00 - 12:00)</option>
+                  <option value="Afternoon (13:00 - 16:00)">Afternoon (13:00 - 16:00)</option>
+                  <option value="Evening (17:00 - 20:00)">Evening (17:00 - 20:00)</option>
+                </select>
               </div>
 
               <div className="pt-2 flex justify-end gap-2.5">

@@ -9,6 +9,7 @@ import { SkillManagerPage } from '../pages/SkillManagerPage';
 import { PublicProfilePage } from '../pages/PublicProfilePage';
 import { SessionDetailsPage } from '../pages/SessionDetailsPage';
 import { RequestsPage } from '../pages/RequestsPage';
+import { SchedulePage } from '../pages/SchedulePage';
 
 export const AppRoutes = ({
   currentScreen,
@@ -93,6 +94,18 @@ export const AppRoutes = ({
           onAddSessionNote={onAddSessionNote}
           realtime={realtime}
           onMessageMentor={onMessageMentor}
+        />
+      );
+
+    case 'schedule':
+      return (
+        <SchedulePage
+          userProfile={userProfile}
+          sessions={sessions}
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onSelectSession={onSelectSession}
+          onUpdateSession={onUpdateSession}
+          onShowToast={onShowToast}
         />
       );
 

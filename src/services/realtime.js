@@ -198,10 +198,139 @@ export const mapOutgoingRequest = (doc) => {
   };
 };
 
+// ---------------------------------------------------------------------------
+// Session scheduling helpers
+// ---------------------------------------------------------------------------
+// Sessions historically store `date` / `time` as display strings
+// (e.g. 'Monday, Oct 28, 2024', 'Morning (09:00 - 12:00)', 'Tomorrow, 14:00').
+// These helpers normalize that into real timestamps so the calendar can place
+// and sort sessions reliably, while staying backwards-compatible with legacy docs.
+
+const SLOT_WINDOWS = {
+  morning: [9, 0, 12, 0],
+  afternoon: [13, 0, 16, 0],
+  evening: [17, 0, 20, 0],
+};
+
+const MONTH_INDEX = {
+  january: 0, jan: 0,
+  february: 1, feb: 1,
+  march: 2, mar: 2,
+  april: 3, apr: 3,
+  may: 4,
+  june: 5, jun: 5,
+  july: 6, jul: 6,
+  august: 7, aug: 7,
+  september: 8, sep: 8, sept: 8,
+  october: 9, oct: 9,
+  november: 10, nov: 10,
+  december: 11, dec: 11,
+};
+
+const parseClockTime = (str) => {
+  if (!str) return null;
+  const m = String(str).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2]);
+  const mer = (m[3] || '').toUpperCase();
+  if (mer === 'PM' && h < 12) h += 12;
+  if (mer === 'AM' && h === 12) h = 0;
+  return { h, min };
+};
+
+const slotToWindow = (slot) => {
+  if (!slot) return null;
+  const text = String(slot);
+  const lower = text.toLowerCase();
+  for (const key of ['morning', 'afternoon', 'evening']) {
+    if (lower.includes(key)) return SLOT_WINDOWS[key];
+  }
+  const range = text.match(
+    /(\d{1,2}):(\d{2})\s*(AM|PM)?\s*(?:-|—|–|to)\s*(\d{1,2}):(\d{2})\s*(AM|PM)?/i
+  );
+  if (range) {
+    const [start, , end] = [
+      parseClockTime(`${range[1]}:${range[2]}${range[3] ? ` ${range[3]}` : ''}`),
+      null,
+      parseClockTime(`${range[4]}:${range[5]}${range[6] ? ` ${range[6]}` : ''}`),
+    ];
+    if (start && end) return [start.h, start.min, end.h, end.min];
+  }
+  const single = parseClockTime(text);
+  if (single) return [single.h, single.min, single.h + 1, single.min];
+  return null;
+};
+
+const parseDateParts = (str) => {
+  if (!str) return null;
+  const text = String(str).trim();
+  const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) return [Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])];
+  if (/tomorrow/i.test(text)) {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return [d.getFullYear(), d.getMonth(), d.getDate()];
+  }
+  const named = text.match(/(?:[A-Za-z]+,\s*)?([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s*(\d{4}))?/);
+  if (named) {
+    const month = MONTH_INDEX[named[1].toLowerCase()];
+    if (month !== undefined) {
+      const year = named[3] ? Number(named[3]) : new Date().getFullYear();
+      return [year, month, Number(named[2])];
+    }
+  }
+  return null;
+};
+
+const durationToMinutes = (dur) => {
+  if (!dur) return 60;
+  const m = String(dur).match(/(\d+)/);
+  if (!m) return 60;
+  return Math.max(15, Math.min(Number(m[1]), 300));
+};
+
+const dayKey = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Resolve { startAt, endAt } (ms) from any supported date/time representation.
+export const resolveSessionTimes = ({ date, time, duration, startAt, endAt }) => {
+  const startTs = Number(startAt);
+  if (startTs && !Number.isNaN(startTs) && new Date(startTs).getFullYear() > 2000) {
+    const durMs = durationToMinutes(duration) * 60000;
+    const endTs = Number(endAt) || startTs + durMs;
+    return { startAt: startTs, endAt: endTs };
+  }
+  const parts = parseDateParts(date);
+  if (!parts) return { startAt: null, endAt: null };
+  const base = new Date(parts[0], parts[1], parts[2], 9, 0, 0);
+  const window = slotToWindow(time);
+  if (window) base.setHours(window[0], window[1], 0, 0);
+  const start = base.getTime();
+  const end = start + durationToMinutes(duration) * 60000;
+  return { startAt: start, endAt: end };
+};
+
+const sessionSchedule = (s) => {
+  const { startAt, endAt } = resolveSessionTimes({
+    date: s.date,
+    time: s.time,
+    duration: s.duration,
+    startAt: s.startAt,
+    endAt: s.endAt,
+  });
+  return {
+    startMs: startAt,
+    endMs: endAt,
+    dayKey: startAt ? dayKey(new Date(startAt)) : null,
+  };
+};
+
 export const mapSession = (doc, currentUid) => {
   const s = doc.data();
   const self = s.requester?.uid === currentUid ? s.requester : s.mentor;
   const partner = self === s.requester ? s.mentor || {} : s.requester || {};
+  const schedule = sessionSchedule(s);
   return {
     id: doc.id,
     originRequestId: s.originRequestId,
@@ -231,6 +360,9 @@ export const mapSession = (doc, currentUid) => {
     },
     notes: (s.notes || []).map((n) => ({ ...n })),
     createdAt: s.createdAt,
+    startMs: schedule.startMs,
+    endMs: schedule.endMs,
+    dayKey: schedule.dayKey,
   };
 };
 
@@ -372,6 +504,12 @@ export const acceptRequest = async ({
       ? '45 Minutes'
       : '60 Minutes';
 
+  const { startAt, endAt } = resolveSessionTimes({
+    date: request.formattedDate || request.preferredDate,
+    time: request.preferredTimeSlot,
+    duration,
+  });
+
   const sessionData = {
     originRequestId: requestId,
     title: request.requestedSkill,
@@ -387,6 +525,8 @@ export const acceptRequest = async ({
     platform,
     date: request.formattedDate || request.preferredDate,
     time: request.preferredTimeSlot,
+    startAt: startAt || null,
+    endAt: endAt || null,
     meetingLink,
     requester,
     mentor,
