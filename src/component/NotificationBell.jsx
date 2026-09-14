@@ -93,7 +93,7 @@ export const NotificationBell = ({
       {open && (
         <div
           ref={panelRef}
-          className="absolute right-0 top-full mt-2 w-[340px] max-h-[440px] bg-white border border-[#e8dfe4] rounded-2xl shadow-2xl z-[110] overflow-hidden flex flex-col"
+          className="absolute right-0 top-full mt-2 w-[340px] max-w-[calc(100vw-2rem)] max-h-[440px] bg-white border border-[#e8dfe4] rounded-2xl shadow-2xl z-[110] overflow-hidden flex flex-col"
         >
           {/* Header */}
           <div className="px-4 pt-4 pb-3 border-b border-[#f4e8e5] flex items-center justify-between shrink-0">

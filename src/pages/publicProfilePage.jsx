@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { MobileNav } from '../component/MobileNav';
 
 export const PublicProfilePage = ({
   onNavigateScreen,
@@ -167,7 +168,17 @@ export const PublicProfilePage = ({
       <header className="sticky top-0 w-full h-[68px] bg-[#3e313f] shadow-md z-40">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1320px] mx-auto h-full">
           {/* Left: Brand & Nav Links */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2 sm:gap-8">
+            <MobileNav
+              accent="#3e313f"
+              items={[
+                { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
+                { label: 'Discover', icon: 'explore', onClick: () => onNavigateScreen('discover') },
+                { label: 'Requests', icon: 'inbox', onClick: () => onNavigateScreen('requests') },
+                { label: 'My Sessions', icon: 'calendar_today', onClick: () => onNavigateScreen('session-details') },
+                { label: 'Skill Manager', icon: 'school', onClick: () => onNavigateScreen('skill-manager') },
+              ]}
+            />
             <span
               onClick={() => onNavigateScreen('discover')}
               className="text-2xl font-bold text-white tracking-tight cursor-pointer hover:opacity-95 transition-opacity"

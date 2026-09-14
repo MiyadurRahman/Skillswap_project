@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { MobileNav } from '../component/MobileNav';
 import { allPeers } from '../data/peersData';
 
 // Unified search/filter matcher for BOTH demo peers (allPeers) and realtime
@@ -334,7 +335,17 @@ export const DiscoverPage = ({
       <header className="sticky top-0 w-full h-[68px] bg-[#3e313f] shadow-md z-40">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1360px] mx-auto h-full">
           {/* Brand & Nav items */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2 sm:gap-8">
+            <MobileNav
+              accent="#3e313f"
+              items={[
+                { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
+                { label: 'Skill Manager', icon: 'school', onClick: () => onNavigateScreen('skill-manager') },
+                { label: 'Discover', icon: 'explore', active: true, onClick: () => setActiveTab('discover') },
+                { label: 'Requests', icon: 'inbox', badge: true, onClick: () => onNavigateScreen('requests') },
+                { label: 'My Sessions', icon: 'calendar_today', onClick: () => onNavigateScreen('session-details') },
+              ]}
+            />
             <span
               onClick={() => onNavigateScreen('dashboard')}
               className="text-2xl font-bold text-white tracking-tight cursor-pointer hover:opacity-95 transition-opacity"

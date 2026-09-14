@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { resolveAvatarForName } from '../assets';
 import { useAuth } from '../context/AuthContext';
+import { MobileNav } from '../component/MobileNav';
 
 export const SkillManagerPage = ({
   onNavigateScreen,
@@ -181,7 +182,16 @@ export const SkillManagerPage = ({
       <header className="sticky top-0 w-full h-[64px] bg-[#4a3b47] shadow-sm z-40">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1400px] mx-auto h-full">
           {/* Brand & Nav items */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2 sm:gap-8">
+            <MobileNav
+              accent="#4a3b47"
+              items={[
+                { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
+                { label: 'Search', icon: 'explore', onClick: () => onNavigateScreen('discover') },
+                { label: 'Requests', icon: 'inbox', onClick: () => onNavigateScreen('requests') },
+                { label: 'My Sessions', icon: 'calendar_today', onClick: () => onNavigateScreen('session-details') },
+              ]}
+            />
             <span
               onClick={() => onNavigateScreen('dashboard')}
               className="text-xl sm:text-2xl font-bold text-white tracking-tight cursor-pointer hover:opacity-95 transition-opacity"

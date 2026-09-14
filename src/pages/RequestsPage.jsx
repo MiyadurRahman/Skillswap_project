@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { MobileNav } from '../component/MobileNav';
 import {
   drJulianVance,
   initialIncomingRequests,
@@ -449,7 +450,16 @@ export const RequestsPage = ({
       <header className="sticky top-0 w-full h-[68px] bg-[#3e313f] shadow-md z-50">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1360px] mx-auto h-full">
           {/* Brand & Links */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2 sm:gap-8">
+            <MobileNav
+              accent="#3e313f"
+              items={[
+                { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
+                { label: 'Discover', icon: 'explore', onClick: () => onNavigateScreen('discover') },
+                { label: 'Requests', icon: 'inbox', active: true, badge: pendingCount > 0, onClick: () => setActiveTab('incoming') },
+                { label: 'My Sessions', icon: 'calendar_today', onClick: () => onNavigateScreen('session-details') },
+              ]}
+            />
             <span
               onClick={() => onNavigateScreen('discover')}
               className="text-2xl font-bold text-white tracking-tight cursor-pointer hover:opacity-95 transition-opacity"
@@ -539,7 +549,7 @@ export const RequestsPage = ({
       <div className="bg-[#fbf4f2] border-b border-[#eddcd8] px-4 sm:px-8 py-3.5">
         <div className="max-w-[1240px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* Main Segmented Switcher */}
-          <div className="flex items-center gap-1 bg-[#eeddf2]/60 p-1 rounded-2xl border border-[#ebd8d4]">
+          <div className="flex items-center gap-1 bg-[#eeddf2]/60 p-1 rounded-2xl border border-[#ebd8d4] overflow-x-auto max-w-full scrollbar-none">
             <button
               onClick={() => setActiveTab('incoming')}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${

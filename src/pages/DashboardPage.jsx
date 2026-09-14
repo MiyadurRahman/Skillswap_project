@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ActiveSessionCard } from '../component/ActiveSessionCard';
 import { MentorCard } from '../component/MentorCard';
+import { MobileNav } from '../component/MobileNav';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/AuthContext';
 import { allPeers } from '../data/peersData';
@@ -209,12 +210,141 @@ export const DashboardPage = ({
   const userRole = userProfile?.academicLevel || 'BSc in CSE';
   const userInstitution = userProfile?.university || 'United International University (UIU)';
 
+  // Sidebar body, shared between the desktop <aside> and the mobile drawer so
+  // navigation stays consistent across breakpoints. `onDone` closes the drawer.
+  const renderSidebar = (onDone = () => {}) => {
+    const go = (screen) => {
+      onDone();
+      onNavigateScreen(screen);
+    };
+    return (
+      <>
+        <div className="space-y-6">
+          {/* User Mini Profile Card */}
+          <div
+            onClick={() => go('profile-setup')}
+            className="flex items-center gap-3 pb-6 border-b border-[#ccc4cd]/30 cursor-pointer group"
+          >
+            <div className="w-12 h-12 rounded-full border-2 border-[#675975] overflow-hidden relative shrink-0">
+              <img
+                src={userAvatar}
+                alt={displayName}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="overflow-hidden">
+              <h2 className="font-bold text-sm text-[#201a1b] truncate group-hover:text-[#675975] transition-colors">
+                {displayName}
+              </h2>
+              <p className="text-xs text-[#4a454c] truncate">{userRole}</p>
+              <span className="inline-block text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded font-semibold mt-1 truncate max-w-full">
+                {userInstitution}
+              </span>
+            </div>
+          </div>
+
+          {/* Navigation links */}
+          <nav className="space-y-1">
+            <button
+              onClick={() => go('dashboard')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 bg-[#eeddf2] text-[#6c6071] rounded-xl font-bold text-xs cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">dashboard</span>
+              Overview
+            </button>
+            <button
+              onClick={() => go('skill-manager')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">school</span>
+              Skill Manager
+            </button>
+            <button
+              onClick={() => go('discover')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">explore</span>
+              Discover Peers
+            </button>
+            <button
+              onClick={() => go('requests')}
+              className="w-full flex items-center justify-between px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+              id="btn-nav-session-requests-dash"
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-[18px]">inbox</span>
+                <span>Session Requests</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
+            </button>
+            <button
+              onClick={() => {
+                onDone();
+                onShowToast('Showing all your peer tutoring sessions');
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">calendar_today</span>
+              My Schedule
+            </button>
+            <button
+              onClick={() => {
+                onDone();
+                onOpenWalletModal();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
+              Time Credit Ledger
+            </button>
+            <button
+              onClick={() => go('profile-setup')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">person</span>
+              Profile Settings
+            </button>
+          </nav>
+        </div>
+
+        {/* Quick Action & Signout */}
+        <div className="pt-6 border-t border-[#ccc4cd]/30 space-y-2">
+          <button
+            onClick={() => go('discover')}
+            className="w-full bg-[#675975] hover:bg-[#52445f] text-white py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">person_search</span>
+            Find a Peer
+          </button>
+          <button
+            onClick={async () => {
+              onDone();
+              try {
+                await logOut();
+                onShowToast('Successfully logged out.');
+                onNavigateScreen('login');
+              } catch (e) {
+                onShowToast('Logged out.');
+                onNavigateScreen('login');
+              }
+            }}
+            className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-[#7b757d] hover:text-red-700 font-semibold transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]">logout</span>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div id="screen-dashboard" className="bg-[#fff8f7] text-[#201a1b] min-h-screen">
       {/* Top Header */}
       <header className="fixed top-0 w-full h-[72px] bg-[#4e4353] shadow-md z-50">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1280px] mx-auto h-full">
-          <div className="flex items-center gap-6 sm:gap-8">
+          <div className="flex items-center gap-2 sm:gap-8">
+            <MobileNav accent="#4e4353">{(close) => renderSidebar(close)}</MobileNav>
             <span
               onClick={() => onNavigateScreen('dashboard')}
               className="text-2xl font-bold text-[#c5b3d3] tracking-tight cursor-pointer hover:opacity-90 transition-opacity"
@@ -310,105 +440,7 @@ export const DashboardPage = ({
       <div className="pt-[72px] flex max-w-[1280px] mx-auto min-h-screen">
         {/* Left Side Navigation */}
         <aside className="w-64 bg-[#fdf1f1] border-r border-[#ccc4cd]/30 p-6 hidden md:flex flex-col justify-between shrink-0">
-          <div className="space-y-6">
-            {/* User Mini Profile Card */}
-            <div
-              onClick={() => onNavigateScreen('profile-setup')}
-              className="flex items-center gap-3 pb-6 border-b border-[#ccc4cd]/30 cursor-pointer group"
-            >
-              <div className="w-12 h-12 rounded-full border-2 border-[#675975] overflow-hidden relative shrink-0">
-                <img
-                  src={userAvatar}
-                  alt={displayName}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="overflow-hidden">
-                <h2 className="font-bold text-sm text-[#201a1b] truncate group-hover:text-[#675975] transition-colors">
-                  {displayName}
-                </h2>
-                <p className="text-xs text-[#4a454c] truncate">{userRole}</p>
-                <span className="inline-block text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded font-semibold mt-1 truncate max-w-full">
-                  {userInstitution}
-                </span>
-              </div>
-            </div>
-
-            {/* Navigation links */}
-            <nav className="space-y-1">
-              <button
-                onClick={() => onNavigateScreen('dashboard')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 bg-[#eeddf2] text-[#6c6071] rounded-xl font-bold text-xs cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">dashboard</span>
-                Overview
-              </button>
-              <button
-                onClick={() => onNavigateScreen('skill-manager')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">school</span>
-                Skill Manager
-              </button>
-              <button
-                onClick={() => onNavigateScreen('discover')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">explore</span>
-                Discover Peers
-              </button>
-              <button
-                onClick={() => onNavigateScreen('requests')}
-                className="w-full flex items-center justify-between px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-                id="btn-nav-session-requests-dash"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[18px]">inbox</span>
-                  <span>Session Requests</span>
-                </div>
-                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
-              </button>
-              <button
-                onClick={() => onShowToast('Showing all your peer tutoring sessions')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-                My Schedule
-              </button>
-              <button
-                onClick={onOpenWalletModal}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
-                Time Credit Ledger
-              </button>
-              <button
-                onClick={() => onNavigateScreen('profile-setup')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">person</span>
-                Profile Settings
-              </button>
-            </nav>
-          </div>
-
-          {/* Quick Action & Signout */}
-          <div className="pt-6 border-t border-[#ccc4cd]/30 space-y-2">
-            <button
-              onClick={() => onNavigateScreen('discover')}
-              className="w-full bg-[#675975] hover:bg-[#52445f] text-white py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">person_search</span>
-              Find a Peer
-            </button>
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-[#7b757d] hover:text-red-700 font-semibold transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px]">logout</span>
-              <span>Sign Out</span>
-            </button>
-          </div>
+          {renderSidebar()}
         </aside>
 
         {/* Center Main Dashboard Area */}

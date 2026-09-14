@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { MobileNav } from '../component/MobileNav';
 
 export const SessionDetailsPage = ({
   session: activeSessionProp,
@@ -246,7 +247,16 @@ export const SessionDetailsPage = ({
       <header className="sticky top-0 w-full h-[68px] bg-[#473b4b] shadow-md z-40">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1400px] mx-auto h-full">
           {/* Brand & Tab Navigation */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2 sm:gap-8">
+            <MobileNav
+              accent="#473b4b"
+              items={[
+                { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
+                { label: 'Search', icon: 'explore', onClick: () => onNavigateScreen('discover') },
+                { label: 'Requests', icon: 'inbox', badge: true, onClick: () => onNavigateScreen('requests') },
+                { label: 'Skill Manager', icon: 'school', onClick: () => onNavigateScreen('skill-manager') },
+              ]}
+            />
             <span
               onClick={() => onNavigateScreen('dashboard')}
               className="text-2xl font-bold text-[#c5b3d3] tracking-tight cursor-pointer hover:opacity-90 transition-opacity"
@@ -468,7 +478,7 @@ export const SessionDetailsPage = ({
 
               {/* Sessions Switcher Dropdown (if multiple exist) */}
               {showSessionsDropdown && allSessions.length > 0 && (
-                <div className="absolute mt-8 bg-white border border-[#eddcd8] rounded-xl p-2 shadow-lg z-30 min-w-[240px]">
+                <div className="absolute mt-8 bg-white border border-[#eddcd8] rounded-xl p-2 shadow-lg z-30 min-w-[240px] max-w-[calc(100vw-2rem)]">
                   <p className="text-[10px] uppercase font-bold text-[#887580] px-2 py-1">
                     Your Scheduled Swaps:
                   </p>
