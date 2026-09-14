@@ -44,6 +44,7 @@ export const AppRoutes = ({
   onRescheduleRequest,
   onSendRequest,
   onCancelOutgoingRequest,
+  onConfirmRescheduleRequest,
 }) => {
   switch (currentScreen) {
     case 'requests':
@@ -71,6 +72,7 @@ export const AppRoutes = ({
           onRescheduleRequest={onRescheduleRequest}
           onSendRequest={onSendRequest}
           onCancelOutgoingRequest={onCancelOutgoingRequest}
+          onConfirmRescheduleRequest={onConfirmRescheduleRequest}
         />
       );
 

@@ -473,7 +473,7 @@ export const DashboardPage = ({
                   <ActiveSessionCard
                     key={session.id}
                     session={session}
-                    onOpenMeeting={() => onOpenMeetingModal(session.rawSession || session)}
+                    onJoin={() => onOpenMeetingModal(session.rawSession || session)}
                     onViewDetails={() => {
                       if (onSelectSession) {
                         onSelectSession(session.rawSession || session);

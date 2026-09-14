@@ -21,6 +21,7 @@ import {
   declineRequest,
   rescheduleRequest,
   cancelOutgoingRequest,
+  confirmRescheduleRequest,
   updateSession,
   addSessionNote,
   buildRequesterSnapshot,
@@ -325,6 +326,10 @@ function AppContent() {
     return rescheduleRequest(requestId, payload);
   }, []);
 
+  const handleConfirmRescheduleRequest = useCallback((requestId, newDate, newSlot) => {
+    return confirmRescheduleRequest(requestId, newDate, newSlot);
+  }, []);
+
   const handleCancelOutgoing = useCallback((requestId) => {
     return cancelOutgoingRequest(requestId);
   }, []);
@@ -420,6 +425,7 @@ function AppContent() {
         onRescheduleRequest={handleRescheduleIncoming}
         onSendRequest={handleSendRequest}
         onCancelOutgoingRequest={handleCancelOutgoing}
+        onConfirmRescheduleRequest={handleConfirmRescheduleRequest}
       />
 
       <Modals

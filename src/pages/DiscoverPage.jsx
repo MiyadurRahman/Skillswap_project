@@ -1101,8 +1101,10 @@ export const DiscoverPage = ({
               </div>
             )}
 
-            {/* PEER CARDS 2x2 GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2" id="peers-grid-container">
+            {/* PEER CARDS 2x2 GRID (hidden in realtime — real scholars appear above) */}
+            {!realtime && (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2" id="peers-grid-container">
               {paginatedPeers.map((peer) => (
                 <div
                   key={peer.id}
@@ -1245,10 +1247,13 @@ export const DiscoverPage = ({
                 </button>
               </div>
             )}
+              </>
+            )}
           </div>
 
           {/* 3. PAGINATION CONTROLS (matching < (1) 2 3 ... 12 >) */}
-          <div className="flex items-center justify-center gap-2 py-8 select-none" id="pagination-controls">
+          {!realtime && (
+            <div className="flex items-center justify-center gap-2 py-8 select-none" id="pagination-controls">
             {/* Prev */}
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -1319,6 +1324,7 @@ export const DiscoverPage = ({
               <span className="material-symbols-outlined text-[16px]">chevron_right</span>
             </button>
           </div>
+          )}
         </main>
       </div>
 

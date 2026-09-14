@@ -11,7 +11,7 @@ export const SkillManagerPage = ({
   userProfile: propProfile,
   onSaveProfileSkills,
 }) => {
-  const { currentUser, userProfile: authProfile, logOut } = useAuth();
+  const { currentUser, userProfile: authProfile, logOut, updateProfileData } = useAuth();
   const userProfile = authProfile || propProfile || {};
 
   // Active top navigation tab
@@ -127,12 +127,22 @@ export const SkillManagerPage = ({
   };
 
   // Save Skills
-  const handleSave = () => {
+  const handleSave = async () => {
     if (onSaveProfileSkills) {
       onSaveProfileSkills({
         skillsTeach,
         skillsWant,
       });
+    }
+    if (currentUser && !currentUser.isDemo && updateProfileData) {
+      try {
+        await updateProfileData({
+          expertiseAreas: skillsTeach,
+          learningGoals: skillsWant,
+        });
+      } catch (e) {
+        console.warn('Could not sync skills to Firestore:', e);
+      }
     }
     onShowToast('✨ Skill profile successfully updated and synchronized!');
   };

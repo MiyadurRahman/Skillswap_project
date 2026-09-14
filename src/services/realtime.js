@@ -176,6 +176,11 @@ export const mapOutgoingRequest = (doc) => {
     submittedAt: formatTimeAgo(r.createdAt),
     createdAt: r.createdAt,
     linkedSessionId: r.linkedSessionId,
+    responseNote: r.responseNote,
+    declineReason: r.declineReason,
+    rescheduledDate: r.rescheduledDate,
+    rescheduledSlot: r.rescheduledSlot,
+    rescheduleNote: r.rescheduleNote,
   };
 };
 
@@ -211,6 +216,7 @@ export const mapSession = (doc, currentUid) => {
       university: partner.university,
     },
     notes: (s.notes || []).map((n) => ({ ...n })),
+    createdAt: s.createdAt,
   };
 };
 
@@ -429,6 +435,21 @@ export const rescheduleRequest = async (requestId, { date, slot, note }) => {
 export const cancelOutgoingRequest = async (requestId) => {
   await updateDoc(doc(db, 'requests', requestId), {
     status: 'cancelled',
+    respondedAt: Date.now(),
+  });
+};
+
+// Requester confirms the mentor's proposed alternate time — reopens the
+// request with the new date/slot so the mentor can accept it.
+export const confirmRescheduleRequest = async (requestId, newDate, newSlot) => {
+  await updateDoc(doc(db, 'requests', requestId), {
+    status: 'pending',
+    preferredDate: newDate,
+    formattedDate: newDate,
+    preferredTimeSlot: newSlot,
+    rescheduledDate: null,
+    rescheduledSlot: null,
+    rescheduleNote: null,
     respondedAt: Date.now(),
   });
 };

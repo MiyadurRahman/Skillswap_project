@@ -28,6 +28,7 @@ export const RequestsPage = ({
   onRescheduleRequest,
   onSendRequest,
   onCancelOutgoingRequest,
+  onConfirmRescheduleRequest,
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
@@ -116,7 +117,7 @@ export const RequestsPage = ({
     // REALTIME: persist the acceptance to Firestore (session created server-side).
     if (realtime) {
       try {
-        await onAcceptRequest(acceptingReq, {
+        const sessionId = await onAcceptRequest(acceptingReq, {
           note: acceptNote,
           platform: acceptPlatform,
           meetingLink: acceptMeetingLink,
@@ -125,6 +126,9 @@ export const RequestsPage = ({
           `🎉 Request from ${acceptingReq.requester.name} accepted! A session was scheduled with your meeting link.`
         );
         setAcceptingReq(null);
+        if (sessionId && onSelectSession) {
+          onSelectSession({ id: sessionId });
+        }
       } catch (e) {
         console.warn('Accept failed:', e);
         onShowToast('Could not accept request. Please try again.');
@@ -304,6 +308,57 @@ export const RequestsPage = ({
       `Alternate time proposal sent to ${reschedulingReq.requester.name}. Awaiting scholar confirmation.`
     );
     setReschedulingReq(null);
+  };
+
+  // Handler: Outgoing request — respond to a mentor's proposed alternate time
+  const handleConfirmRescheduleResponse = async (req) => {
+    if (realtime) {
+      try {
+        await onConfirmRescheduleRequest(
+          req.id,
+          req.rescheduledDate || req.preferredDate,
+          req.rescheduledSlot || req.preferredTimeSlot
+        );
+        onShowToast(`New time confirmed with ${req.mentor.name}. Mentor will be notified.`);
+      } catch (e) {
+        console.warn('Confirm reschedule failed:', e);
+        onShowToast('Could not confirm new time. Please try again.');
+      }
+      return;
+    }
+
+    const updated = outgoingList.map((r) =>
+      r.id === req.id
+        ? {
+            ...r,
+            status: 'pending',
+            preferredDate: r.rescheduledDate || r.preferredDate,
+            formattedDate: r.rescheduledDate || r.formattedDate,
+            preferredTimeSlot: r.rescheduledSlot || r.preferredTimeSlot,
+            rescheduledDate: undefined,
+            rescheduledSlot: undefined,
+            rescheduleNote: undefined,
+          }
+        : r
+    );
+    updateOutgoing(updated);
+    onShowToast('Alternate time accepted. Request is pending mentor confirmation.');
+  };
+
+  const handleDeclineReschedule = async (req) => {
+    if (realtime) {
+      try {
+        await onCancelOutgoingRequest(req.id);
+        onShowToast('Reschedule declined. Request has been withdrawn.');
+      } catch (e) {
+        console.warn('Decline reschedule failed:', e);
+        onShowToast('Could not withdraw request. Please try again.');
+      }
+      return;
+    }
+
+    updateOutgoing(outgoingList.filter((r) => r.id !== req.id));
+    onShowToast('Reschedule declined. Request has been withdrawn.');
   };
 
   // Handler: Send Quick Message
@@ -1016,6 +1071,24 @@ export const RequestsPage = ({
                             <span>Confirmed Session</span>
                           </span>
                         )}
+                        {req.status === 'declined' && (
+                          <span className="px-3 py-1 rounded-full bg-[#fdeeee] text-[#8c464e] text-xs font-bold border border-[#f0c8c8] flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">cancel</span>
+                            <span>Declined</span>
+                          </span>
+                        )}
+                        {req.status === 'rescheduled' && (
+                          <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-xs font-bold border border-blue-200 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">update</span>
+                            <span>New Time Proposed</span>
+                          </span>
+                        )}
+                        {req.status === 'cancelled' && (
+                          <span className="px-3 py-1 rounded-full bg-[#f5f1f1] text-[#786b72] text-xs font-bold border border-[#e7dddd] flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">close</span>
+                            <span>Cancelled</span>
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1045,30 +1118,63 @@ export const RequestsPage = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2">
+                    {req.status === 'rescheduled' && req.rescheduledDate && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-blue-50 rounded-xl p-3.5 border border-blue-200">
+                        <div className="text-xs text-blue-800 font-medium">
+                          <span className="block font-bold uppercase tracking-wider text-blue-700 text-[10px] mb-0.5">
+                            Mentor Proposed Alternate Time
+                          </span>
+                          {req.rescheduledDate} ({req.rescheduledSlot || 'Flexible'})
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleConfirmRescheduleResponse(req)}
+                            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-full transition-colors cursor-pointer"
+                          >
+                            Confirm New Time
+                          </button>
+                          <button
+                            onClick={() => handleDeclineReschedule(req)}
+                            className="px-3.5 py-1.5 bg-transparent hover:bg-blue-100 text-blue-800 text-xs font-bold rounded-full border border-blue-300 transition-colors cursor-pointer"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {req.status === 'declined' && req.declineReason && (
+                      <div className="text-xs text-[#8c464e] bg-[#fdeeee] border border-[#f0c8c8] rounded-xl p-3.5">
+                        <span className="font-bold">Reason:</span> {req.declineReason}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-3 pt-2">
                       <p className="text-xs text-[#705e69] italic">
                         "{req.goals}"
                       </p>
-                      <button
-                        onClick={() => {
-                          if (realtime) {
-                            onCancelOutgoingRequest(req.id)
-                              .then(() =>
-                                onShowToast('Request withdrawn. Credits returned to your ledger.')
-                              )
-                              .catch((err) => {
-                                console.warn('Cancel request failed:', err);
-                                onShowToast('Could not withdraw request. Please try again.');
-                              });
-                          } else {
-                            onShowToast('Withdrawing request and returning credits to ledger.');
-                            updateOutgoing(outgoingList.filter((r) => r.id !== req.id));
-                          }
-                        }}
-                        className="text-xs font-semibold text-[#8c464e] hover:underline"
-                      >
-                        Cancel Request
-                      </button>
+                      {req.status === 'pending' && (
+                        <button
+                          onClick={() => {
+                            if (realtime) {
+                              onCancelOutgoingRequest(req.id)
+                                .then(() =>
+                                  onShowToast('Request withdrawn. Credits returned to your ledger.')
+                                )
+                                .catch((err) => {
+                                  console.warn('Cancel request failed:', err);
+                                  onShowToast('Could not withdraw request. Please try again.');
+                                });
+                            } else {
+                              onShowToast('Withdrawing request and returning credits to ledger.');
+                              updateOutgoing(outgoingList.filter((r) => r.id !== req.id));
+                            }
+                          }}
+                          className="text-xs font-semibold text-[#8c464e] hover:underline shrink-0"
+                        >
+                          Cancel Request
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

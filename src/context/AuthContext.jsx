@@ -119,9 +119,19 @@ export const AuthProvider = ({ children }) => {
       timeCredits: 24.5,
     };
     setUserProfile(profile);
-    upsertUserProfile(res.user.uid, profile).catch((e) => {
-      console.warn('Could not sync profile to Firestore:', e);
-    });
+    // Prefer the Firestore profile as source of truth; never overwrite newer
+    // server data with a stale local cache (ensureUserProfile only creates if
+    // the document doesn't exist yet).
+    ensureUserProfile(res.user.uid, profile)
+      .then((dbProfile) => {
+        if (dbProfile) {
+          setUserProfile(dbProfile);
+          saveProfileLocally(res.user.uid, dbProfile);
+        }
+      })
+      .catch((e) => {
+        console.warn('Could not sync profile to Firestore:', e);
+      });
     return { user: res.user, profile };
   };
 
