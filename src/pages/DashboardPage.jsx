@@ -13,13 +13,14 @@ export const DashboardPage = ({
   userProfile: propProfile,
   sessions = [],
   onSelectSession,
+  realtime = false,
 }) => {
   const { currentUser, userProfile: authProfile, logOut } = useAuth();
   const userProfile = authProfile || propProfile || {};
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState(null);
 
-  // Map dynamic sessions or fallback to initial defaults
+  // Map dynamic sessions or fallback to initial defaults (demo only)
   const activeSessions = sessions.length > 0 ? sessions.map((s) => ({
     id: s.id,
     title: s.title,
@@ -32,7 +33,7 @@ export const DashboardPage = ({
     textCategoryColor: 'text-[#5c3f40]',
     status: s.status || 'upcoming',
     rawSession: s,
-  })) : [
+  })) : realtime ? [] : [
     {
       id: 'session-1',
       title: 'Data Structures & Dynamic Programming',
@@ -450,21 +451,40 @@ export const DashboardPage = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {activeSessions.map((session) => (
-                <ActiveSessionCard
-                  key={session.id}
-                  session={session}
-                  onOpenMeeting={() => onOpenMeetingModal(session.rawSession || session)}
-                  onViewDetails={() => {
-                    if (onSelectSession) {
-                      onSelectSession(session.rawSession || session);
-                    } else {
-                      onNavigateScreen('session-details');
-                    }
-                  }}
-                  onShowToast={onShowToast}
-                />
-              ))}
+              {activeSessions.length === 0 ? (
+                <div className="col-span-full bg-white border border-[#ccc4cd]/40 rounded-2xl p-8 text-center space-y-2">
+                  <span className="material-symbols-outlined text-3xl text-[#b7a4b3]">
+                    calendar_today
+                  </span>
+                  <h3 className="text-sm font-bold text-[#201a1b]">No sessions scheduled yet</h3>
+                  <p className="text-xs text-[#7b757d]">
+                    When a scholar accepts one of your requests — or you accept an incoming
+                    request — the confirmed session will appear here in real time.
+                  </p>
+                  <button
+                    onClick={() => onNavigateScreen('discover')}
+                    className="mt-2 px-4 py-2 bg-[#675975] hover:bg-[#52445f] text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Discover Scholars
+                  </button>
+                </div>
+              ) : (
+                activeSessions.map((session) => (
+                  <ActiveSessionCard
+                    key={session.id}
+                    session={session}
+                    onOpenMeeting={() => onOpenMeetingModal(session.rawSession || session)}
+                    onViewDetails={() => {
+                      if (onSelectSession) {
+                        onSelectSession(session.rawSession || session);
+                      } else {
+                        onNavigateScreen('session-details');
+                      }
+                    }}
+                    onShowToast={onShowToast}
+                  />
+                ))
+              )}
             </div>
           </section>
 

@@ -29,12 +29,21 @@ export const AppRoutes = ({
   onCreateSession,
   onUpdateSession,
   onSelectSession,
+  onAddSessionNote,
   incomingRequests = [],
   onUpdateIncomingRequests,
   outgoingRequests = [],
   onUpdateOutgoingRequests,
   selectedMentorForRequest,
   setSelectedMentorForRequest,
+  realtime = false,
+  realtimeUsers = [],
+  onRequestRealtime,
+  onAcceptRequest,
+  onDeclineRequest,
+  onRescheduleRequest,
+  onSendRequest,
+  onCancelOutgoingRequest,
 }) => {
   switch (currentScreen) {
     case 'requests':
@@ -56,6 +65,12 @@ export const AppRoutes = ({
           onSelectPeerProfile={(peer) => setSelectedProfile(peer)}
           initialTab={currentScreen === 'request-session' ? 'request-form' : 'incoming'}
           selectedMentorForRequest={selectedMentorForRequest}
+          realtime={realtime}
+          onAcceptRequest={onAcceptRequest}
+          onDeclineRequest={onDeclineRequest}
+          onRescheduleRequest={onRescheduleRequest}
+          onSendRequest={onSendRequest}
+          onCancelOutgoingRequest={onCancelOutgoingRequest}
         />
       );
 
@@ -71,6 +86,8 @@ export const AppRoutes = ({
           onShowToast={onShowToast}
           onSelectPeerProfile={(peer) => setSelectedProfile(peer)}
           onUpdateSession={onUpdateSession}
+          onAddSessionNote={onAddSessionNote}
+          realtime={realtime}
         />
       );
 
@@ -140,6 +157,9 @@ export const AppRoutes = ({
           onSelectPeerProfile={(peer) => setSelectedProfile(peer)}
           onCreateSession={onCreateSession}
           onSelectSession={onSelectSession}
+          realtime={realtime}
+          realtimeUsers={realtimeUsers}
+          onRequestRealtime={onRequestRealtime}
         />
       );
 
@@ -154,6 +174,7 @@ export const AppRoutes = ({
           onShowToast={onShowToast}
           sessions={sessions}
           onSelectSession={onSelectSession}
+          realtime={realtime}
         />
       );
 

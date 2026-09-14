@@ -22,6 +22,12 @@ export const RequestsPage = ({
   onSelectPeerProfile,
   initialTab = 'incoming',
   selectedMentorForRequest = drJulianVance,
+  realtime = false,
+  onAcceptRequest,
+  onDeclineRequest,
+  onRescheduleRequest,
+  onSendRequest,
+  onCancelOutgoingRequest,
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
@@ -34,18 +40,21 @@ export const RequestsPage = ({
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'accepted' | 'declined'
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Local state for incoming requests
-  const [incomingList, setIncomingList] = useState(incomingRequests);
-  const [outgoingList, setOutgoingList] = useState(outgoingRequests);
+  // Local state for incoming requests (realtime mode uses the Firebase prop directly)
+  const [incomingListState, setIncomingListState] = useState(incomingRequests);
+  const [outgoingListState, setOutgoingListState] = useState(outgoingRequests);
+
+  const incomingList = realtime ? incomingRequests : incomingListState;
+  const outgoingList = realtime ? outgoingRequests : outgoingListState;
 
   // Sync to parent if provided
   const updateIncoming = (newList) => {
-    setIncomingList(newList);
+    setIncomingListState(newList);
     if (onUpdateIncomingRequests) onUpdateIncomingRequests(newList);
   };
 
   const updateOutgoing = (newList) => {
-    setOutgoingList(newList);
+    setOutgoingListState(newList);
     if (onUpdateOutgoingRequests) onUpdateOutgoingRequests(newList);
   };
 
@@ -61,6 +70,7 @@ export const RequestsPage = ({
   const [acceptingReq, setAcceptingReq] = useState(null);
   const [acceptNote, setAcceptNote] = useState('');
   const [acceptPlatform, setAcceptPlatform] = useState('SkillSwap Connect');
+  const [acceptMeetingLink, setAcceptMeetingLink] = useState('https://meet.google.com/new');
 
   const [decliningReq, setDecliningReq] = useState(null);
   const [declineReason, setDeclineReason] = useState('Schedule conflict during this time slot');
@@ -96,10 +106,31 @@ export const RequestsPage = ({
     setAcceptNote(
       `Accepted! I look forward to working on ${req.requestedSkill}. Please prepare any preliminary dataset or formulas prior to our session.`
     );
+    setAcceptPlatform('SkillSwap Connect');
+    setAcceptMeetingLink('https://meet.google.com/new');
   };
 
-  const handleConfirmAccept = () => {
+  const handleConfirmAccept = async () => {
     if (!acceptingReq) return;
+
+    // REALTIME: persist the acceptance to Firestore (session created server-side).
+    if (realtime) {
+      try {
+        await onAcceptRequest(acceptingReq, {
+          note: acceptNote,
+          platform: acceptPlatform,
+          meetingLink: acceptMeetingLink,
+        });
+        onShowToast(
+          `🎉 Request from ${acceptingReq.requester.name} accepted! A session was scheduled with your meeting link.`
+        );
+        setAcceptingReq(null);
+      } catch (e) {
+        console.warn('Accept failed:', e);
+        onShowToast('Could not accept request. Please try again.');
+      }
+      return;
+    }
 
     // 1. Update request status in list
     const createdSessionId = `session-${Date.now()}`;
@@ -189,8 +220,25 @@ export const RequestsPage = ({
     setCustomDeclineNote('');
   };
 
-  const handleConfirmDecline = () => {
+  const handleConfirmDecline = async () => {
     if (!decliningReq) return;
+
+    if (realtime) {
+      try {
+        await onDeclineRequest(
+          decliningReq.id,
+          customDeclineNote || declineReason || 'Schedule conflict during this time slot'
+        );
+        onShowToast(
+          `Request from ${decliningReq.requester.name} politely declined. Credits returned to scholar.`
+        );
+        setDecliningReq(null);
+      } catch (e) {
+        console.warn('Decline failed:', e);
+        onShowToast('Could not decline request. Please try again.');
+      }
+      return;
+    }
 
     const updated = incomingList.map((r) =>
       r.id === decliningReq.id
@@ -218,8 +266,26 @@ export const RequestsPage = ({
     setRescheduleNote('I have a lab conflict at your requested time, but I am available at this alternate slot.');
   };
 
-  const handleConfirmReschedule = () => {
+  const handleConfirmReschedule = async () => {
     if (!reschedulingReq) return;
+
+    if (realtime) {
+      try {
+        await onRescheduleRequest(reschedulingReq.id, {
+          date: newProposedDate,
+          slot: newProposedSlot,
+          note: rescheduleNote,
+        });
+        onShowToast(
+          `Alternate time proposal sent to ${reschedulingReq.requester.name}. Awaiting scholar confirmation.`
+        );
+        setReschedulingReq(null);
+      } catch (e) {
+        console.warn('Reschedule failed:', e);
+        onShowToast('Could not send proposal. Please try again.');
+      }
+      return;
+    }
 
     const updated = incomingList.map((r) =>
       r.id === reschedulingReq.id
@@ -249,13 +315,51 @@ export const RequestsPage = ({
   };
 
   // Handler: Submit the "Request a Learning Session" Form (from Screenshot)
-  const handleSendLearningRequest = (e) => {
+  const handleSendLearningRequest = async (e) => {
     e.preventDefault();
     setIsSubmittingRequest(true);
 
     const chosenSkill =
       currentMentor.skills.find((s) => s.id === selectedSkillId) ||
       currentMentor.skills[0];
+
+    // REALTIME: push the request to Firestore so the mentor sees it instantly.
+    if (realtime) {
+      try {
+        if (!currentMentor?.uid) {
+          onShowToast('In production mode, request a Live Scholar from the Discover page.');
+          setIsSubmittingRequest(false);
+          return;
+        }
+        await onSendRequest({
+          mentor: currentMentor,
+          requestedSkill: chosenSkill?.name || currentMentor.name,
+          skillLevel: chosenSkill?.level || 'Advanced Level • 60 min',
+          offeredExchange: `${currentMentor.cost || 250} Academic Credits`,
+          offeredSkill: userProfile?.expertiseAreas?.[0] || 'Peer Expertise',
+          cost: currentMentor.cost || 250,
+          creditsOffered: currentMentor.cost || 250,
+          preferredDate: preferredDate,
+          formattedDate: preferredDate,
+          preferredTimeSlot: preferredTimeSlot,
+          goals: sessionGoals || 'Learning fundamentals and advanced application.',
+        });
+        onShowToast(`✨ Learning session requested from ${currentMentor.name}!`);
+        setIsSubmittingRequest(false);
+        setActiveTab('outgoing');
+      } catch (err) {
+        console.warn('Send request failed:', err);
+        setIsSubmittingRequest(false);
+        const permissionDenied =
+          typeof err?.code === 'string' && err.code.includes('permission-denied');
+        onShowToast(
+          permissionDenied
+            ? 'Request blocked by Firestore security rules. Make sure they are deployed (firebase deploy --only firestore).'
+            : 'Could not send request. Check your connection and try again.'
+        );
+      }
+      return;
+    }
 
     const newOutReq = {
       id: `req-out-${Date.now()}`,
@@ -947,8 +1051,19 @@ export const RequestsPage = ({
                       </p>
                       <button
                         onClick={() => {
-                          onShowToast('Withdrawing request and returning credits to ledger.');
-                          updateOutgoing(outgoingList.filter((r) => r.id !== req.id));
+                          if (realtime) {
+                            onCancelOutgoingRequest(req.id)
+                              .then(() =>
+                                onShowToast('Request withdrawn. Credits returned to your ledger.')
+                              )
+                              .catch((err) => {
+                                console.warn('Cancel request failed:', err);
+                                onShowToast('Could not withdraw request. Please try again.');
+                              });
+                          } else {
+                            onShowToast('Withdrawing request and returning credits to ledger.');
+                            updateOutgoing(outgoingList.filter((r) => r.id !== req.id));
+                          }
                         }}
                         className="text-xs font-semibold text-[#8c464e] hover:underline"
                       >
@@ -1271,13 +1386,36 @@ export const RequestsPage = ({
                 </label>
                 <select
                   value={acceptPlatform}
-                  onChange={(e) => setAcceptPlatform(e.target.value)}
+                  onChange={(e) => {
+                    setAcceptPlatform(e.target.value);
+                    setAcceptMeetingLink(
+                      e.target.value === 'Zoom Meeting Room'
+                        ? 'https://zoom.us/j/new'
+                        : 'https://meet.google.com/new'
+                    );
+                  }}
                   className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3 py-2 text-xs text-[#201a1b]"
                 >
                   <option value="SkillSwap Connect">SkillSwap Connect (Integrated Audio/Video)</option>
                   <option value="Zoom Meeting Room">University Zoom Room</option>
                   <option value="Google Meet">Google Meet</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#201a1b] mb-1.5">
+                  Meeting Link (shared with the student):
+                </label>
+                <input
+                  type="url"
+                  value={acceptMeetingLink}
+                  onChange={(e) => setAcceptMeetingLink(e.target.value)}
+                  placeholder="https://meet.google.com/new"
+                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3 py-2 text-xs text-[#201a1b] focus:outline-none focus:border-[#524156]"
+                />
+                <p className="text-[11px] text-[#705e69] mt-1">
+                  Paste your Google Meet, Zoom, or other video link. The student opens this when the session starts.
+                </p>
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-2 border-t border-[#f4e8e5]">

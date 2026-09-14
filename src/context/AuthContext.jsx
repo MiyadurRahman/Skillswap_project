@@ -10,6 +10,7 @@ import {
   updateProfile,
   sendPasswordResetEmail,
 } from 'firebase/auth';
+import { upsertUserProfile, ensureUserProfile, subscribeUserProfile } from '../services/realtime';
 
 const AuthContext = createContext();
 
@@ -64,6 +65,9 @@ export const AuthProvider = ({ children }) => {
     };
 
     saveProfileLocally(res.user.uid, initialProfile);
+    upsertUserProfile(res.user.uid, initialProfile).catch((e) => {
+      console.warn('Could not sync profile to Firestore:', e);
+    });
     setUserProfile(initialProfile);
     return { user: res.user, profile: initialProfile };
   };
@@ -115,6 +119,9 @@ export const AuthProvider = ({ children }) => {
       timeCredits: 24.5,
     };
     setUserProfile(profile);
+    upsertUserProfile(res.user.uid, profile).catch((e) => {
+      console.warn('Could not sync profile to Firestore:', e);
+    });
     return { user: res.user, profile };
   };
 
@@ -133,6 +140,9 @@ export const AuthProvider = ({ children }) => {
       learningGoals: ['Machine Learning'],
     };
     saveProfileLocally(res.user.uid, profile);
+    upsertUserProfile(res.user.uid, profile).catch((e) => {
+      console.warn('Could not sync profile to Firestore:', e);
+    });
     setUserProfile(profile);
     return { user: res.user, profile };
   };
@@ -148,6 +158,11 @@ export const AuthProvider = ({ children }) => {
     setUserProfile(merged);
     if (currentUser?.uid) {
       saveProfileLocally(currentUser.uid, merged);
+      if (!currentUser?.isDemo) {
+        upsertUserProfile(currentUser.uid, merged).catch((e) =>
+          console.warn('Could not update Firestore profile:', e)
+        );
+      }
     }
     return merged;
   };
@@ -163,12 +178,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Watch Auth State
+  // Watch Auth State + sync real profiles to Firestore
   useEffect(() => {
     // Safety fallback: Never leave the screen in loading state for more than 800ms
     const timer = setTimeout(() => {
       setLoading(false);
     }, 800);
+
+    let profileUnsub = null;
 
     const unsubscribe = onAuthStateChanged(
       auth,
@@ -180,19 +197,29 @@ export const AuthProvider = ({ children }) => {
         }
 
         setCurrentUser(user);
-        if (user) {
-          const cached = loadProfileLocally(user.uid);
+        if (user && !currentUser?.isDemo) {
           const fallbackName = user.displayName || user.email?.split('@')[0] || 'Scholar';
-          setUserProfile(
-            cached || {
-              name: fallbackName,
-              email: user.email,
-              avatarUrl: user.photoURL || resolveAvatarForName(fallbackName, academicAssets.avatars.defaultMaleScholar),
-              university: 'United International University (UIU)',
-              academicLevel: 'BSc in Computer Science & Engineering',
-              timeCredits: 24.5,
-            }
-          );
+          const fallbackProfile = {
+            name: fallbackName,
+            email: user.email,
+            avatarUrl: user.photoURL || resolveAvatarForName(fallbackName, academicAssets.avatars.defaultMaleScholar),
+            university: 'United International University (UIU)',
+            academicLevel: 'BSc in Computer Science & Engineering',
+            timeCredits: 24.5,
+          };
+          const cached = loadProfileLocally(user.uid);
+          const local = cached || fallbackProfile;
+          setUserProfile(local);
+
+          // Create the Firestore doc if it doesn't exist (never overwrites).
+          ensureUserProfile(user.uid, local).then((dbProfile) => {
+            if (dbProfile) setUserProfile(dbProfile);
+          }).catch((e) => console.warn('Profile ensure/sync:', e));
+
+          // Live-sync profile from Firestore.
+          profileUnsub = subscribeUserProfile(user.uid, (p) => {
+            if (p) setUserProfile(p);
+          });
         } else {
           setUserProfile(null);
         }
@@ -208,6 +235,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       clearTimeout(timer);
       unsubscribe();
+      if (profileUnsub) profileUnsub();
     };
   }, [currentUser?.isDemo]);
 

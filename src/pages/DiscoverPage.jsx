@@ -11,9 +11,19 @@ export const DiscoverPage = ({
   onSelectPeerProfile,
   onCreateSession,
   onSelectSession,
+  realtime = false,
+  realtimeUsers = [],
+  onRequestRealtime,
 }) => {
   const { currentUser, userProfile: authProfile, logOut } = useAuth();
   const userProfile = authProfile || propProfile || {};
+
+  // Real scholars who exist in Firestore (exclude the current viewer).
+  const liveScholars = useMemo(
+    () =>
+      realtimeUsers.filter((u) => u.uid && u.uid !== currentUser?.uid),
+    [realtimeUsers, currentUser?.uid]
+  );
 
   // Active top navigation tab
   const [activeTab, setActiveTab] = useState('discover');
@@ -651,6 +661,18 @@ export const DiscoverPage = ({
     e.preventDefault();
     if (!requestingPeer) return;
 
+    // REALTIME: demo mentors can't receive requests — route real users to the
+    // Live Scholars request form instead of creating a fake instant session.
+    if (realtime && onRequestRealtime) {
+      if (requestingPeer?.uid) {
+        onRequestRealtime(requestingPeer);
+      } else {
+        onShowToast('In production mode, request sessions from Live Scholars (listed above).');
+      }
+      setRequestingPeer(null);
+      return;
+    }
+
     const newSession = {
       id: `session-${Date.now()}`,
       title: reqTopic || requestingPeer.skillsTeach?.[0] || 'Academic Peer Session',
@@ -1017,6 +1039,67 @@ export const DiscoverPage = ({
                 </button>
               )}
             </div>
+
+            {/* LIVE SCHOLARS (real Firebase users — request sessions in realtime) */}
+            {realtime && liveScholars.length > 0 && (
+              <div className="rounded-2xl border border-[#d9c4d6] bg-[#f7f1f8] p-5 space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex w-2.5 h-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full w-2.5 h-2.5 bg-emerald-500"></span>
+                  </span>
+                  <h2 className="text-sm font-bold text-[#3e2f41]">Live Scholars & Mentors</h2>
+                  <span className="text-[11px] font-semibold text-[#7a6880] bg-white px-2 py-0.5 rounded-full border border-[#e2d3e0]">
+                    Requests deliver in real time
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {liveScholars.map((person) => (
+                    <div
+                      key={person.id}
+                      className="bg-white border border-[#e2d3e0] rounded-2xl p-4 shadow-xs flex flex-col gap-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="relative shrink-0">
+                          <img
+                            src={person.avatarUrl}
+                            alt={person.name}
+                            referrerPolicy="no-referrer"
+                            className="w-11 h-11 rounded-full object-cover border-2 border-[#e2d3e0]"
+                          />
+                          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-bold text-[#201a1b] truncate">
+                            {person.name}
+                          </h3>
+                          <p className="text-[11px] text-[#705e69] truncate">{person.title}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {(person.skillsTeach || []).slice(0, 3).map((sk, i) => (
+                          <span
+                            key={i}
+                            className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-[#f7d6cd] text-[#5e3831]"
+                          >
+                            {typeof sk === 'string' ? sk : sk?.name}
+                          </span>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => onRequestRealtime && onRequestRealtime(person)}
+                        className="w-full py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          calendar_add_on
+                        </span>
+                        <span>Request Session</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* PEER CARDS 2x2 GRID */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2" id="peers-grid-container">

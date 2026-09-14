@@ -1,5 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD05hd0FY4LluSY5LQvszlNATcyn3VnFNE",
@@ -15,6 +17,12 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Auth
 export const auth = getAuth(app);
+
+// Initialize Firestore (real-time database for sessions & requests)
+export const db = getFirestore(app);
+
+// Initialize Storage (for uploads/photos)
+export const storage = getStorage(app);
 
 // Initialize Google Provider and force account selection
 export const googleProvider = new GoogleAuthProvider();

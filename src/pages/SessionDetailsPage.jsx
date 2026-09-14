@@ -11,8 +11,10 @@ export const SessionDetailsPage = ({
   onShowToast,
   onSelectPeerProfile,
   onUpdateSession,
+  onAddSessionNote,
+  realtime = false,
 }) => {
-  const { userProfile: authProfile } = useAuth();
+  const { currentUser, userProfile: authProfile } = useAuth();
   const userRole = authProfile?.academicLevel || 'PhD Candidate';
   const userAvatar =
     authProfile?.avatarUrl ||
@@ -71,6 +73,32 @@ export const SessionDetailsPage = ({
 
   const session = activeSessionProp || defaultSession;
 
+  // REALTIME: no sessions yet — show an honest empty state instead of demo data.
+  if (realtime && !activeSessionProp) {
+    return (
+      <div
+        id="screen-session-details"
+        className="min-h-screen bg-[#fff8f7] text-[#201a1b] flex flex-col items-center justify-center gap-4 p-8 font-sans"
+      >
+        <span className="material-symbols-outlined text-5xl text-[#b7a4b3]">
+          video_camera_front
+        </span>
+        <h1 className="text-2xl font-bold text-[#201a1b]">No active sessions yet</h1>
+        <p className="text-sm text-[#705e69] max-w-md text-center">
+          When a scholar accepts one of your requests — or you accept an incoming
+          request — the confirmed session (with its live meeting link) will show up
+          here in real time.
+        </p>
+        <button
+          onClick={() => onNavigateScreen('discover')}
+          className="px-5 py-2.5 bg-[#57445f] hover:bg-[#43334a] text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+        >
+          Find a Scholar
+        </button>
+      </div>
+    );
+  }
+
   // Local interactive states
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -85,17 +113,32 @@ export const SessionDetailsPage = ({
   const partnerFirstName = session.partner?.name?.replace(/^(Dr\.|Prof\.|Mr\.|Ms\.|Mrs\.)\s+/, '').split(' ')[0] || 'Partner';
 
   // Add Note Handler
-  const handleAddNote = (e) => {
+  const handleAddNote = async (e) => {
     e.preventDefault();
     if (!noteText.trim()) return;
 
     const newNote = {
       id: `note-${Date.now()}`,
+      authorUid: currentUser?.uid,
       authorName: authProfile?.name || 'You',
       authorAvatar: userAvatar,
       timestamp: 'Just now',
       text: noteText.trim(),
     };
+
+    // REALTIME: persist the note to Firestore (shared with partner live).
+    if (realtime && onAddSessionNote && session?.id) {
+      try {
+        await onAddSessionNote(session.id, newNote);
+        setNoteText('');
+        setIsAddingNote(false);
+        onShowToast?.('Note added to pre-session notes!');
+      } catch (err) {
+        console.warn('Add note failed:', err);
+        onShowToast?.('Could not post note. Please try again.');
+      }
+      return;
+    }
 
     const updatedSession = {
       ...session,
@@ -141,6 +184,22 @@ export const SessionDetailsPage = ({
     } else {
       onShowToast?.('Session has been cancelled.');
     }
+  };
+
+  // Complete Handler
+  const handleCompleteSession = () => {
+    if (session.status === 'Completed') {
+      onShowToast?.('This session is already completed.');
+      return;
+    }
+    const updatedSession = {
+      ...session,
+      status: 'Completed',
+    };
+    if (onUpdateSession) {
+      onUpdateSession(updatedSession);
+    }
+    onShowToast?.('✅ Session completed! Academic credits have been released.');
   };
 
   // Add to Calendar .ics exporter
@@ -467,15 +526,21 @@ export const SessionDetailsPage = ({
                 {/* Status Badge */}
                 <span
                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                    session.status === 'Cancelled'
-                      ? 'bg-rose-100 text-rose-700'
-                      : 'bg-[#efdbfd] text-[#4f415c]'
+                    session.status === 'Completed'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : session.status === 'Cancelled'
+                        ? 'bg-rose-100 text-rose-700'
+                        : 'bg-[#efdbfd] text-[#4f415c]'
                   }`}
                   id="badge-session-status"
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      session.status === 'Cancelled' ? 'bg-rose-600' : 'bg-[#4f415c]'
+                      session.status === 'Completed'
+                        ? 'bg-emerald-600'
+                        : session.status === 'Cancelled'
+                          ? 'bg-rose-600'
+                          : 'bg-[#4f415c]'
                     }`}
                   ></span>
                   <span>{session.status || 'Accepted'}</span>
@@ -816,6 +881,35 @@ export const SessionDetailsPage = ({
                 <p className="text-[10px] font-bold uppercase tracking-widest text-[#887580] mb-1">
                   SESSION ACTIONS
                 </p>
+
+                {/* Join Live Meeting (real Meet/Zoom link shared on accept) */}
+                {session.meetingLink && (
+                  <button
+                    onClick={() => window.open(session.meetingLink, '_blank', 'noopener,noreferrer')}
+                    className="w-full bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl px-4 py-3 text-xs font-bold flex items-center justify-between transition-colors shadow-sm cursor-pointer"
+                    id="btn-join-meeting"
+                  >
+                    <span>Join Live Meeting</span>
+                    <span className="material-symbols-outlined text-[18px]">
+                      video_camera_front
+                    </span>
+                  </button>
+                )}
+
+                {/* Complete Session Button */}
+                <button
+                  onClick={handleCompleteSession}
+                  disabled={session.status === 'Completed' || session.status === 'Cancelled'}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-[#dfe8e2] disabled:text-[#8a9a90] disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-xs font-bold flex items-center justify-between transition-colors shadow-sm cursor-pointer"
+                  id="btn-complete-session"
+                >
+                  <span>
+                    {session.status === 'Completed' ? 'Session Completed' : 'Mark Session Complete'}
+                  </span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    {session.status === 'Completed' ? 'check_circle' : 'check'}
+                  </span>
+                </button>
 
                 {/* Reschedule Button */}
                 <button
