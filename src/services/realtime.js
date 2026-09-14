@@ -539,16 +539,32 @@ export const subscribeConversations = (uid, callback) => {
 };
 
 // Live messages of a single conversation (oldest first).
+// Retries automatically on transient errors (offline, cold rules, index
+// warm-up) so the history view isn't silently killed.
 export const subscribeConversationMessages = (conversationId, callback) => {
   const q = query(
     collection(db, 'conversations', conversationId, 'messages'),
     orderBy('createdAt', 'asc')
   );
-  return onSnapshot(
-    q,
-    (snap) => callback(snap.docs.map(mapMessage)),
-    (err) => console.warn('Messages listener error:', err)
-  );
+  let unsub = () => {};
+  let retryTimer = null;
+  let stopped = false;
+  const listen = () => {
+    unsub = onSnapshot(
+      q,
+      (snap) => callback(snap.docs.map(mapMessage)),
+      (err) => {
+        console.warn('Messages listener error:', err);
+        if (!stopped) retryTimer = setTimeout(listen, 2000);
+      }
+    );
+  };
+  listen();
+  return () => {
+    stopped = true;
+    if (retryTimer) clearTimeout(retryTimer);
+    unsub();
+  };
 };
 
 // Send a message, creating the conversation if needed and bumping the
