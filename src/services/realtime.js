@@ -81,11 +81,16 @@ export const subscribeUserProfile = (uid, callback) => {
 
 // All public scholar profiles (for the Discover directory). Excludes no one;
 // the UI filters out the current viewer.
-export const subscribeAllUsers = (callback) => {
+export const subscribeAllUsers = (callback, onFirst) => {
   const q = query(collection(db, 'users'));
+  let fired = false;
   return onSnapshot(
     q,
     (snap) => {
+      if (!fired && onFirst) {
+        fired = true;
+        onFirst();
+      }
       const users = snap.docs.map((d) => {
         const u = d.data();
         return {
@@ -226,11 +231,16 @@ export const mapSession = (doc, currentUid) => {
 // Real-time subscriptions
 // ---------------------------------------------------------------------------
 
-export const subscribeIncomingRequests = (uid, callback) => {
+export const subscribeIncomingRequests = (uid, callback, onFirst) => {
   const q = query(collection(db, 'requests'), where('mentor.uid', '==', uid));
+  let fired = false;
   return onSnapshot(
     q,
     (snap) => {
+      if (!fired && onFirst) {
+        fired = true;
+        onFirst();
+      }
       const list = snap.docs
         .map(mapIncomingRequest)
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -240,11 +250,16 @@ export const subscribeIncomingRequests = (uid, callback) => {
   );
 };
 
-export const subscribeOutgoingRequests = (uid, callback) => {
+export const subscribeOutgoingRequests = (uid, callback, onFirst) => {
   const q = query(collection(db, 'requests'), where('requester.uid', '==', uid));
+  let fired = false;
   return onSnapshot(
     q,
     (snap) => {
+      if (!fired && onFirst) {
+        fired = true;
+        onFirst();
+      }
       const list = snap.docs
         .map(mapOutgoingRequest)
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -254,11 +269,16 @@ export const subscribeOutgoingRequests = (uid, callback) => {
   );
 };
 
-export const subscribeSessions = (uid, callback) => {
+export const subscribeSessions = (uid, callback, onFirst) => {
   const q = query(collection(db, 'sessions'), where('participantIds', 'array-contains', uid));
+  let fired = false;
   return onSnapshot(
     q,
     (snap) => {
+      if (!fired && onFirst) {
+        fired = true;
+        onFirst();
+      }
       const list = snap.docs
         .map((d) => mapSession(d, uid))
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -521,14 +541,19 @@ const mapMessage = (doc) => {
 };
 
 // Live list of the current user's conversations, newest activity first.
-export const subscribeConversations = (uid, callback) => {
+export const subscribeConversations = (uid, callback, onFirst) => {
   const q = query(
     collection(db, 'conversations'),
     where('participantIds', 'array-contains', uid)
   );
+  let fired = false;
   return onSnapshot(
     q,
     (snap) => {
+      if (!fired && onFirst) {
+        fired = true;
+        onFirst();
+      }
       const list = snap.docs
         .map(mapConversation)
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));

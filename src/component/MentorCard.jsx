@@ -5,9 +5,9 @@ export const MentorCard = ({ mentor, onSelect, onMessage, onShowToast }) => {
   return (
     <div
       id={`mentor-card-${mentor.id}`}
-      className="bg-white rounded-2xl p-4 ambient-lift border border-[#ccc4cd]/40 hover:border-[#c5b3d3] transition-all flex items-center justify-between gap-3"
+      className="bg-white rounded-2xl p-4 ambient-lift border border-[#ccc4cd]/40 hover:border-[#c5b3d3] transition-all flex items-center justify-between gap-3 min-w-0"
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="relative shrink-0">
           <div className="w-12 h-12 rounded-full overflow-hidden border border-[#ccc4cd]/50 shadow-sm bg-[#eeddf2]">
             <img
@@ -29,17 +29,17 @@ export const MentorCard = ({ mentor, onSelect, onMessage, onShowToast }) => {
           )}
         </div>
 
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <h4 className="text-sm font-bold text-[#201a1b] leading-tight">
+            <h4 className="text-sm font-bold text-[#201a1b] leading-tight truncate">
               {mentor.name}
             </h4>
-            <span className="material-symbols-outlined text-[14px] text-[#675975]">
+            <span className="material-symbols-outlined text-[14px] text-[#675975] shrink-0">
               verified
             </span>
           </div>
-          <p className="text-xs text-[#4a454c] mt-0.5">{mentor.field}</p>
-          <div className="flex items-center gap-2 mt-1">
+          <p className="text-xs text-[#4a454c] mt-0.5 truncate">{mentor.field}</p>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="flex items-center text-[11px] font-bold text-amber-600">
               <span className="material-symbols-outlined text-[13px] fill mr-0.5 text-amber-500">
                 star
@@ -56,7 +56,7 @@ export const MentorCard = ({ mentor, onSelect, onMessage, onShowToast }) => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5 shrink-0">
         <button
           onClick={() => onSelect(mentor)}
           className="px-3.5 py-1.5 bg-[#675975] hover:bg-[#52445f] text-white rounded-full text-xs font-semibold transition-colors cursor-pointer shadow-sm text-center whitespace-nowrap"

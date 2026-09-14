@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import './App.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppRoutes } from './routes/AppRoutes';
@@ -80,6 +80,15 @@ function AppContent() {
   const isRealtime = Boolean(currentUser && !currentUser.isDemo && currentUser.uid);
   const myUid = currentUser?.uid;
 
+  // Number of live subscriptions that have delivered their first snapshot —
+  // the app waits for all 5 before painting, so a refresh never flashes empty.
+  const [readyCount, setReadyCount] = useState(0);
+  const dataReady = !isRealtime || readyCount >= 5;
+
+  // Prevents the localStorage persist effects from writing before the hydrate
+  // effect has restored the cache on mount.
+  const hydratedRef = useRef(false);
+
   const [localProfile, setLocalProfile] = useState({
     name: 'Alex Rivera',
     email: 'scholar@university.edu',
@@ -157,24 +166,35 @@ function AppContent() {
   useEffect(() => {
     if (!isRealtime || !myUid) return;
 
+    setReadyCount(0);
+    const onFirst = () => setReadyCount((c) => c + 1);
+
     const unsubscribers = [
-      subscribeIncomingRequests(myUid, setIncomingRequests),
-      subscribeOutgoingRequests(myUid, setOutgoingRequests),
-      subscribeSessions(myUid, setSessions),
-      subscribeAllUsers(setRealtimeUsers),
-      subscribeConversations(myUid, setConversations),
+      subscribeIncomingRequests(myUid, setIncomingRequests, onFirst),
+      subscribeOutgoingRequests(myUid, setOutgoingRequests, onFirst),
+      subscribeSessions(myUid, setSessions, onFirst),
+      subscribeAllUsers(setRealtimeUsers, onFirst),
+      subscribeConversations(myUid, setConversations, onFirst),
     ];
     setSelectedSessionId(null);
 
     return () => unsubscribers.forEach((u) => u());
   }, [isRealtime, myUid]);
 
+  // Safety net: never leave the UI blocked if a subscription errors out or the
+  // project has no data — force the initial-paint gate open after 2.5s.
+  useEffect(() => {
+    if (dataReady) return;
+    const t = setTimeout(() => setReadyCount((c) => (c >= 5 ? c : 5)), 2500);
+    return () => clearTimeout(t);
+  }, [dataReady]);
+
   // Live messages for the currently open chat (realtime mode only).
   useEffect(() => {
     const convId = activeChat?.conversation?.id;
     if (!isRealtime || !myUid || !convId) return;
     const unsub = subscribeConversationMessages(convId, (msgs) => {
-      console.info('[chat] subscription', convId, `${msgs.length} msgs`, msgs.map((m) => `${m.fromUid.slice(0,6)}`).join(', '));
+      console.info('[chat] subscription', convId, `${msgs.length} msgs`, msgs.map((m) => `${(m.fromUid || '?').slice(0, 6)}`).join(', '));
       setChatMessages((prev) => ({ ...prev, [convId]: msgs }));
     });
     return () => unsub();
@@ -217,6 +237,7 @@ function AppContent() {
     } catch (e) {
       // Fresh session — no cache to restore.
     }
+    hydratedRef.current = true;
   }, []);
 
   // Persist demo data to localStorage only (realtime data lives in Firestore).
@@ -231,6 +252,7 @@ function AppContent() {
 
   // Persist conversations so the UI isn't blank while subscriptions connect.
   useEffect(() => {
+    if (!hydratedRef.current) return;
     try {
       localStorage.setItem('skillswap_conversations', JSON.stringify(conversations));
     } catch (e) {
@@ -239,6 +261,7 @@ function AppContent() {
   }, [conversations]);
 
   useEffect(() => {
+    if (!hydratedRef.current) return;
     try {
       localStorage.setItem('skillswap_chat_messages', JSON.stringify(chatMessages));
     } catch (e) {
@@ -263,16 +286,6 @@ function AppContent() {
       console.warn('Failed to save outgoing requests:', e);
     }
   }, [outgoingRequests, isRealtime]);
-
-  useEffect(() => {
-    if (isRealtime) return;
-    try {
-      localStorage.setItem('skillswap_conversations', JSON.stringify(conversations));
-      localStorage.setItem('skillswap_chat_messages', JSON.stringify(chatMessages));
-    } catch (e) {
-      console.warn('Failed to save conversations:', e);
-    }
-  }, [conversations, chatMessages, isRealtime]);
 
   // Enrich conversations with the peer's live profile (avatar/name/title).
   const conversationsWithPeers = useMemo(() => {
@@ -661,6 +674,16 @@ function AppContent() {
       setCurrentScreen('dashboard');
     }
   };
+
+  // Wait for the first Firestore snapshots so the page never paints in a
+  // half-empty state on refresh (demo mode paints instantly).
+  if (!dataReady && !loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fff8f7]">
+        <div className="w-8 h-8 border-4 border-[#675975] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#fff8f7] font-sans antialiased text-[#201a1b] selection:bg-[#c5b3d3] selection:text-[#22162e]">
