@@ -2,6 +2,90 @@ import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { allPeers } from '../data/peersData';
 
+// Unified search/filter matcher for BOTH demo peers (allPeers) and realtime
+// users (mapped by subscribeAllUsers). The two shapes don't share a schema, so
+// each peer is normalized into lowercase searchable strings.
+const ACADEMIC_KEYWORDS = {
+  "PhD Candidate": 'phd',
+  "Master's Student": 'master',
+  'Undergraduate Senior': 'undergraduate',
+  'Postdoctoral Researcher': 'postdoc',
+};
+
+const normalizePeer = (peer) => {
+  const skills = peer.skills || [];
+  const skillsTeach = peer.skillsTeach || [];
+  const badges = peer.badges || [];
+  const title = peer.title || peer.academicLevel || '';
+  const bio = peer.bio || '';
+  const university = peer.university || peer.institution || '';
+
+  const fieldStr = [
+    peer.primaryField,
+    title,
+    ...skills,
+    ...skillsTeach,
+    ...badges,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const searchStr = [peer.name, title, bio, university, fieldStr]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const academicStr = [peer.academicLevel, title].filter(Boolean).join(' ').toLowerCase();
+  const availabilityStr = [peer.availability, peer.nextAvailable]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return { fieldStr, searchStr, academicStr, availabilityStr, rating: peer.rating };
+};
+
+const matchesFilters = (peer, { searchQuery, selectedFields, minRating, availability, academicLevel }) => {
+  const p = normalizePeer(peer);
+
+  if ((p.rating || 4.0) < minRating) {
+    return false;
+  }
+
+  if (searchQuery && searchQuery.trim()) {
+    const q = searchQuery.toLowerCase().trim();
+    if (!p.searchStr.includes(q)) {
+      return false;
+    }
+  }
+
+  const activeFields = Object.keys(selectedFields).filter((k) => selectedFields[k]);
+  if (activeFields.length > 0) {
+    const matched = activeFields.some(
+      (f) => p.fieldStr.includes(f.toLowerCase()) || f.toLowerCase().includes(p.fieldStr)
+    );
+    if (!matched) {
+      return false;
+    }
+  }
+
+  if (availability && availability !== 'Anytime') {
+    const kw = availability === 'Today' ? /today/ : availability === 'This Week' ? /this week|mon|tue|wed|thu|fri/ : /sat|sun|weekend/;
+    if (!kw.test(p.availabilityStr)) {
+      return false;
+    }
+  }
+
+  if (academicLevel && academicLevel !== 'Any Level') {
+    const kw = ACADEMIC_KEYWORDS[academicLevel];
+    if (kw && !p.academicStr.includes(kw)) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 export const DiscoverPage = ({
   onNavigateScreen,
   onOpenMentorModal,
@@ -34,13 +118,13 @@ export const DiscoverPage = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFields, setSelectedFields] = useState({
     'Data Science': false,
-    'Academic Writing': true,
+    'Academic Writing': false,
     'UI/UX Design': false,
     'Microeconomics': false,
   });
   const [minRating, setMinRating] = useState(4.0);
   const [availability, setAvailability] = useState('Anytime');
-  const [academicLevel, setAcademicLevel] = useState('PhD Candidate');
+  const [academicLevel, setAcademicLevel] = useState('Any Level');
   const [activeTrendingTag, setActiveTrendingTag] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -77,50 +161,33 @@ export const DiscoverPage = ({
     }
   };
 
-  // Filter peers
-  const filteredPeers = useMemo(() => {
-    const activeCheckedFields = Object.keys(selectedFields).filter((k) => selectedFields[k]);
+  // Filter peers (demo + realtime both run through the same matchesFilters).
+  const filterCriteria = {
+    searchQuery,
+    selectedFields,
+    minRating,
+    availability,
+    academicLevel,
+  };
 
-    return allPeers.filter((peer) => {
-      // 1. Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesName = peer.name.toLowerCase().includes(q);
-        const matchesTitle = peer.title.toLowerCase().includes(q);
-        const matchesSkills = peer.skills.some((s) => s.toLowerCase().includes(q));
-        const matchesField = peer.primaryField.toLowerCase().includes(q);
-        const matchesBio = peer.bio.toLowerCase().includes(q);
-        if (!matchesName && !matchesTitle && !matchesSkills && !matchesField && !matchesBio) {
-          return false;
-        }
-      }
+  const filteredPeers = useMemo(
+    () => allPeers.filter((peer) => matchesFilters(peer, filterCriteria)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allPeers, searchQuery, selectedFields, minRating, availability, academicLevel]
+  );
 
-      // 2. Checked Fields (If any selected, must match at least one)
-      if (activeCheckedFields.length > 0) {
-        const matchesField = activeCheckedFields.includes(peer.primaryField);
-        const matchesSkill = peer.skills.some((skill) =>
-          activeCheckedFields.some((f) => skill.toLowerCase().includes(f.toLowerCase()) || f.toLowerCase().includes(skill.toLowerCase()))
-        );
-        if (!matchesField && !matchesSkill) {
-          return false;
-        }
-      }
+  const filteredLive = useMemo(
+    () => liveScholars.filter((person) => matchesFilters(person, filterCriteria)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [liveScholars, searchQuery, selectedFields, minRating, availability, academicLevel]
+  );
 
-      // 3. Minimum Rating
-      if (peer.rating < minRating) {
-        return false;
-      }
-
-      // 4. Academic Level (if not set to "Any" or matches)
-      if (academicLevel && academicLevel !== 'Any Level' && peer.academicLevel) {
-        if (academicLevel === 'PhD Candidate' && !peer.academicLevel.includes('PhD') && !peer.title.includes('PhD')) {
-          // allow close matches or strictly filter
-        }
-      }
-
-      return true;
-    });
-  }, [allPeers, searchQuery, selectedFields, minRating, academicLevel]);
+  console.debug(
+    '[discover]',
+    { live: liveScholars.length, shown: filteredLive.length },
+    'excluded=',
+    liveScholars.filter((u) => !matchesFilters(u, filterCriteria)).map((u) => ({ name: u.name, rating: u.rating }))
+  );
 
   // Paginated peers (4 per page to match exact 2x2 grid layout from screenshot)
   const itemsPerPage = 4;
@@ -252,7 +319,9 @@ export const DiscoverPage = ({
   };
 
   const handleFindPeerCTA = () => {
-    onShowToast(`Found ${filteredPeers.length} verified academic peers matching your criteria.`);
+    const count = realtime ? filteredLive.length : filteredPeers.length;
+    const kind = realtime ? 'live' : 'verified';
+    onShowToast(`Found ${count} ${kind} academic peers matching your criteria.`);
   };
 
   const userAvatar =
@@ -563,6 +632,16 @@ export const DiscoverPage = ({
               )}
             </div>
 
+            {/* REALTIME EMPTY STATE: no other Firestore users returned at all */}
+            {realtime && liveScholars.length === 0 && (
+              <div className="rounded-2xl border border-[#d9c4d6] bg-[#f7f1f8] p-5 text-center">
+                <p className="text-sm font-semibold text-[#3e2f41]">No other scholars on SkillSwap yet</p>
+                <p className="text-xs text-[#7a6880] mt-1">
+                  Other accounts won't appear here until their profiles sync to Firestore.
+                </p>
+              </div>
+            )}
+
             {/* LIVE SCHOLARS (real Firebase users — request sessions in realtime) */}
             {realtime && liveScholars.length > 0 && (
               <div className="rounded-2xl border border-[#d9c4d6] bg-[#f7f1f8] p-5 space-y-4">
@@ -575,9 +654,22 @@ export const DiscoverPage = ({
                   <span className="text-[11px] font-semibold text-[#7a6880] bg-white px-2 py-0.5 rounded-full border border-[#e2d3e0]">
                     Requests deliver in real time
                   </span>
+                  {filteredLive.length > 0 && (
+                    <span className="text-[11px] font-semibold text-[#7a6880] px-2 py-0.5 rounded-full">
+                      {filteredLive.length} result{filteredLive.length === 1 ? '' : 's'}
+                    </span>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {liveScholars.map((person) => (
+                {filteredLive.length === 0 ? (
+                  <div className="bg-white border border-dashed border-[#d9c4d6] rounded-2xl p-6 text-center">
+                    <p className="text-sm font-semibold text-[#3e2f41]">No scholars match your filters</p>
+                    <p className="text-xs text-[#7a6880] mt-1">
+                      Try clearing the search box or relaxing your filters.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredLive.map((person) => (
                     <div
                       key={person.id}
                       className="bg-white border border-[#e2d3e0] rounded-2xl p-4 shadow-xs flex flex-col gap-3"
@@ -632,6 +724,7 @@ export const DiscoverPage = ({
                     </div>
                   ))}
                 </div>
+                )}
               </div>
             )}
 

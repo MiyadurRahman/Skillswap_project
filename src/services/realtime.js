@@ -101,7 +101,7 @@ export const subscribeAllUsers = (callback, onFirst) => {
           avatarUrl: u.avatarUrl || DEFAULT_AVATAR,
           university: u.university || 'University',
           isOnline: u.isOnline,
-          rating: u.rating ?? 4.8,
+          rating: u.rating || 4.8,
           reviewsCount: u.completedSwaps ?? 0,
           skillsTeach: u.expertiseAreas || u.skillsTeach || [],
           skillsWant: u.learningGoals || u.skillsWant || [],
@@ -110,9 +110,16 @@ export const subscribeAllUsers = (callback, onFirst) => {
           badges: (u.expertiseAreas || []).slice(0, 2),
         };
       });
+      console.info(
+        '[users] subscription',
+        `${users.length} users`,
+        users.map((u) => `${u.uid.slice(0, 8)}:${u.name}`).join(' | ')
+      );
       callback(users);
     },
-    (err) => console.warn('Users listener error:', err)
+    (err) => {
+      console.warn('[users] listener error:', err?.code || err, err?.message || '');
+    }
   );
 };
 
@@ -130,7 +137,7 @@ export const mapIncomingRequest = (doc) => {
       title: r.requester?.title || 'Peer Scholar',
       university: r.requester?.university || 'University',
       avatarUrl: r.requester?.avatarUrl || DEFAULT_AVATAR,
-      rating: r.requester?.rating ?? 4.8,
+      rating: r.requester?.rating || 4.8,
       completedSwaps: r.requester?.completedSwaps ?? 0,
       isOnline: r.requester?.isOnline ?? false,
     },
@@ -218,7 +225,7 @@ export const mapSession = (doc, currentUid) => {
       avatarUrl: partner.avatarUrl || DEFAULT_AVATAR,
       isOnline: partner.isOnline !== false,
       badges: partner.badges || ['Scholar Swap'],
-      rating: partner.rating ?? 4.8,
+      rating: partner.rating || 4.8,
       reviewsCount: partner.completedSwaps ?? 0,
       university: partner.university,
     },
@@ -342,7 +349,7 @@ export const acceptRequest = async ({
     title: request.requester?.title || 'Peer Scholar',
     avatarUrl: request.requester?.avatarUrl || DEFAULT_AVATAR,
     university: request.requester?.university || 'University',
-    rating: request.requester?.rating ?? 4.8,
+    rating: request.requester?.rating || 4.8,
     completedSwaps: request.requester?.completedSwaps ?? 0,
     isOnline: true,
   };
