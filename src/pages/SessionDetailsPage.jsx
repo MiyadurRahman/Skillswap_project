@@ -76,6 +76,19 @@ export const SessionDetailsPage = ({
 
   const session = activeSessionProp || defaultSession;
 
+  // Local interactive states
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
+  const defaultStart = session?.startMs || resolveSessionTimes(session)?.startAt;
+  const [rescheduleDate, setRescheduleDate] = useState(
+    defaultStart
+      ? `${new Date(defaultStart).getFullYear()}-${String(new Date(defaultStart).getMonth() + 1).padStart(2, '0')}-${String(new Date(defaultStart).getDate()).padStart(2, '0')}`
+      : ''
+  );
+  const [rescheduleTime, setRescheduleTime] = useState(session?.time || 'Morning (09:00 - 12:00)');
+  const [showSessionsDropdown, setShowSessionsDropdown] = useState(false);
+
   // REALTIME: no sessions yet — show an honest empty state instead of demo data.
   if (realtime && !activeSessionProp) {
     return (
@@ -101,19 +114,6 @@ export const SessionDetailsPage = ({
       </div>
     );
   }
-
-  // Local interactive states
-  const [isAddingNote, setIsAddingNote] = useState(false);
-  const [noteText, setNoteText] = useState('');
-  const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
-  const defaultStart = session?.startMs || resolveSessionTimes(session)?.startAt;
-  const [rescheduleDate, setRescheduleDate] = useState(
-    defaultStart
-      ? `${new Date(defaultStart).getFullYear()}-${String(new Date(defaultStart).getMonth() + 1).padStart(2, '0')}-${String(new Date(defaultStart).getDate()).padStart(2, '0')}`
-      : ''
-  );
-  const [rescheduleTime, setRescheduleTime] = useState(session?.time || 'Morning (09:00 - 12:00)');
-  const [showSessionsDropdown, setShowSessionsDropdown] = useState(false);
 
   // Partner first name for quick button text (e.g. "Message Aris")
   const partnerFirstName = session.partner?.name?.replace(/^(Dr\.|Prof\.|Mr\.|Ms\.|Mrs\.)\s+/, '').split(' ')[0] || 'Partner';

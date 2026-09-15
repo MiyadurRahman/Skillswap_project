@@ -777,6 +777,7 @@ function AppContent() {
         onShowToast={showToast}
         onProposeSwap={handleProposeSwap}
         onDirectMessage={handleDirectMessage}
+        userProfile={myProfile}
       />
     </div>
   );

@@ -53,9 +53,9 @@ export const upsertUserProfile = async (uid, profile) => {
 };
 
 export const getUserProfile = async (uid) => {
-  const snap = await getDocs(query(collection(db, 'users')));
-  const hit = snap.docs.find((d) => d.id === uid);
-  return hit ? { id: hit.id, ...hit.data() } : null;
+  const ref = doc(db, 'users', uid);
+  const snap = await getDoc(ref);
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 };
 
 // Create the user doc only if it doesn't exist yet; never overwrite existing

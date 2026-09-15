@@ -3,58 +3,134 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: is the requester one of the two participants?
-    function isRequesterParticipant(resData) {
-      return resData.requester.uid == request.auth.uid;
+    // ---- Helper functions ------------------------------------------------
+    function isRequester(resData, auth) {
+      return resData.requester.uid == auth.uid;
     }
-    function isMentorParticipant(resData) {
-      return resData.mentor.uid == request.auth.uid;
+    function isMentor(resData, auth) {
+      return resData.mentor.uid == auth.uid;
+    }
+    // Top-level keys that a write would add / change / delete.
+    function changedKeys(requestData, currentData) {
+      return requestData.diff(currentData).affectedKeys();
     }
 
-    // ---- User profiles ------------------------------------------------
+    // ---- User profiles --------------------------------------------------
     // Any authenticated scholar can read the directory so people can find
     // each other; only the owner of a profile can create/update it.
+    // NOTE: this exposes every user's full profile (including email if stored)
+    // to any authenticated user. If that is unacceptable, split public fields
+    // from private ones (e.g. users/{uid}/private) instead of locking the
+    // directory, which the Discover/session features depend on.
     match /users/{uid} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // ---- Session requests ---------------------------------------------
-    // One doc per request; only the requester and the mentor can see or
-    // modify it. A requester is only allowed to create a pending request.
+    // ---- Session requests ------------------------------------------------
+    // One doc per request. Only the requester or mentor can see it. Creates
+    // are pending-only and cannot self-target the current user as the mentor.
+    // Updates are restricted to the exact transitions the app performs, with
+    // a whitelist of fields each side may touch:
+    //   requester: pending -> cancelled
+    //              rescheduled -> pending (confirm proposed alternate time)
+    //   mentor:    pending -> accepted / declined / rescheduled
     match /requests/{requestId} {
       allow read: if request.auth != null &&
-        (isRequesterParticipant(resource.data) || isMentorParticipant(resource.data));
+        (isRequester(resource.data, request.auth) || isMentor(resource.data, request.auth));
       allow create: if request.auth != null &&
-        isRequesterParticipant(request.resource.data) &&
-        request.resource.data.status == 'pending';
-      allow update: if request.auth != null &&
-        (isRequesterParticipant(resource.data) || isMentorParticipant(resource.data));
+        isRequester(request.resource.data, request.auth) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.mentor.uid != request.resource.data.requester.uid;
+      allow update: if request.auth != null && (
+        // Requester cancels their pending request.
+        (isRequester(resource.data, request.auth) &&
+          resource.data.status == 'pending' &&
+          request.resource.data.status == 'cancelled' &&
+          changedKeys(request.resource.data, resource.data).hasOnly(['status', 'respondedAt'])) ||
+        // Requester confirms the mentor's proposed alternate time (reopens
+        // the request as pending with the new date/slot).
+        (isRequester(resource.data, request.auth) &&
+          resource.data.status == 'rescheduled' &&
+          request.resource.data.status == 'pending' &&
+          changedKeys(request.resource.data, resource.data).hasOnly([
+            'status', 'preferredDate', 'formattedDate', 'preferredTimeSlot',
+            'rescheduledDate', 'rescheduledSlot', 'rescheduleNote', 'respondedAt',
+          ])) ||
+        // Mentor accepts a pending request (session is created in same batch).
+        (isMentor(resource.data, request.auth) &&
+          resource.data.status == 'pending' &&
+          request.resource.data.status == 'accepted' &&
+          changedKeys(request.resource.data, resource.data).hasOnly([
+            'status', 'respondedAt', 'responseNote', 'linkedSessionId',
+          ])) ||
+        // Mentor declines a pending request.
+        (isMentor(resource.data, request.auth) &&
+          resource.data.status == 'pending' &&
+          request.resource.data.status == 'declined' &&
+          changedKeys(request.resource.data, resource.data).hasOnly([
+            'status', 'respondedAt', 'declineReason',
+          ])) ||
+        // Mentor proposes an alternate time for a pending request.
+        (isMentor(resource.data, request.auth) &&
+          resource.data.status == 'pending' &&
+          request.resource.data.status == 'rescheduled' &&
+          changedKeys(request.resource.data, resource.data).hasOnly([
+            'status', 'respondedAt', 'rescheduledDate', 'rescheduledSlot',
+            'rescheduleNote',
+          ]))
+      );
       allow delete: if false;
     }
 
-    // ---- Sessions -----------------------------------------------------
+    // ---- Sessions ---------------------------------------------------------
     // Created when a request is accepted; only participants can read/update.
+    // Create is restricted so a user cannot fabricate a session involving an
+    // arbitrary third party: status must be Accepted, the participant list
+    // must be exactly the two distinct participants, and the creator must be
+    // one of them.
     match /sessions/{sessionId} {
       allow read: if request.auth != null &&
         request.auth.uid in resource.data.participantIds;
       allow create: if request.auth != null &&
         request.auth.uid in request.resource.data.participantIds &&
-        request.resource.data.status == 'Accepted';
+        request.resource.data.status == 'Accepted' &&
+        request.resource.data.originRequestId is string &&
+        request.resource.data.requester.uid != null &&
+        request.resource.data.mentor.uid != null &&
+        request.resource.data.requester.uid != request.resource.data.mentor.uid &&
+        request.resource.data.participantIds.hasAll([
+          request.resource.data.requester.uid,
+          request.resource.data.mentor.uid,
+        ]) &&
+        request.resource.data.participantIds.size() == 2;
       allow update: if request.auth != null &&
-        request.auth.uid in resource.data.participantIds;
+        request.auth.uid in resource.data.participantIds &&
+        request.auth.uid in request.resource.data.participantIds &&
+        // Participants may not swap the partner or add/remove anyone.
+        request.resource.data.participantIds.hasAll(resource.data.participantIds) &&
+        resource.data.participantIds.hasAll(request.resource.data.participantIds);
       allow delete: if false;
     }
 
-    // ---- Conversations (1:1 chat) ------------------------------------
-    // One doc per user pair; only the two participants can read/update.
+    // ---- Conversations (1:1 chat) ----------------------------------------
+    // One doc per user pair; only the two participants can interact. Creates
+    // require exactly two distinct participant ids (no victim injection).
     match /conversations/{conversationId} {
       allow read: if request.auth != null &&
         request.auth.uid in resource.data.participantIds;
       allow create: if request.auth != null &&
-        request.auth.uid in request.resource.data.participantIds;
+        request.auth.uid in request.resource.data.participantIds &&
+        request.resource.data.participantIds.removeAll([request.auth.uid]).size() == 1;
       allow update: if request.auth != null &&
-        request.auth.uid in resource.data.participantIds;
+        request.auth.uid in resource.data.participantIds &&
+        request.auth.uid in request.resource.data.participantIds &&
+        // No participant set mutation after creation.
+        request.resource.data.participantIds.hasAll(resource.data.participantIds) &&
+        resource.data.participantIds.hasAll(request.resource.data.participantIds) &&
+        changedKeys(request.resource.data, resource.data).hasOnly([
+          'lastText', 'lastFrom', 'lastFromName', 'updatedAt', 'unread',
+        ]);
       allow delete: if false;
 
       // Messages are restricted to participants; only the sender can create.
@@ -63,7 +139,8 @@ service cloud.firestore {
           request.auth.uid in resource.data.participantIds;
         allow create: if request.auth != null &&
           request.auth.uid in request.resource.data.participantIds &&
-          request.resource.data.fromUid == request.auth.uid;
+          request.resource.data.fromUid == request.auth.uid &&
+          request.resource.data.conversationId == conversationId;
         allow update: if request.auth != null &&
           request.auth.uid in resource.data.participantIds;
         allow delete: if false;

@@ -9,6 +9,7 @@ export const Modals = ({
   onShowToast,
   onProposeSwap,
   onDirectMessage,
+  userProfile,
 }) => {
   // Meeting states
   const [isMuted, setIsMuted] = useState(false);
@@ -20,7 +21,7 @@ export const Modals = ({
   const [chatInput, setChatInput] = useState('');
 
   // Wallet states
-  const [creditBalance, setCreditBalance] = useState(24.5);
+  const creditBalance = userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5;
   const [filterType, setFilterType] = useState('all');
 
   const transactions = [

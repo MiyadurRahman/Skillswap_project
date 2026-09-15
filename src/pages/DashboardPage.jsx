@@ -209,6 +209,10 @@ export const DashboardPage = ({
   const userCredits = userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5;
   const userRole = userProfile?.academicLevel || 'BSc in CSE';
   const userInstitution = userProfile?.university || 'United International University (UIU)';
+  const upcomingSessionCount = activeSessions.length;
+  const totalHoursLogged = weeklyGrowthBars
+    .reduce((sum, bar) => sum + (parseFloat(bar.hours) || 0), 0)
+    .toFixed(1);
 
   // Sidebar body, shared between the desktop <aside> and the mobile drawer so
   // navigation stays consistent across breakpoints. `onDone` closes the drawer.
@@ -453,7 +457,7 @@ export const DashboardPage = ({
                   Welcome back, {firstName}!
                 </h1>
                 <p className="text-xs sm:text-sm text-white/80 max-w-md leading-relaxed">
-                  You have <span className="font-bold text-[#efdbfd]">2 upcoming sessions</span> scheduled this week. Your time credit balance is ready for new exchanges.
+                  You have <span className="font-bold text-[#efdbfd]">{upcomingSessionCount} upcoming session{upcomingSessionCount === 1 ? '' : 's'}</span> scheduled this week. Your time credit balance is ready for new exchanges.
                 </p>
                 <div className="pt-3 flex flex-wrap gap-3">
                   <button
@@ -579,7 +583,7 @@ export const DashboardPage = ({
                 </p>
               </div>
               <span className="text-xs bg-[#efdbfd] text-[#4f415c] px-3 py-1 rounded-full font-bold self-start sm:self-auto">
-                Total: 21.0 hrs logged
+                Total: {totalHoursLogged} hrs logged
               </span>
             </div>
 

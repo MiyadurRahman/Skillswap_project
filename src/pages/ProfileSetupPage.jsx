@@ -11,27 +11,16 @@ export const ProfileSetupPage = ({
 }) => {
   const { currentUser, logOut, updateProfileData } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
-  const [firstName, setFirstName] = useState('Tanvir');
-  const [lastName, setLastName] = useState('Ahmed');
-  const [university, setUniversity] = useState('United International University (UIU)');
-  const [academicLevel, setAcademicLevel] = useState('BSc in Computer Science & Engineering');
-  const [bio, setBio] = useState(
-    "Undergraduate researcher at United International University (UIU) specializing in Data Structures, Algorithms, and System Design. Passionate about academic peer learning."
-  );
-  const [avatarPreview, setAvatarPreview] = useState(academicAssets.avatars.tanvirAhmed);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [university, setUniversity] = useState('');
+  const [academicLevel, setAcademicLevel] = useState('');
+  const [bio, setBio] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState(academicAssets.avatars.defaultMaleScholar);
   const [saving, setSaving] = useState(false);
 
-  const [expertise, setExpertise] = useState([
-    'Data Structures',
-    'Algorithms',
-    'C++',
-    'Python',
-  ]);
-  const [learningGoals, setLearningGoals] = useState([
-    'Machine Learning',
-    'Artificial Intelligence',
-    'Cloud Systems',
-  ]);
+  const [expertise, setExpertise] = useState([]);
+  const [learningGoals, setLearningGoals] = useState([]);
   const [newSkillInput, setNewSkillInput] = useState('');
   const [newGoalInput, setNewGoalInput] = useState('');
   const [showSkillInput, setShowSkillInput] = useState(false);
@@ -65,16 +54,45 @@ export const ProfileSetupPage = ({
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setAvatarPreview(event.target.result);
-          onShowToast('Profile photo uploaded and processed.');
+    if (!file) return;
+    if (!/^image\//.test(file.type)) {
+      onShowToast('Please choose an image file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const src = event.target?.result;
+      if (!src) return;
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 500;
+        let { width, height } = img;
+        if (width > height && width > MAX) {
+          height = Math.round((height * MAX) / width);
+          width = MAX;
+        } else if (height >= width && height > MAX) {
+          width = Math.round((width * MAX) / height);
+          height = MAX;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        try {
+          setAvatarPreview(canvas.toDataURL('image/jpeg', 0.8));
+          onShowToast('Profile photo uploaded and compressed.');
+        } catch {
+          setAvatarPreview(src);
+          onShowToast('Profile photo uploaded.');
         }
       };
-      reader.readAsDataURL(file);
-    }
+      img.onerror = () => {
+        setAvatarPreview(src);
+        onShowToast('Profile photo uploaded.');
+      };
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleAddExpertise = () => {

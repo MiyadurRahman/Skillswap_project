@@ -7,10 +7,10 @@ import { allPeers } from '../data/peersData';
 // users (mapped by subscribeAllUsers). The two shapes don't share a schema, so
 // each peer is normalized into lowercase searchable strings.
 const ACADEMIC_KEYWORDS = {
-  "PhD Candidate": 'phd',
-  "Master's Student": 'master',
-  'Undergraduate Senior': 'undergraduate',
-  'Postdoctoral Researcher': 'postdoc',
+  "PhD Candidate": ['phd', 'ph.d', 'doctoral candidate', 'doctorate'],
+  "Master's Student": ['master', 'msc', 'graduate researcher'],
+  'Undergraduate Senior': ['undergraduate', 'bsc', 'bachelor', 'b.sc'],
+  'Postdoctoral Researcher': ['postdoc', 'post-doctoral', 'postdoctoral', 'fellow'],
 };
 
 const normalizePeer = (peer) => {
@@ -78,8 +78,8 @@ const matchesFilters = (peer, { searchQuery, selectedFields, minRating, availabi
   }
 
   if (academicLevel && academicLevel !== 'Any Level') {
-    const kw = ACADEMIC_KEYWORDS[academicLevel];
-    if (kw && !p.academicStr.includes(kw)) {
+    const kws = ACADEMIC_KEYWORDS[academicLevel];
+    if (kws && !kws.some((kw) => p.academicStr.includes(kw))) {
       return false;
     }
   }
@@ -151,6 +151,21 @@ export const DiscoverPage = ({
     }));
   };
 
+  const resetFilters = () => {
+    setSearchQuery('');
+    setSelectedFields({
+      'Data Science': false,
+      'Academic Writing': false,
+      'UI/UX Design': false,
+      'Microeconomics': false,
+    });
+    setMinRating(4.0);
+    setAvailability('Anytime');
+    setAcademicLevel('Any Level');
+    setActiveTrendingTag('');
+    setCurrentPage(1);
+  };
+
   const handleTagClick = (tag) => {
     if (activeTrendingTag === tag) {
       setActiveTrendingTag('');
@@ -193,9 +208,10 @@ export const DiscoverPage = ({
   // Paginated peers (4 per page to match exact 2x2 grid layout from screenshot)
   const itemsPerPage = 4;
   const totalPages = Math.ceil(filteredPeers.length / itemsPerPage) || 1;
+  const effectivePage = Math.min(currentPage, totalPages);
   const paginatedPeers = filteredPeers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    (effectivePage - 1) * itemsPerPage,
+    effectivePage * itemsPerPage
   );
 
   const handleOpenPeer = (peer) => {
@@ -869,16 +885,7 @@ export const DiscoverPage = ({
                   Try adjusting your search terms or unchecking some filter fields to explore more verified scholars.
                 </p>
                 <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedFields({
-                      'Data Science': false,
-                      'Academic Writing': true,
-                      'UI/UX Design': false,
-                      'Microeconomics': false,
-                    });
-                    setMinRating(4.0);
-                  }}
+                  onClick={resetFilters}
                   className="px-4 py-2 bg-[#473b4b] text-white rounded-xl text-xs font-bold hover:bg-[#342738] transition-colors inline-block mt-2"
                 >
                   Reset All Filters
@@ -889,73 +896,38 @@ export const DiscoverPage = ({
             )}
           </div>
 
-          {/* 3. PAGINATION CONTROLS (matching < (1) 2 3 ... 12 >) */}
+          {/* 3. PAGINATION CONTROLS (dynamic, sized to the result set) */}
           {!realtime && (
             <div className="flex items-center justify-center gap-2 py-8 select-none" id="pagination-controls">
             {/* Prev */}
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
+              disabled={effectivePage === 1}
               className="w-8 h-8 rounded-full border border-[#ebd8d4] bg-white text-[#705f69] hover:text-[#201a1b] hover:border-[#473b4b] flex items-center justify-center text-xs transition-colors disabled:opacity-40 disabled:hover:border-[#ebd8d4]"
               title="Previous Page"
             >
               <span className="material-symbols-outlined text-[16px]">chevron_left</span>
             </button>
 
-            {/* Page 1 */}
-            <button
-              onClick={() => setCurrentPage(1)}
-              className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center transition-all ${
-                currentPage === 1
-                  ? 'bg-[#473b4b] text-white shadow-xs'
-                  : 'bg-white border border-[#ebd8d4] text-[#705f69] hover:border-[#473b4b]'
-              }`}
-            >
-              1
-            </button>
-
-            {/* Page 2 */}
-            <button
-              onClick={() => setCurrentPage(2)}
-              className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center transition-all ${
-                currentPage === 2
-                  ? 'bg-[#473b4b] text-white shadow-xs'
-                  : 'bg-white border border-[#ebd8d4] text-[#705f69] hover:border-[#473b4b]'
-              }`}
-            >
-              2
-            </button>
-
-            {/* Page 3 */}
-            <button
-              onClick={() => setCurrentPage(3)}
-              className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center transition-all ${
-                currentPage === 3
-                  ? 'bg-[#473b4b] text-white shadow-xs'
-                  : 'bg-white border border-[#ebd8d4] text-[#705f69] hover:border-[#473b4b]'
-              }`}
-            >
-              3
-            </button>
-
-            <span className="text-xs text-[#9a8992] px-1">...</span>
-
-            {/* Page 12 */}
-            <button
-              onClick={() => setCurrentPage(12)}
-              className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center transition-all ${
-                currentPage === 12
-                  ? 'bg-[#473b4b] text-white shadow-xs'
-                  : 'bg-white border border-[#ebd8d4] text-[#705f69] hover:border-[#473b4b]'
-              }`}
-            >
-              12
-            </button>
+            {/* Page buttons */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center transition-all ${
+                  effectivePage === page
+                    ? 'bg-[#473b4b] text-white shadow-xs'
+                    : 'bg-white border border-[#ebd8d4] text-[#705f69] hover:border-[#473b4b]'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
 
             {/* Next */}
             <button
-              onClick={() => setCurrentPage((p) => Math.min(12, p + 1))}
-              disabled={currentPage === 12}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={effectivePage === totalPages}
               className="w-8 h-8 rounded-full border border-[#ebd8d4] bg-white text-[#705f69] hover:text-[#201a1b] hover:border-[#473b4b] flex items-center justify-center text-xs transition-colors disabled:opacity-40 disabled:hover:border-[#ebd8d4]"
               title="Next Page"
             >
