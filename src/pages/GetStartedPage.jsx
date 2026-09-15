@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { academicAssets } from '../assets';
 import { AUTH_CONFIG } from '../config/authConfig';
+import { useAuth } from '../context/AuthContext';
 
 export const GetStartedPage = ({
   onNavigateToSignUp,
@@ -8,9 +9,57 @@ export const GetStartedPage = ({
   onShowToast,
   onOpenSSO,
   onExploreDemo,
+  realtime = false,
+  realtimeUsers = [],
 }) => {
+  const { currentUser } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [activeFaq, setActiveFaq] = useState(0);
+
+  // Live Firestore scholars (display only). Never includes the signed-in
+  // viewer's own profile.
+  const liveScholars = realtime
+    ? realtimeUsers.filter((u) => u.uid && u.name && u.uid !== currentUser?.uid)
+    : [];
+
+  // Hero "Live Peer Exchange" card shows the first two live scholars.
+  const livePeerCards = liveScholars.slice(0, 2);
+
+  const liveSkillLine = (u) =>
+    u.skillsTeach?.[0] || u.badges?.[0] || u.title || 'Academic Peer Exchange';
+
+  // Category keyword heuristics so the filter pills still work on live cards.
+  const CATEGORY_KEYWORDS = {
+    cs: ['computer', 'programming', 'software', 'algorithm', 'data ', 'database', 'c++', 'python', 'java', 'javascript', 'machine learning', 'artificial intelligence', 'sql', 'web', 'cryptography', 'system design'],
+    math: ['math', 'statistics', 'calculus', 'algebra', 'probability', 'econometrics', 'linear algebra'],
+    bio: ['bio', 'biotech', 'genetics', 'genomics', 'biology', 'dna'],
+    eng: ['engineering', 'robotics', 'embedded', 'control', 'mechatronics', 'ros', 'mechanics'],
+  };
+
+  const deriveCategory = (u) => {
+    const hay = [u.title, u.academicLevel, ...(u.skillsTeach || []), ...(u.badges || [])]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    for (const cat of ['cs', 'math', 'bio', 'eng']) {
+      if (CATEGORY_KEYWORDS[cat].some((kw) => hay.includes(kw))) return cat;
+    }
+    return 'all';
+  };
+
+  // "Top Peer Skills Available Now" cards built from the first 4 live scholars.
+  const liveSkillCards = liveScholars.slice(0, 4).map((u, idx) => ({
+    id: `live-${idx}-${u.uid}`,
+    category: deriveCategory(u),
+    title: u.skillsTeach?.[0] || u.badges?.[0] || u.title || 'Academic Peer Exchange',
+    mentorName: u.name,
+    university: u.university || 'University Scholar',
+    tags: (u.badges && u.badges.length ? u.badges : u.skillsTeach || []).slice(0, 3),
+    rating: u.rating ?? 4.8,
+    reviewsCount: u.reviewsCount ?? u.completedSwaps ?? 0,
+    avatarUrl: u.avatarUrl,
+    status: 'Live Now',
+  }));
 
   const categories = [
     { id: 'all', label: 'All Fields', icon: 'auto_stories' },
@@ -94,10 +143,14 @@ export const GetStartedPage = ({
     },
   ];
 
+  // Grid shows live scholars when available, otherwise the static showcase.
+  const displayedCards =
+    realtime && liveSkillCards.length > 0 ? liveSkillCards : featuredSkills;
+
   const filteredSkills =
     selectedCategory === 'all'
-      ? featuredSkills
-      : featuredSkills.filter((s) => s.category === selectedCategory);
+      ? displayedCards
+      : displayedCards.filter((s) => s.category === selectedCategory);
 
   return (
     <div id="screen-get-started" className="min-h-screen bg-[#fff8f7] text-[#201a1b] flex flex-col font-sans selection:bg-[#c5b3d3] selection:text-[#22162e]">
@@ -237,67 +290,95 @@ export const GetStartedPage = ({
                 </span>
               </div>
 
-              {/* Scholar 1: Offering */}
-              <div className="p-3.5 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] transition-all hover:border-[#c5b3d3]">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2.5">
-                    <img
-                      src={academicAssets.avatars.tanvirAhmed}
-                      alt="Tanvir Ahmed"
-                      className="w-10 h-10 rounded-full object-cover border-2 border-[#675975]"
-                    />
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-[#201a1b]">Tanvir Ahmed</span>
-                        <span className="material-symbols-outlined text-[14px] text-[#675975]" title="Verified UIU Scholar">verified</span>
+              {/* Live Scholar Feed (display only — not interactive) */}
+              {livePeerCards.length > 0 ? (
+                <>
+                  {/* Scholar 1: Offering */}
+                  <div className="p-3.5 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] pointer-events-none select-none">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={livePeerCards[0].avatarUrl}
+                          alt={livePeerCards[0].name}
+                          referrerPolicy="no-referrer"
+                          className="w-10 h-10 rounded-full object-cover border-2 border-[#675975]"
+                        />
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-[#201a1b]">{livePeerCards[0].name}</span>
+                            <span className="material-symbols-outlined text-[14px] text-[#675975]" title="Verified Scholar">verified</span>
+                          </div>
+                          <span className="text-[10px] text-[#675975] font-medium">{livePeerCards[0].university || 'University Scholar'}</span>
+                        </div>
                       </div>
-                      <span className="text-[10px] text-[#675975] font-medium">UIU • Computer Science</span>
+                      <span className="text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded-md font-bold uppercase">
+                        Teaching
+                      </span>
+                    </div>
+                    <div className="bg-white px-3 py-2 rounded-xl text-xs font-semibold text-[#201a1b] border border-[#ccc4cd]/30 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[16px] text-[#675975]">school</span>
+                      <span>{liveSkillLine(livePeerCards[0])}</span>
                     </div>
                   </div>
-                  <span className="text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded-md font-bold uppercase">
-                    Teaching
-                  </span>
-                </div>
-                <div className="bg-white px-3 py-2 rounded-xl text-xs font-semibold text-[#201a1b] border border-[#ccc4cd]/30 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-[#675975]">code</span>
-                  <span>Data Structures & Algorithms in C++</span>
-                </div>
-              </div>
 
-              {/* Animated Exchange Connector */}
-              <div className="flex items-center justify-center -my-2 relative z-20">
-                <div className="bg-[#675975] text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-md flex items-center gap-1.5 border-2 border-white">
-                  <span className="material-symbols-outlined text-[13px]">sync_alt</span>
-                  <span>Direct Skill Exchange</span>
-                </div>
-              </div>
-
-              {/* Scholar 2: Receiving / Returning */}
-              <div className="p-3.5 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] transition-all hover:border-[#c5b3d3]">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2.5">
-                    <img
-                      src={academicAssets.avatars.sarahKhan}
-                      alt="Sarah Khan"
-                      className="w-10 h-10 rounded-full object-cover border-2 border-[#c5b3d3]"
-                    />
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-[#201a1b]">Sarah Khan</span>
-                        <span className="material-symbols-outlined text-[14px] text-[#675975]" title="Verified DU Scholar">verified</span>
-                      </div>
-                      <span className="text-[10px] text-[#675975] font-medium">Univ of Dhaka • Genetics</span>
+                  {/* Animated Exchange Connector */}
+                  <div className="flex items-center justify-center -my-2 relative z-20">
+                    <div className="bg-[#675975] text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-md flex items-center gap-1.5 border-2 border-white">
+                      <span className="material-symbols-outlined text-[13px]">sync_alt</span>
+                      <span>Direct Skill Exchange</span>
                     </div>
                   </div>
-                  <span className="text-[10px] bg-[#efdbfd] text-[#4f415c] px-2 py-0.5 rounded-md font-bold uppercase">
-                    Returning
-                  </span>
+
+                  {/* Scholar 2: Receiving / Returning (or placeholder) */}
+                  <div className="p-3.5 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] pointer-events-none select-none">
+                    {livePeerCards[1] ? (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={livePeerCards[1].avatarUrl}
+                              alt={livePeerCards[1].name}
+                              referrerPolicy="no-referrer"
+                              className="w-10 h-10 rounded-full object-cover border-2 border-[#c5b3d3]"
+                            />
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-[#201a1b]">{livePeerCards[1].name}</span>
+                                <span className="material-symbols-outlined text-[14px] text-[#675975]" title="Verified Scholar">verified</span>
+                              </div>
+                              <span className="text-[10px] text-[#675975] font-medium">{livePeerCards[1].university || 'University Scholar'}</span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] bg-[#efdbfd] text-[#4f415c] px-2 py-0.5 rounded-md font-bold uppercase">
+                            Returning
+                          </span>
+                        </div>
+                        <div className="bg-white px-3 py-2 rounded-xl text-xs font-semibold text-[#201a1b] border border-[#ccc4cd]/30 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[16px] text-[#675975]">school</span>
+                          <span>{liveSkillLine(livePeerCards[1])}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2.5 text-[#8c7b86] py-1">
+                        <span className="material-symbols-outlined text-[22px]">hourglass_empty</span>
+                        <div>
+                          <div className="text-xs font-bold text-[#705e69]">Awaiting matching scholar</div>
+                          <span className="text-[10px] font-medium">Your exchange partner will appear here in real time.</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Neutral empty state when no live scholars are online */
+                <div className="p-6 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] text-center space-y-2 pointer-events-none select-none">
+                  <span className="material-symbols-outlined text-3xl text-[#b7a4b3] block mx-auto">groups</span>
+                  <p className="text-xs font-bold text-[#705e69]">Live peer exchange feed is idle</p>
+                  <p className="text-[11px] text-[#8c7b86] max-w-[260px] mx-auto leading-relaxed">
+                    Scholars will appear here in real time as they come online for swaps.
+                  </p>
                 </div>
-                <div className="bg-white px-3 py-2 rounded-xl text-xs font-semibold text-[#201a1b] border border-[#ccc4cd]/30 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-[#675975]">biotech</span>
-                  <span>Computational Genomics & Python</span>
-                </div>
-              </div>
+              )}
 
               {/* Action Button */}
               <button

@@ -131,6 +131,8 @@ export const AppRoutes = ({
           onExploreDemo={onExploreDemo}
           onShowToast={onShowToast}
           onOpenSSO={onOpenSSO}
+          realtime={realtime}
+          realtimeUsers={realtimeUsers}
         />
       );
 
