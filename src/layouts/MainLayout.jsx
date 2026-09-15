@@ -1,6 +1,5 @@
 import React from 'react';
 import { Navbar } from './Navbar';
-import { ScreenSwitcher } from '../component/ScreenSwitcher';
 
 export const MainLayout = ({
   children,
@@ -32,13 +31,6 @@ export const MainLayout = ({
       <div className={showNav ? 'pt-[72px]' : ''}>
         {children}
       </div>
-
-      {/* Persistent Screen Switcher Dock */}
-      <ScreenSwitcher
-        currentScreen={currentScreen}
-        onSelectScreen={onNavigateScreen}
-        onOpenQuickDemo={onOpenQuickDemo}
-      />
     </div>
   );
 };

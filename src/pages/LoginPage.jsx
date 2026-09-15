@@ -9,7 +9,7 @@ export const LoginPage = ({
   onOpenSSO,
   onShowToast,
 }) => {
-  const { signIn, signInWithGoogleOAuth, resetPassword } = useAuth();
+  const { signIn, signInWithGoogleOAuth, resetPassword, loginAsDemo } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,8 +31,8 @@ export const LoginPage = ({
     setLoading(true);
 
     try {
-      const result = await signIn(demoEmail, demoPassword);
-      onShowToast(`Welcome, ${result.profile?.fullName || 'UIU Scholar'}!`);
+      const result = await (loginAsDemo ? loginAsDemo(demoEmail) : signIn(demoEmail, demoPassword));
+      onShowToast(`Welcome, ${result.profile?.name || 'Unknown'}!`);
       if (onLoginSuccess) onLoginSuccess();
     } catch (err) {
       setErrorMessage(err.message || 'Failed to authenticate demo account.');
@@ -46,7 +46,7 @@ export const LoginPage = ({
     if (demoType === 'uiu') {
       setEmail('unknown@bscse.uiu.ac.bd');
       setPassword('password123');
-      onShowToast('Loaded UIU credentials. Click "Sign In" or "Quick Sign In".');
+      onShowToast('Loaded UIU credentials. Click "Instant Sign In" to enter!');
     } else {
       setEmail('');
       setPassword('');
@@ -311,8 +311,8 @@ export const LoginPage = ({
             </button>
           </div>
 
-          {/* Quick Demo Login Downside of Continue With */}
-          {AUTH_CONFIG.ENABLE_INSTANT_SIGN_IN && (
+          {/* Quick Demo Login Section (Toggled by AUTH_CONFIG.SHOW_DEMO_LOGIN) */}
+          {(AUTH_CONFIG.SHOW_DEMO_LOGIN ?? AUTH_CONFIG.ENABLE_INSTANT_SIGN_IN) && (
             <div className="mt-5 pt-4 border-t border-[#ccc4cd]/50">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold text-[#675975] flex items-center gap-1">

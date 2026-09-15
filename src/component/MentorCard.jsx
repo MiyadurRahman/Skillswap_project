@@ -1,18 +1,26 @@
 import React from 'react';
+import { resolveAvatarForName } from '../assets';
 
-export const MentorCard = ({ mentor, onSelect, onShowToast }) => {
+export const MentorCard = ({ mentor, onSelect, onMessage, onShowToast }) => {
   return (
     <div
       id={`mentor-card-${mentor.id}`}
-      className="bg-white rounded-2xl p-4 ambient-lift border border-[#ccc4cd]/40 hover:border-[#c5b3d3] transition-all flex items-center justify-between gap-3"
+      className="bg-white rounded-2xl p-4 ambient-lift border border-[#ccc4cd]/40 hover:border-[#c5b3d3] transition-all flex items-center justify-between gap-3 min-w-0"
     >
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <img
-            src={mentor.avatarUrl}
-            alt={mentor.name}
-            className="w-12 h-12 rounded-full object-cover border border-[#ccc4cd]/50 shadow-sm"
-          />
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="relative shrink-0">
+          <div className="w-12 h-12 rounded-full overflow-hidden border border-[#ccc4cd]/50 shadow-sm bg-[#eeddf2]">
+            <img
+              src={mentor.avatarUrl}
+              alt={mentor.name}
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = resolveAvatarForName(mentor.name);
+              }}
+              className="w-full h-full object-cover"
+            />
+          </div>
           {mentor.isOnline && (
             <span
               title="Online now"
@@ -21,17 +29,17 @@ export const MentorCard = ({ mentor, onSelect, onShowToast }) => {
           )}
         </div>
 
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <h4 className="text-sm font-bold text-[#201a1b] leading-tight">
+            <h4 className="text-sm font-bold text-[#201a1b] leading-tight truncate">
               {mentor.name}
             </h4>
-            <span className="material-symbols-outlined text-[14px] text-[#675975]">
+            <span className="material-symbols-outlined text-[14px] text-[#675975] shrink-0">
               verified
             </span>
           </div>
-          <p className="text-xs text-[#4a454c] mt-0.5">{mentor.field}</p>
-          <div className="flex items-center gap-2 mt-1">
+          <p className="text-xs text-[#4a454c] mt-0.5 truncate">{mentor.field}</p>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="flex items-center text-[11px] font-bold text-amber-600">
               <span className="material-symbols-outlined text-[13px] fill mr-0.5 text-amber-500">
                 star
@@ -48,7 +56,7 @@ export const MentorCard = ({ mentor, onSelect, onShowToast }) => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5 shrink-0">
         <button
           onClick={() => onSelect(mentor)}
           className="px-3.5 py-1.5 bg-[#675975] hover:bg-[#52445f] text-white rounded-full text-xs font-semibold transition-colors cursor-pointer shadow-sm text-center whitespace-nowrap"
@@ -56,7 +64,13 @@ export const MentorCard = ({ mentor, onSelect, onShowToast }) => {
           Book Swap
         </button>
         <button
-          onClick={() => onShowToast(`Sent connection invitation to ${mentor.name}`)}
+          onClick={() => {
+            if (onMessage) {
+              onMessage(mentor);
+            } else if (onShowToast) {
+              onShowToast(`Sent connection invitation to ${mentor.name}`);
+            }
+          }}
           className="px-3 py-1 bg-[#fdf1f1] hover:bg-[#f7ebeb] text-[#675975] rounded-full text-[11px] font-medium transition-colors text-center"
         >
           Message

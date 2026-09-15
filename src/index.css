@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Tailwind v4 renders `rounded-full` as `calc(infinity * 1px)`, which many
+   browsers drop entirely (leaving avatars/pills square). Override with a value
+   every browser supports so circular avatars, badges, and buttons always clip. */
+.rounded-full {
+  border-radius: 9999px;
+}
+
 @theme {
   --color-background: #fff8f7;
   --color-on-background: #201a1b;

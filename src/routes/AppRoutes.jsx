@@ -6,6 +6,10 @@ import { ProfileSetupPage } from '../pages/ProfileSetupPage';
 import { GetStartedPage } from '../pages/GetStartedPage';
 import { DiscoverPage } from '../pages/DiscoverPage';
 import { SkillManagerPage } from '../pages/SkillManagerPage';
+import { PublicProfilePage } from '../pages/PublicProfilePage';
+import { SessionDetailsPage } from '../pages/SessionDetailsPage';
+import { RequestsPage } from '../pages/RequestsPage';
+import { SchedulePage } from '../pages/SchedulePage';
 
 export const AppRoutes = ({
   currentScreen,
@@ -18,8 +22,107 @@ export const AppRoutes = ({
   onOpenSSO,
   onShowToast,
   onExploreDemo,
+  selectedProfile,
+  setSelectedProfile,
+  sessions = [],
+  selectedSession,
+  setSelectedSession,
+  onCreateSession,
+  onUpdateSession,
+  onSelectSession,
+  onAddSessionNote,
+  incomingRequests = [],
+  onUpdateIncomingRequests,
+  outgoingRequests = [],
+  onUpdateOutgoingRequests,
+  selectedMentorForRequest,
+  setSelectedMentorForRequest,
+  realtime = false,
+  realtimeUsers = [],
+  onRequestRealtime,
+  onMessageMentor,
+  onAcceptRequest,
+  onDeclineRequest,
+  onRescheduleRequest,
+  onSendRequest,
+  onCancelOutgoingRequest,
+  onConfirmRescheduleRequest,
 }) => {
   switch (currentScreen) {
+    case 'requests':
+    case 'request-session':
+      return (
+        <RequestsPage
+          userProfile={userProfile}
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onOpenMeetingModal={onOpenMeeting}
+          onOpenWalletModal={onOpenWallet}
+          onShowToast={onShowToast}
+          incomingRequests={incomingRequests}
+          onUpdateIncomingRequests={onUpdateIncomingRequests}
+          outgoingRequests={outgoingRequests}
+          onUpdateOutgoingRequests={onUpdateOutgoingRequests}
+          onCreateSession={onCreateSession}
+          onSelectSession={onSelectSession}
+          allSessions={sessions}
+          onSelectPeerProfile={(peer) => setSelectedProfile(peer)}
+          initialTab={currentScreen === 'request-session' ? 'request-form' : 'incoming'}
+          selectedMentorForRequest={selectedMentorForRequest}
+          realtime={realtime}
+          onAcceptRequest={onAcceptRequest}
+          onDeclineRequest={onDeclineRequest}
+          onRescheduleRequest={onRescheduleRequest}
+          onSendRequest={onSendRequest}
+          onCancelOutgoingRequest={onCancelOutgoingRequest}
+          onConfirmRescheduleRequest={onConfirmRescheduleRequest}
+          onMessageMentor={onMessageMentor}
+        />
+      );
+
+    case 'session-details':
+      return (
+        <SessionDetailsPage
+          session={selectedSession}
+          allSessions={sessions}
+          onSelectSession={onSelectSession}
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onOpenMeetingModal={onOpenMeeting}
+          onOpenWalletModal={onOpenWallet}
+          onShowToast={onShowToast}
+          onSelectPeerProfile={(peer) => setSelectedProfile(peer)}
+          onUpdateSession={onUpdateSession}
+          onAddSessionNote={onAddSessionNote}
+          realtime={realtime}
+          onMessageMentor={onMessageMentor}
+        />
+      );
+
+    case 'schedule':
+      return (
+        <SchedulePage
+          userProfile={userProfile}
+          sessions={sessions}
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onSelectSession={onSelectSession}
+          onUpdateSession={onUpdateSession}
+          onShowToast={onShowToast}
+        />
+      );
+
+    case 'public-profile':
+      return (
+        <PublicProfilePage
+          userProfile={userProfile}
+          profileData={selectedProfile}
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onOpenMeetingModal={onOpenMeeting}
+          onOpenWalletModal={onOpenWallet}
+          onOpenMentorModal={onOpenMentor}
+          onShowToast={onShowToast}
+          onCreateSession={onCreateSession}
+          onMessageMentor={onMessageMentor}
+        />
+      );
     case 'get-started':
       return (
         <GetStartedPage
@@ -70,6 +173,13 @@ export const AppRoutes = ({
           onOpenMeetingModal={onOpenMeeting}
           onOpenWalletModal={onOpenWallet}
           onShowToast={onShowToast}
+          onSelectPeerProfile={(peer) => setSelectedProfile(peer)}
+          onCreateSession={onCreateSession}
+          onSelectSession={onSelectSession}
+          realtime={realtime}
+          realtimeUsers={realtimeUsers}
+          onRequestRealtime={onRequestRealtime}
+          onMessageMentor={onMessageMentor}
         />
       );
 
@@ -82,6 +192,12 @@ export const AppRoutes = ({
           onOpenWalletModal={onOpenWallet}
           onOpenMentorModal={onOpenMentor}
           onShowToast={onShowToast}
+          sessions={sessions}
+          onSelectSession={onSelectSession}
+          realtime={realtime}
+          realtimeUsers={realtimeUsers}
+          onRequestRealtime={onRequestRealtime}
+          onMessageMentor={onMessageMentor}
         />
       );
 

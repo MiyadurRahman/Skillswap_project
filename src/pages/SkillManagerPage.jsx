@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { resolveAvatarForName } from '../assets';
 import { useAuth } from '../context/AuthContext';
+import { MobileNav } from '../component/MobileNav';
 
 export const SkillManagerPage = ({
   onNavigateScreen,
@@ -10,7 +12,7 @@ export const SkillManagerPage = ({
   userProfile: propProfile,
   onSaveProfileSkills,
 }) => {
-  const { currentUser, userProfile: authProfile, logOut } = useAuth();
+  const { currentUser, userProfile: authProfile, logOut, updateProfileData } = useAuth();
   const userProfile = authProfile || propProfile || {};
 
   // Active top navigation tab
@@ -126,12 +128,22 @@ export const SkillManagerPage = ({
   };
 
   // Save Skills
-  const handleSave = () => {
+  const handleSave = async () => {
     if (onSaveProfileSkills) {
       onSaveProfileSkills({
         skillsTeach,
         skillsWant,
       });
+    }
+    if (currentUser && !currentUser.isDemo && updateProfileData) {
+      try {
+        await updateProfileData({
+          expertiseAreas: skillsTeach,
+          learningGoals: skillsWant,
+        });
+      } catch (e) {
+        console.warn('Could not sync skills to Firestore:', e);
+      }
     }
     onShowToast('✨ Skill profile successfully updated and synchronized!');
   };
@@ -159,7 +171,7 @@ export const SkillManagerPage = ({
 
   const userAvatar =
     userProfile?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
+    resolveAvatarForName(userProfile?.name || currentUser?.displayName || 'Scholar', 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80');
 
   const userRole = userProfile?.academicLevel || 'PhD Candidate';
 
@@ -170,7 +182,16 @@ export const SkillManagerPage = ({
       <header className="sticky top-0 w-full h-[64px] bg-[#4a3b47] shadow-sm z-40">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1400px] mx-auto h-full">
           {/* Brand & Nav items */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2 sm:gap-8">
+            <MobileNav
+              accent="#4a3b47"
+              items={[
+                { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
+                { label: 'Search', icon: 'explore', onClick: () => onNavigateScreen('discover') },
+                { label: 'Requests', icon: 'inbox', onClick: () => onNavigateScreen('requests') },
+                { label: 'My Sessions', icon: 'calendar_today', onClick: () => onNavigateScreen('session-details') },
+              ]}
+            />
             <span
               onClick={() => onNavigateScreen('dashboard')}
               className="text-xl sm:text-2xl font-bold text-white tracking-tight cursor-pointer hover:opacity-95 transition-opacity"

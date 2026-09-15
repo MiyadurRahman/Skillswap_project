@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { academicAssets } from '../assets';
+import { academicAssets, resolveAvatarForName } from '../assets';
 import { useAuth } from '../context/AuthContext';
+import { MobileNav } from '../component/MobileNav';
 
 export const ProfileSetupPage = ({
   userProfile,
@@ -10,27 +11,16 @@ export const ProfileSetupPage = ({
 }) => {
   const { currentUser, logOut, updateProfileData } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
-  const [firstName, setFirstName] = useState('Tanvir');
-  const [lastName, setLastName] = useState('Ahmed');
-  const [university, setUniversity] = useState('United International University (UIU)');
-  const [academicLevel, setAcademicLevel] = useState('BSc in Computer Science & Engineering');
-  const [bio, setBio] = useState(
-    "Undergraduate researcher at United International University (UIU) specializing in Data Structures, Algorithms, and System Design. Passionate about academic peer learning."
-  );
-  const [avatarPreview, setAvatarPreview] = useState(academicAssets.avatars.tanvirAhmed);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [university, setUniversity] = useState('');
+  const [academicLevel, setAcademicLevel] = useState('');
+  const [bio, setBio] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState(academicAssets.avatars.defaultMaleScholar);
   const [saving, setSaving] = useState(false);
 
-  const [expertise, setExpertise] = useState([
-    'Data Structures',
-    'Algorithms',
-    'C++',
-    'Python',
-  ]);
-  const [learningGoals, setLearningGoals] = useState([
-    'Machine Learning',
-    'Artificial Intelligence',
-    'Cloud Systems',
-  ]);
+  const [expertise, setExpertise] = useState([]);
+  const [learningGoals, setLearningGoals] = useState([]);
   const [newSkillInput, setNewSkillInput] = useState('');
   const [newGoalInput, setNewGoalInput] = useState('');
   const [showSkillInput, setShowSkillInput] = useState(false);
@@ -48,7 +38,11 @@ export const ProfileSetupPage = ({
       if (userProfile.university) setUniversity(userProfile.university);
       if (userProfile.academicLevel) setAcademicLevel(userProfile.academicLevel);
       if (userProfile.bio) setBio(userProfile.bio);
-      if (userProfile.avatarUrl) setAvatarPreview(userProfile.avatarUrl);
+      if (userProfile.avatarUrl) {
+        setAvatarPreview(userProfile.avatarUrl);
+      } else {
+        setAvatarPreview(resolveAvatarForName(userProfile.name || firstName || 'Scholar', academicAssets.avatars.defaultMaleScholar));
+      }
       if (userProfile.expertiseAreas && userProfile.expertiseAreas.length > 0) {
         setExpertise(userProfile.expertiseAreas);
       }
@@ -60,16 +54,45 @@ export const ProfileSetupPage = ({
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setAvatarPreview(event.target.result);
-          onShowToast('Profile photo uploaded and processed.');
+    if (!file) return;
+    if (!/^image\//.test(file.type)) {
+      onShowToast('Please choose an image file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const src = event.target?.result;
+      if (!src) return;
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 500;
+        let { width, height } = img;
+        if (width > height && width > MAX) {
+          height = Math.round((height * MAX) / width);
+          width = MAX;
+        } else if (height >= width && height > MAX) {
+          width = Math.round((width * MAX) / height);
+          height = MAX;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        try {
+          setAvatarPreview(canvas.toDataURL('image/jpeg', 0.8));
+          onShowToast('Profile photo uploaded and compressed.');
+        } catch {
+          setAvatarPreview(src);
+          onShowToast('Profile photo uploaded.');
         }
       };
-      reader.readAsDataURL(file);
-    }
+      img.onerror = () => {
+        setAvatarPreview(src);
+        onShowToast('Profile photo uploaded.');
+      };
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleAddExpertise = () => {
@@ -124,10 +147,10 @@ export const ProfileSetupPage = ({
         if (onUpdateProfile) {
           onUpdateProfile(payload);
         }
-        onShowToast('Academic profile updated & synchronized in Firestore!');
+        onShowToast('Academic profile updated & saved successfully!');
         onNavigateScreen('dashboard');
       } catch (err) {
-        onShowToast('Profile saved locally. Synchronized with cloud.');
+        onShowToast('Profile saved locally.');
         if (onUpdateProfile) onUpdateProfile(payload);
         onNavigateScreen('dashboard');
       } finally {
@@ -152,7 +175,17 @@ export const ProfileSetupPage = ({
       {/* TopNavBar */}
       <nav className="bg-[#4e4353] h-[72px] w-full sticky top-0 z-50 shadow-md">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1280px] mx-auto h-full">
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2 sm:gap-8">
+            <MobileNav
+              accent="#4e4353"
+              items={[
+                { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
+                { label: 'Skill Manager', icon: 'school', onClick: () => onNavigateScreen('skill-manager') },
+                { label: 'Discover', icon: 'explore', onClick: () => onNavigateScreen('discover') },
+                { label: 'Requests', icon: 'inbox', onClick: () => onNavigateScreen('requests') },
+                { label: 'My Sessions', icon: 'calendar_today', onClick: () => onNavigateScreen('session-details') },
+              ]}
+            />
             <span
               onClick={() => onNavigateScreen('dashboard')}
               className="text-2xl font-bold text-[#c5b3d3] cursor-pointer hover:opacity-90 transition-opacity"
@@ -550,7 +583,7 @@ export const ProfileSetupPage = ({
               {saving ? (
                 <>
                   <div className="w-3.5 h-3.5 border-2 border-[#3c2f47] border-t-transparent rounded-full animate-spin"></div>
-                  <span>Saving to Cloud...</span>
+                  <span>Saving profile...</span>
                 </>
               ) : (
                 <span>{currentStep === 3 ? 'Save & Go to Dashboard' : 'Continue to Next Step'}</span>

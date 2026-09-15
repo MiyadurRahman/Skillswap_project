@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const ActiveSessionCard = ({ session, onJoin, onShowToast }) => {
+export const ActiveSessionCard = ({ session, onJoin, onViewDetails, onShowToast }) => {
   return (
     <div
       id={`session-${session.id}`}
@@ -18,7 +18,7 @@ export const ActiveSessionCard = ({ session, onJoin, onShowToast }) => {
           </div>
           <span className="flex items-center gap-1 text-[11px] text-[#4a454c] font-medium">
             <span className="material-symbols-outlined text-[14px]">schedule</span>
-            {session.dateStr}
+            {session.dateStr || session.date}
           </span>
         </div>
 
@@ -26,16 +26,22 @@ export const ActiveSessionCard = ({ session, onJoin, onShowToast }) => {
           {session.title}
         </h3>
         <p className="text-xs text-[#4a454c]">
-          With <span className="font-semibold text-[#675975]">{session.mentorName}</span>
+          With <span className="font-semibold text-[#675975]">{session.mentorName || session.partner?.name}</span>
         </p>
       </div>
 
       <div className="flex items-center justify-between mt-5 pt-3 border-t border-[#ccc4cd]/20">
         <button
-          onClick={() => onShowToast(`Reviewing preparation notes for ${session.title}`)}
-          className="text-xs font-semibold text-[#675975] hover:text-[#4e4353] transition-colors"
+          onClick={() => {
+            if (onViewDetails) {
+              onViewDetails(session);
+            } else {
+              onShowToast(`Reviewing preparation notes for ${session.title}`);
+            }
+          }}
+          className="text-xs font-semibold text-[#675975] hover:text-[#4e4353] transition-colors cursor-pointer"
         >
-          View Materials
+          View Materials & Details
         </button>
         <button
           onClick={() => onJoin(session)}

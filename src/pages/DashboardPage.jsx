@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ActiveSessionCard } from '../component/ActiveSessionCard';
 import { MentorCard } from '../component/MentorCard';
+import { MobileNav } from '../component/MobileNav';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/AuthContext';
+import { allPeers } from '../data/peersData';
 
 export const DashboardPage = ({
   onNavigateScreen,
@@ -11,13 +13,32 @@ export const DashboardPage = ({
   onOpenMentorModal,
   onShowToast,
   userProfile: propProfile,
+  sessions = [],
+  onSelectSession,
+  realtime = false,
+  realtimeUsers = [],
+  onRequestRealtime,
+  onMessageMentor,
 }) => {
   const { currentUser, userProfile: authProfile, logOut } = useAuth();
   const userProfile = authProfile || propProfile || {};
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState(null);
 
-  const activeSessions = [
+  // Map dynamic sessions or fallback to initial defaults (demo only)
+  const activeSessions = sessions.length > 0 ? sessions.map((s) => ({
+    id: s.id,
+    title: s.title,
+    category: s.partner?.badges?.[0] || 'Exchange',
+    type: 'Academic Swap',
+    mentorName: s.partner?.name || 'Academic Peer',
+    dateStr: s.date || 'Upcoming',
+    iconName: 'psychology',
+    bgCategoryColor: 'bg-[#ffdada]',
+    textCategoryColor: 'text-[#5c3f40]',
+    status: s.status || 'upcoming',
+    rawSession: s,
+  })) : realtime ? [] : [
     {
       id: 'session-1',
       title: 'Data Structures & Dynamic Programming',
@@ -44,7 +65,35 @@ export const DashboardPage = ({
     },
   ];
 
-  const mentors = [
+  // Normalize a peer (demo allPeers or realtime Firestore user) into the shape
+  // MentorCard / the mentor modal expects.
+  const toMentorCard = (peer) => {
+    const skillNames = Array.isArray(peer.skillsTeach)
+      ? peer.skillsTeach.map((s) => (typeof s === 'string' ? s : s?.name)).filter(Boolean)
+      : Array.isArray(peer.skills)
+        ? peer.skills.map((s) => (typeof s === 'string' ? s : s?.name)).filter(Boolean)
+        : [];
+    return {
+      id: peer.uid || peer.id || `peer-${peer.name}`,
+      name: peer.name || 'Scholar',
+      field: peer.title || peer.primaryField || 'Academic Scholar',
+      institution: peer.university || peer.institution || 'University',
+      rating: peer.rating ?? 4.8,
+      reviewsCount: peer.reviewsCount ?? 0,
+      avatarUrl: peer.avatarUrl,
+      isOnline: peer.isOnline !== false,
+      badges:
+        skillNames.length > 0
+          ? skillNames.slice(0, 3)
+          : peer.badges && peer.badges.length > 0
+            ? peer.badges
+            : ['Verified Scholar'],
+      hourlyRateCredits: peer.hourlyCredits ?? peer.hourlyRateCredits ?? 1.0,
+      rawUser: peer,
+    };
+  };
+
+  const fallbackMentors = [
     {
       id: 'mentor-1',
       name: 'Dr. Rafiqul Islam',
@@ -95,6 +144,16 @@ export const DashboardPage = ({
     },
   ];
 
+  // The same scholars Discover shows: live Firestore users in realtime mode,
+  // the shared demo peer dataset otherwise.
+  const recommendedMentors = useMemo(() => {
+    const source = realtime
+      ? realtimeUsers.filter((u) => u.uid && u.uid !== currentUser?.uid)
+      : allPeers;
+    const mapped = source.map(toMentorCard);
+    return mapped.length > 0 ? mapped : fallbackMentors;
+  }, [realtime, realtimeUsers, currentUser?.uid]);
+
   const weeklyGrowthBars = [
     { day: 'MON', height: '30%', hours: '1.5 hrs' },
     { day: 'TUE', height: '50%', hours: '2.5 hrs' },
@@ -105,9 +164,19 @@ export const DashboardPage = ({
     { day: 'SUN', height: '95%', hours: '4.5 hrs' },
   ];
 
-  const trendingTags = ['Python for Bio', 'LATEX Mastery', 'GIS Mapping', 'Sociology 101'];
+  // Derive trending tags from the actual recommended scholars so the filter
+  // chips always match real skills instead of stale hardcoded strings.
+  const trendingTags = useMemo(() => {
+    const seen = [];
+    recommendedMentors.forEach((m) => {
+      (m.badges || []).forEach((b) => {
+        if (b && !seen.includes(b)) seen.push(b);
+      });
+    });
+    return seen.slice(0, 5);
+  }, [recommendedMentors]);
 
-  const filteredMentors = mentors.filter((m) => {
+  const filteredMentors = recommendedMentors.filter((m) => {
     if (selectedTag && !m.badges.some((b) => b.toLowerCase().includes(selectedTag.toLowerCase())) && !m.field.toLowerCase().includes(selectedTag.toLowerCase())) {
       return false;
     }
@@ -140,13 +209,143 @@ export const DashboardPage = ({
   const userCredits = userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5;
   const userRole = userProfile?.academicLevel || 'BSc in CSE';
   const userInstitution = userProfile?.university || 'United International University (UIU)';
+  const upcomingSessionCount = activeSessions.length;
+  const totalHoursLogged = weeklyGrowthBars
+    .reduce((sum, bar) => sum + (parseFloat(bar.hours) || 0), 0)
+    .toFixed(1);
+
+  // Sidebar body, shared between the desktop <aside> and the mobile drawer so
+  // navigation stays consistent across breakpoints. `onDone` closes the drawer.
+  const renderSidebar = (onDone = () => {}) => {
+    const go = (screen) => {
+      onDone();
+      onNavigateScreen(screen);
+    };
+    return (
+      <>
+        <div className="space-y-6">
+          {/* User Mini Profile Card */}
+          <div
+            onClick={() => go('profile-setup')}
+            className="flex items-center gap-3 pb-6 border-b border-[#ccc4cd]/30 cursor-pointer group"
+          >
+            <div className="w-12 h-12 rounded-full border-2 border-[#675975] overflow-hidden relative shrink-0">
+              <img
+                src={userAvatar}
+                alt={displayName}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="overflow-hidden">
+              <h2 className="font-bold text-sm text-[#201a1b] truncate group-hover:text-[#675975] transition-colors">
+                {displayName}
+              </h2>
+              <p className="text-xs text-[#4a454c] truncate">{userRole}</p>
+              <span className="inline-block text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded font-semibold mt-1 truncate max-w-full">
+                {userInstitution}
+              </span>
+            </div>
+          </div>
+
+          {/* Navigation links */}
+          <nav className="space-y-1">
+            <button
+              onClick={() => go('dashboard')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 bg-[#eeddf2] text-[#6c6071] rounded-xl font-bold text-xs cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">dashboard</span>
+              Overview
+            </button>
+            <button
+              onClick={() => go('skill-manager')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">school</span>
+              Skill Manager
+            </button>
+            <button
+              onClick={() => go('discover')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">explore</span>
+              Discover Peers
+            </button>
+            <button
+              onClick={() => go('requests')}
+              className="w-full flex items-center justify-between px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+              id="btn-nav-session-requests-dash"
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-[18px]">inbox</span>
+                <span>Session Requests</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
+            </button>
+            <button
+              onClick={() => go('schedule')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">calendar_today</span>
+              My Schedule
+            </button>
+            <button
+              onClick={() => {
+                onDone();
+                onOpenWalletModal();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
+              Time Credit Ledger
+            </button>
+            <button
+              onClick={() => go('profile-setup')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">person</span>
+              Profile Settings
+            </button>
+          </nav>
+        </div>
+
+        {/* Quick Action & Signout */}
+        <div className="pt-6 border-t border-[#ccc4cd]/30 space-y-2">
+          <button
+            onClick={() => go('discover')}
+            className="w-full bg-[#675975] hover:bg-[#52445f] text-white py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">person_search</span>
+            Find a Peer
+          </button>
+          <button
+            onClick={async () => {
+              onDone();
+              try {
+                await logOut();
+                onShowToast('Successfully logged out.');
+                onNavigateScreen('login');
+              } catch (e) {
+                onShowToast('Logged out.');
+                onNavigateScreen('login');
+              }
+            }}
+            className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-[#7b757d] hover:text-red-700 font-semibold transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]">logout</span>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </>
+    );
+  };
 
   return (
     <div id="screen-dashboard" className="bg-[#fff8f7] text-[#201a1b] min-h-screen">
       {/* Top Header */}
       <header className="fixed top-0 w-full h-[72px] bg-[#4e4353] shadow-md z-50">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1280px] mx-auto h-full">
-          <div className="flex items-center gap-6 sm:gap-8">
+          <div className="flex items-center gap-2 sm:gap-8">
+            <MobileNav accent="#4e4353">{(close) => renderSidebar(close)}</MobileNav>
             <span
               onClick={() => onNavigateScreen('dashboard')}
               className="text-2xl font-bold text-[#c5b3d3] tracking-tight cursor-pointer hover:opacity-90 transition-opacity"
@@ -167,8 +366,17 @@ export const DashboardPage = ({
                 Discover
               </button>
               <button
-                onClick={() => onShowToast('Showing your upcoming 2 peer swaps')}
+                onClick={() => onNavigateScreen('requests')}
+                className="text-white/80 font-medium hover:text-white transition-colors text-sm cursor-pointer flex items-center gap-1.5"
+                id="dash-nav-requests"
+              >
+                <span>Requests</span>
+                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
+              </button>
+              <button
+                onClick={() => onNavigateScreen('session-details')}
                 className="text-white/80 font-medium hover:text-white transition-colors text-sm cursor-pointer"
+                id="dash-nav-sessions"
               >
                 My Sessions
               </button>
@@ -233,94 +441,7 @@ export const DashboardPage = ({
       <div className="pt-[72px] flex max-w-[1280px] mx-auto min-h-screen">
         {/* Left Side Navigation */}
         <aside className="w-64 bg-[#fdf1f1] border-r border-[#ccc4cd]/30 p-6 hidden md:flex flex-col justify-between shrink-0">
-          <div className="space-y-6">
-            {/* User Mini Profile Card */}
-            <div
-              onClick={() => onNavigateScreen('profile-setup')}
-              className="flex items-center gap-3 pb-6 border-b border-[#ccc4cd]/30 cursor-pointer group"
-            >
-              <div className="w-12 h-12 rounded-full border-2 border-[#675975] overflow-hidden relative shrink-0">
-                <img
-                  src={userAvatar}
-                  alt={displayName}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="overflow-hidden">
-                <h2 className="font-bold text-sm text-[#201a1b] truncate group-hover:text-[#675975] transition-colors">
-                  {displayName}
-                </h2>
-                <p className="text-xs text-[#4a454c] truncate">{userRole}</p>
-                <span className="inline-block text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded font-semibold mt-1 truncate max-w-full">
-                  {userInstitution}
-                </span>
-              </div>
-            </div>
-
-            {/* Navigation links */}
-            <nav className="space-y-1">
-              <button
-                onClick={() => onNavigateScreen('dashboard')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 bg-[#eeddf2] text-[#6c6071] rounded-xl font-bold text-xs cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">dashboard</span>
-                Overview
-              </button>
-              <button
-                onClick={() => onNavigateScreen('skill-manager')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">school</span>
-                Skill Manager
-              </button>
-              <button
-                onClick={() => onNavigateScreen('discover')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">explore</span>
-                Discover Peers
-              </button>
-              <button
-                onClick={() => onShowToast('Showing all your peer tutoring sessions')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-                My Schedule
-              </button>
-              <button
-                onClick={onOpenWalletModal}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
-                Time Credit Ledger
-              </button>
-              <button
-                onClick={() => onNavigateScreen('profile-setup')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">person</span>
-                Profile Settings
-              </button>
-            </nav>
-          </div>
-
-          {/* Quick Action & Signout */}
-          <div className="pt-6 border-t border-[#ccc4cd]/30 space-y-2">
-            <button
-              onClick={() => onShowToast('Opening Matchmaking engine: finding optimal peer swap...')}
-              className="w-full bg-[#675975] hover:bg-[#52445f] text-white py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">person_search</span>
-              Find a Peer
-            </button>
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-[#7b757d] hover:text-red-700 font-semibold transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px]">logout</span>
-              <span>Sign Out</span>
-            </button>
-          </div>
+          {renderSidebar()}
         </aside>
 
         {/* Center Main Dashboard Area */}
@@ -336,11 +457,11 @@ export const DashboardPage = ({
                   Welcome back, {firstName}!
                 </h1>
                 <p className="text-xs sm:text-sm text-white/80 max-w-md leading-relaxed">
-                  You have <span className="font-bold text-[#efdbfd]">2 upcoming sessions</span> scheduled this week. Your time credit balance is ready for new exchanges.
+                  You have <span className="font-bold text-[#efdbfd]">{upcomingSessionCount} upcoming session{upcomingSessionCount === 1 ? '' : 's'}</span> scheduled this week. Your time credit balance is ready for new exchanges.
                 </p>
                 <div className="pt-3 flex flex-wrap gap-3">
                   <button
-                    onClick={() => onShowToast('Initiating peer matching request...')}
+                    onClick={() => onNavigateScreen('discover')}
                     className="px-4 py-2 bg-[#c5b3d3] hover:bg-[#a992bb] text-[#52445f] font-bold text-xs rounded-full transition-all cursor-pointer shadow-sm"
                   >
                     Request New Swap
@@ -407,7 +528,7 @@ export const DashboardPage = ({
                 </p>
               </div>
               <button
-                onClick={() => onShowToast('Opening Schedule Calendar...')}
+                onClick={() => onNavigateScreen('schedule')}
                 className="text-xs text-[#675975] font-bold hover:underline cursor-pointer"
               >
                 View Full Calendar
@@ -415,14 +536,40 @@ export const DashboardPage = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {activeSessions.map((session) => (
-                <ActiveSessionCard
-                  key={session.id}
-                  session={session}
-                  onOpenMeeting={() => onOpenMeetingModal(session)}
-                  onShowToast={onShowToast}
-                />
-              ))}
+              {activeSessions.length === 0 ? (
+                <div className="col-span-full bg-white border border-[#ccc4cd]/40 rounded-2xl p-8 text-center space-y-2">
+                  <span className="material-symbols-outlined text-3xl text-[#b7a4b3]">
+                    calendar_today
+                  </span>
+                  <h3 className="text-sm font-bold text-[#201a1b]">No sessions scheduled yet</h3>
+                  <p className="text-xs text-[#7b757d]">
+                    When a scholar accepts one of your requests — or you accept an incoming
+                    request — the confirmed session will appear here in real time.
+                  </p>
+                  <button
+                    onClick={() => onNavigateScreen('discover')}
+                    className="mt-2 px-4 py-2 bg-[#675975] hover:bg-[#52445f] text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Discover Scholars
+                  </button>
+                </div>
+              ) : (
+                activeSessions.map((session) => (
+                  <ActiveSessionCard
+                    key={session.id}
+                    session={session}
+                    onJoin={() => onOpenMeetingModal(session.rawSession || session)}
+                    onViewDetails={() => {
+                      if (onSelectSession) {
+                        onSelectSession(session.rawSession || session);
+                      } else {
+                        onNavigateScreen('session-details');
+                      }
+                    }}
+                    onShowToast={onShowToast}
+                  />
+                ))
+              )}
             </div>
           </section>
 
@@ -436,7 +583,7 @@ export const DashboardPage = ({
                 </p>
               </div>
               <span className="text-xs bg-[#efdbfd] text-[#4f415c] px-3 py-1 rounded-full font-bold self-start sm:self-auto">
-                Total: 21.0 hrs logged
+                Total: {totalHoursLogged} hrs logged
               </span>
             </div>
 
@@ -506,7 +653,20 @@ export const DashboardPage = ({
                 <MentorCard
                   key={mentor.id}
                   mentor={mentor}
-                  onOpenMentorModal={() => onOpenMentorModal(mentor)}
+                  onSelect={() => {
+                    if (onRequestRealtime && mentor.rawUser) {
+                      onRequestRealtime(mentor.rawUser);
+                    } else if (onOpenMentorModal) {
+                      onOpenMentorModal(mentor);
+                    }
+                  }}
+                  onMessage={() => {
+                    if (onMessageMentor && mentor.rawUser) {
+                      onMessageMentor(mentor.rawUser);
+                    } else if (onOpenMentorModal) {
+                      onOpenMentorModal(mentor);
+                    }
+                  }}
                   onShowToast={onShowToast}
                 />
               ))}

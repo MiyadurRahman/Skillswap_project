@@ -1,5 +1,91 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { MobileNav } from '../component/MobileNav';
+import { allPeers } from '../data/peersData';
+
+// Unified search/filter matcher for BOTH demo peers (allPeers) and realtime
+// users (mapped by subscribeAllUsers). The two shapes don't share a schema, so
+// each peer is normalized into lowercase searchable strings.
+const ACADEMIC_KEYWORDS = {
+  "PhD Candidate": ['phd', 'ph.d', 'doctoral candidate', 'doctorate'],
+  "Master's Student": ['master', 'msc', 'graduate researcher'],
+  'Undergraduate Senior': ['undergraduate', 'bsc', 'bachelor', 'b.sc'],
+  'Postdoctoral Researcher': ['postdoc', 'post-doctoral', 'postdoctoral', 'fellow'],
+};
+
+const normalizePeer = (peer) => {
+  const skills = peer.skills || [];
+  const skillsTeach = peer.skillsTeach || [];
+  const badges = peer.badges || [];
+  const title = peer.title || peer.academicLevel || '';
+  const bio = peer.bio || '';
+  const university = peer.university || peer.institution || '';
+
+  const fieldStr = [
+    peer.primaryField,
+    title,
+    ...skills,
+    ...skillsTeach,
+    ...badges,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const searchStr = [peer.name, title, bio, university, fieldStr]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const academicStr = [peer.academicLevel, title].filter(Boolean).join(' ').toLowerCase();
+  const availabilityStr = [peer.availability, peer.nextAvailable]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return { fieldStr, searchStr, academicStr, availabilityStr, rating: peer.rating };
+};
+
+const matchesFilters = (peer, { searchQuery, selectedFields, minRating, availability, academicLevel }) => {
+  const p = normalizePeer(peer);
+
+  if ((p.rating || 4.0) < minRating) {
+    return false;
+  }
+
+  if (searchQuery && searchQuery.trim()) {
+    const q = searchQuery.toLowerCase().trim();
+    if (!p.searchStr.includes(q)) {
+      return false;
+    }
+  }
+
+  const activeFields = Object.keys(selectedFields).filter((k) => selectedFields[k]);
+  if (activeFields.length > 0) {
+    const matched = activeFields.some(
+      (f) => p.fieldStr.includes(f.toLowerCase()) || f.toLowerCase().includes(p.fieldStr)
+    );
+    if (!matched) {
+      return false;
+    }
+  }
+
+  if (availability && availability !== 'Anytime') {
+    const kw = availability === 'Today' ? /today/ : availability === 'This Week' ? /this week|mon|tue|wed|thu|fri/ : /sat|sun|weekend/;
+    if (!kw.test(p.availabilityStr)) {
+      return false;
+    }
+  }
+
+  if (academicLevel && academicLevel !== 'Any Level') {
+    const kws = ACADEMIC_KEYWORDS[academicLevel];
+    if (kws && !kws.some((kw) => p.academicStr.includes(kw))) {
+      return false;
+    }
+  }
+
+  return true;
+};
 
 export const DiscoverPage = ({
   onNavigateScreen,
@@ -8,9 +94,23 @@ export const DiscoverPage = ({
   onOpenWalletModal,
   onShowToast,
   userProfile: propProfile,
+  onSelectPeerProfile,
+  onCreateSession,
+  onSelectSession,
+  realtime = false,
+  realtimeUsers = [],
+  onRequestRealtime,
+  onMessageMentor,
 }) => {
   const { currentUser, userProfile: authProfile, logOut } = useAuth();
   const userProfile = authProfile || propProfile || {};
+
+  // Real scholars who exist in Firestore (exclude the current viewer).
+  const liveScholars = useMemo(
+    () =>
+      realtimeUsers.filter((u) => u.uid && u.uid !== currentUser?.uid),
+    [realtimeUsers, currentUser?.uid]
+  );
 
   // Active top navigation tab
   const [activeTab, setActiveTab] = useState('discover');
@@ -19,147 +119,22 @@ export const DiscoverPage = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFields, setSelectedFields] = useState({
     'Data Science': false,
-    'Academic Writing': true,
+    'Academic Writing': false,
     'UI/UX Design': false,
     'Microeconomics': false,
   });
   const [minRating, setMinRating] = useState(4.0);
   const [availability, setAvailability] = useState('Anytime');
-  const [academicLevel, setAcademicLevel] = useState('PhD Candidate');
+  const [academicLevel, setAcademicLevel] = useState('Any Level');
   const [activeTrendingTag, setActiveTrendingTag] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Comprehensive dataset matching the exact screenshot plus more
-  const allPeers = [
-    {
-      id: 'peer-1',
-      name: 'Dr. Elena Vance',
-      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=240&auto=format&fit=crop&q=80',
-      title: 'PhD Candidate in Neural Computing',
-      rating: 4.9,
-      reviewsCount: 48,
-      skills: ['MACHINE LEARNING', 'PYTORCH', 'STATISTICS'],
-      primaryField: 'Data Science',
-      academicLevel: 'PhD Candidate',
-      nextAvailable: 'Today, 4:00 PM',
-      isOnline: true,
-      institution: 'Stanford AI & Neural Computing Lab',
-      bio: 'Postdoctoral researcher in neural dynamics and deep generative models. Available for paper reviews and PyTorch implementation.',
-      hourlyCredits: 1.0,
-    },
-    {
-      id: 'peer-2',
-      name: 'Julian Thorne',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
-      title: 'Master of Comparative Literature',
-      rating: 4.7,
-      reviewsCount: 32,
-      skills: ['CRITICAL THEORY', 'EDITING', 'PHILOSOPHY'],
-      primaryField: 'Academic Writing',
-      academicLevel: 'Master\'s Student',
-      nextAvailable: 'Wed, 10:00 AM',
-      isOnline: false,
-      institution: 'Department of Comparative Literature',
-      bio: 'Graduate fellow in narrative structures and literary critique. Specializes in thesis editing and academic peer argumentation.',
-      hourlyCredits: 1.0,
-    },
-    {
-      id: 'peer-3',
-      name: 'Sarah K. Jenkins',
-      avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=240&auto=format&fit=crop&q=80',
-      title: 'Senior UI/UX Researcher',
-      rating: 5.0,
-      reviewsCount: 65,
-      skills: ['USER RESEARCH', 'FIGMA', 'UT'],
-      primaryField: 'UI/UX Design',
-      academicLevel: 'PhD Candidate',
-      nextAvailable: 'Tue, 2:00 PM',
-      isOnline: true,
-      institution: 'Human-Computer Interaction Institute',
-      bio: 'Doctoral researcher focusing on usability testing methodologies and academic dashboard experience architectures.',
-      hourlyCredits: 1.0,
-    },
-    {
-      id: 'peer-4',
-      name: 'Markus Zhao',
-      avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=240&auto=format&fit=crop&q=80',
-      title: 'Graduate Researcher, Robotics',
-      rating: 4.8,
-      reviewsCount: 41,
-      skills: ['C++', 'ROS', 'REINFORCEMENT'],
-      primaryField: 'Data Science',
-      academicLevel: 'Graduate Researcher',
-      nextAvailable: 'Today, 7:00 PM',
-      isOnline: true,
-      institution: 'Robotics & Autonomous Systems Lab',
-      bio: 'Master\'s researcher working on ROS2 locomotion controllers and reinforcement learning algorithms for bipedal motion.',
-      hourlyCredits: 1.0,
-    },
-    {
-      id: 'peer-5',
-      name: 'Dr. Rafiqul Islam',
-      avatarUrl: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=240&auto=format&fit=crop&q=80',
-      title: 'Assistant Professor, Algorithms & Discrete Math',
-      rating: 4.95,
-      reviewsCount: 112,
-      skills: ['DYNAMIC PROGRAMMING', 'GRAPH THEORY', 'C++'],
-      primaryField: 'Data Science',
-      academicLevel: 'PhD Candidate',
-      nextAvailable: 'Tomorrow, 2:00 PM',
-      isOnline: true,
-      institution: 'United International University (UIU)',
-      bio: 'ICPC coach and algorithms educator. Passionate about helping students break down NP-complete problems and dynamic programming trees.',
-      hourlyCredits: 1.0,
-    },
-    {
-      id: 'peer-6',
-      name: 'Sofia Al-Mansoor',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=240&auto=format&fit=crop&q=80',
-      title: 'DPhil Candidate in Quantitative Economics',
-      rating: 4.92,
-      reviewsCount: 39,
-      skills: ['ECONOMETRICS', 'R PROGRAMMING', 'CAUSAL INFERENCE'],
-      primaryField: 'Microeconomics',
-      academicLevel: 'PhD Candidate',
-      nextAvailable: 'Thursday, 3:30 PM',
-      isOnline: false,
-      institution: 'Oxford Department of Economics',
-      bio: 'Empirical microeconomics researcher working on randomized control trials and econometric policy evaluations.',
-      hourlyCredits: 1.0,
-    },
-    {
-      id: 'peer-7',
-      name: 'Mahir Faisal',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=240&auto=format&fit=crop&q=80',
-      title: 'Graduate Researcher in NLP & Transformers',
-      rating: 4.88,
-      reviewsCount: 54,
-      skills: ['TRANSFORMERS', 'PYTORCH', 'LATEX'],
-      primaryField: 'Academic Writing',
-      academicLevel: 'Master\'s Student',
-      nextAvailable: 'Friday, 11:00 AM',
-      isOnline: true,
-      institution: 'UIU NLP Center',
-      bio: 'Researcher in low-resource language processing, transformer distillation, and peer academic paper formatting.',
-      hourlyCredits: 1.0,
-    },
-    {
-      id: 'peer-8',
-      name: 'Abrar Zahin',
-      avatarUrl: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=240&auto=format&fit=crop&q=80',
-      title: 'Systems & Cloud Infrastructure Engineer',
-      rating: 4.85,
-      reviewsCount: 78,
-      skills: ['REACT', 'NODE.JS', 'DOCKER'],
-      primaryField: 'Data Science',
-      academicLevel: 'Undergraduate Senior',
-      nextAvailable: 'Tomorrow, 5:00 PM',
-      isOnline: true,
-      institution: 'UIU Software Engineering Club',
-      bio: 'Peer tutor in distributed systems, full-stack reactive design, and containerized research pipelines.',
-      hourlyCredits: 1.0,
-    },
-  ];
+  // Request Session from Discover Modal states
+  const [requestingPeer, setRequestingPeer] = useState(null);
+  const [reqTopic, setReqTopic] = useState('');
+  const [reqSlot, setReqSlot] = useState('');
+  const [reqOfferedSkill, setReqOfferedSkill] = useState('Python Data Science');
+  const [reqNote, setReqNote] = useState('');
 
   const trendingTags = [
     'Quantum Mechanics',
@@ -176,6 +151,21 @@ export const DiscoverPage = ({
     }));
   };
 
+  const resetFilters = () => {
+    setSearchQuery('');
+    setSelectedFields({
+      'Data Science': false,
+      'Academic Writing': false,
+      'UI/UX Design': false,
+      'Microeconomics': false,
+    });
+    setMinRating(4.0);
+    setAvailability('Anytime');
+    setAcademicLevel('Any Level');
+    setActiveTrendingTag('');
+    setCurrentPage(1);
+  };
+
   const handleTagClick = (tag) => {
     if (activeTrendingTag === tag) {
       setActiveTrendingTag('');
@@ -187,82 +177,168 @@ export const DiscoverPage = ({
     }
   };
 
-  // Filter peers
-  const filteredPeers = useMemo(() => {
-    const activeCheckedFields = Object.keys(selectedFields).filter((k) => selectedFields[k]);
+  // Filter peers (demo + realtime both run through the same matchesFilters).
+  const filterCriteria = {
+    searchQuery,
+    selectedFields,
+    minRating,
+    availability,
+    academicLevel,
+  };
 
-    return allPeers.filter((peer) => {
-      // 1. Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesName = peer.name.toLowerCase().includes(q);
-        const matchesTitle = peer.title.toLowerCase().includes(q);
-        const matchesSkills = peer.skills.some((s) => s.toLowerCase().includes(q));
-        const matchesField = peer.primaryField.toLowerCase().includes(q);
-        const matchesBio = peer.bio.toLowerCase().includes(q);
-        if (!matchesName && !matchesTitle && !matchesSkills && !matchesField && !matchesBio) {
-          return false;
-        }
-      }
+  const filteredPeers = useMemo(
+    () => allPeers.filter((peer) => matchesFilters(peer, filterCriteria)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allPeers, searchQuery, selectedFields, minRating, availability, academicLevel]
+  );
 
-      // 2. Checked Fields (If any selected, must match at least one)
-      if (activeCheckedFields.length > 0) {
-        const matchesField = activeCheckedFields.includes(peer.primaryField);
-        const matchesSkill = peer.skills.some((skill) =>
-          activeCheckedFields.some((f) => skill.toLowerCase().includes(f.toLowerCase()) || f.toLowerCase().includes(skill.toLowerCase()))
-        );
-        if (!matchesField && !matchesSkill) {
-          return false;
-        }
-      }
+  const filteredLive = useMemo(
+    () => liveScholars.filter((person) => matchesFilters(person, filterCriteria)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [liveScholars, searchQuery, selectedFields, minRating, availability, academicLevel]
+  );
 
-      // 3. Minimum Rating
-      if (peer.rating < minRating) {
-        return false;
-      }
-
-      // 4. Academic Level (if not set to "Any" or matches)
-      if (academicLevel && academicLevel !== 'Any Level' && peer.academicLevel) {
-        if (academicLevel === 'PhD Candidate' && !peer.academicLevel.includes('PhD') && !peer.title.includes('PhD')) {
-          // allow close matches or strictly filter
-        }
-      }
-
-      return true;
-    });
-  }, [allPeers, searchQuery, selectedFields, minRating, academicLevel]);
+  console.debug(
+    '[discover]',
+    { live: liveScholars.length, shown: filteredLive.length },
+    'excluded=',
+    liveScholars.filter((u) => !matchesFilters(u, filterCriteria)).map((u) => ({ name: u.name, rating: u.rating }))
+  );
 
   // Paginated peers (4 per page to match exact 2x2 grid layout from screenshot)
   const itemsPerPage = 4;
   const totalPages = Math.ceil(filteredPeers.length / itemsPerPage) || 1;
+  const effectivePage = Math.min(currentPage, totalPages);
   const paginatedPeers = filteredPeers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    (effectivePage - 1) * itemsPerPage,
+    effectivePage * itemsPerPage
   );
 
   const handleOpenPeer = (peer) => {
-    if (onOpenMentorModal) {
-      onOpenMentorModal({
+    if (onSelectPeerProfile) {
+      onSelectPeerProfile({
         id: peer.id,
         name: peer.name,
         title: peer.title,
-        field: peer.primaryField,
-        institution: peer.institution,
         rating: peer.rating,
-        reviewsCount: peer.reviewsCount,
+        reviewsCount: peer.reviewsCount || 48,
         avatarUrl: peer.avatarUrl,
         isOnline: peer.isOnline,
-        badges: peer.skills,
-        hourlyRateCredits: peer.hourlyCredits,
         bio: peer.bio,
+        credentials: peer.credentials || ['Verified Scholar', peer.academicLevel || 'PhD Researcher'],
+        responseSpeed: peer.responseSpeed || 'Usually responds in 2h',
+        skillsTeach: peer.skillsTeach || (peer.skills ? peer.skills.map(s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())) : ['Peer Tutoring', 'Academic Research']),
+        skillsWant: peer.skillsWant || ['Advanced Python', 'Machine Learning Basics', 'Data Visualization', 'Public Speaking'],
+        availability: peer.availability || (peer.nextAvailable ? `Available: ${peer.nextAvailable}` : 'Available: Tue, Thu, Sat'),
+        preferredMode: peer.preferredMode || 'Preferred: Virtual / Zoom',
+        swapsCount: peer.swapsCount || (peer.reviewsCount ? Math.floor(peer.reviewsCount * 0.4) : 48),
+        learnersCount: peer.learnersCount || '1.8k',
+        reviews: peer.reviews || [
+          {
+            id: 'rev-1',
+            name: 'Marcus Thorne',
+            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
+            rating: 5,
+            quote: `Outstanding collaboration session with ${peer.name}. Deep academic rigor and clear explanations.`,
+            meta: 'Recent • Swapped for Peer Exchange',
+          },
+          {
+            id: 'rev-2',
+            name: 'Dr. Sarah L.',
+            avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=240&auto=format&fit=crop&q=80',
+            rating: 5,
+            quote: `High quality academic feedback and methodology review. Helped strengthen our paper analysis.`,
+            meta: '2 weeks ago • Swapped for Research Consulting',
+          },
+        ],
       });
-    } else {
-      onShowToast(`Viewing profile of ${peer.name}`);
     }
+    onNavigateScreen('public-profile');
+  };
+
+  const handleOpenRequestModal = (peer) => {
+    setRequestingPeer(peer);
+    setReqTopic(peer.skillsTeach?.[0] || peer.skills?.[0] || 'Quantitative Methods');
+    setReqSlot(peer.nextAvailable || 'Wednesday, Oct 24 (02:30 PM)');
+    setReqOfferedSkill('Python Data Science');
+    setReqNote('');
+  };
+
+  const handleConfirmDiscoverSession = (e) => {
+    e.preventDefault();
+    if (!requestingPeer) return;
+
+    // REALTIME: demo mentors can't receive requests — route real users to the
+    // Live Scholars request form instead of creating a fake instant session.
+    if (realtime && onRequestRealtime) {
+      if (requestingPeer?.uid) {
+        onRequestRealtime(requestingPeer);
+      } else {
+        onShowToast('In production mode, request sessions from Live Scholars (listed above).');
+      }
+      setRequestingPeer(null);
+      return;
+    }
+
+    const newSession = {
+      id: `session-${Date.now()}`,
+      title: reqTopic || requestingPeer.skillsTeach?.[0] || 'Academic Peer Session',
+      status: 'Accepted',
+      description: `Collaborative academic peer session focusing on ${reqTopic || requestingPeer.skillsTeach?.[0]} with ${requestingPeer.name}.`,
+      learningGoals: (requestingPeer.skillsTeach || ['Methodological Rigor', 'Statistical Modeling']).slice(0, 3).map((s) => `Master core foundations of ${s}`),
+      duration: '90 Minutes',
+      method: 'Video Call',
+      platform: 'SkillSwap Connect',
+      date: reqSlot.includes('(') ? reqSlot.split('(')[0].trim() : reqSlot.includes(',') ? reqSlot.split(',')[0].trim() : 'Wednesday, Oct 24',
+      time: reqSlot.includes('(') ? reqSlot.split('(')[1].replace(')', '').trim() : '02:30 PM — 04:00 PM',
+      partner: {
+        id: requestingPeer.id,
+        name: requestingPeer.name,
+        title: requestingPeer.title,
+        avatarUrl: requestingPeer.avatarUrl,
+        isOnline: requestingPeer.isOnline,
+        badges: (requestingPeer.badges || requestingPeer.skills || ['Scholar']).slice(0, 2),
+        skillsTeach: requestingPeer.skillsTeach || [],
+        skillsWant: requestingPeer.skillsWant || [],
+        rating: requestingPeer.rating,
+        reviewsCount: requestingPeer.reviewsCount,
+        credentials: requestingPeer.credentials || ['Verified Scholar'],
+        responseSpeed: requestingPeer.responseSpeed || 'Usually responds in 1h',
+        availability: requestingPeer.availability || 'Available on request',
+        preferredMode: requestingPeer.preferredMode || 'SkillSwap Connect Video Call',
+      },
+      notes: reqNote ? [
+        {
+          id: `note-${Date.now()}`,
+          authorName: userProfile?.name || 'You',
+          authorAvatar: userAvatar,
+          timestamp: 'Just now',
+          text: reqNote,
+        },
+      ] : [
+        {
+          id: `note-${Date.now()}`,
+          authorName: requestingPeer.name,
+          authorAvatar: requestingPeer.avatarUrl,
+          timestamp: 'Just now',
+          text: `Session confirmed for ${reqTopic}! Looking forward to our collaborative swap.`,
+        },
+      ],
+    };
+
+    if (onCreateSession) {
+      onCreateSession(newSession);
+    } else {
+      onShowToast(`✨ Session scheduled with ${requestingPeer.name}!`);
+      onNavigateScreen('session-details');
+    }
+    setRequestingPeer(null);
   };
 
   const handleFindPeerCTA = () => {
-    onShowToast(`Found ${filteredPeers.length} verified academic peers matching your criteria.`);
+    const count = realtime ? filteredLive.length : filteredPeers.length;
+    const kind = realtime ? 'live' : 'verified';
+    onShowToast(`Found ${count} ${kind} academic peers matching your criteria.`);
   };
 
   const userAvatar =
@@ -275,7 +351,17 @@ export const DiscoverPage = ({
       <header className="sticky top-0 w-full h-[68px] bg-[#3e313f] shadow-md z-40">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1360px] mx-auto h-full">
           {/* Brand & Nav items */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2 sm:gap-8">
+            <MobileNav
+              accent="#3e313f"
+              items={[
+                { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
+                { label: 'Skill Manager', icon: 'school', onClick: () => onNavigateScreen('skill-manager') },
+                { label: 'Discover', icon: 'explore', active: true, onClick: () => setActiveTab('discover') },
+                { label: 'Requests', icon: 'inbox', badge: true, onClick: () => onNavigateScreen('requests') },
+                { label: 'My Sessions', icon: 'calendar_today', onClick: () => onNavigateScreen('session-details') },
+              ]}
+            />
             <span
               onClick={() => onNavigateScreen('dashboard')}
               className="text-2xl font-bold text-white tracking-tight cursor-pointer hover:opacity-95 transition-opacity"
@@ -307,21 +393,19 @@ export const DiscoverPage = ({
                 Discover
               </button>
               <button
-                onClick={() => {
-                  onShowToast('Navigating to your scheduled academic exchange sessions');
-                  onNavigateScreen('dashboard');
-                }}
+                onClick={() => onNavigateScreen('requests')}
+                className="text-white/80 hover:text-white transition-colors font-medium py-1 flex items-center gap-1.5"
+                id="nav-tab-requests"
+              >
+                <span>Requests</span>
+                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
+              </button>
+              <button
+                onClick={() => onNavigateScreen('session-details')}
                 className="text-white/80 hover:text-white transition-colors font-medium py-1"
                 id="nav-tab-sessions"
               >
                 My Sessions
-              </button>
-              <button
-                onClick={() => onShowToast('You have 2 pending peer exchange requests')}
-                className="text-white/80 hover:text-white transition-colors font-medium py-1"
-                id="nav-tab-requests"
-              >
-                Requests
               </button>
             </nav>
           </div>
@@ -575,13 +659,120 @@ export const DiscoverPage = ({
               )}
             </div>
 
-            {/* PEER CARDS 2x2 GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2" id="peers-grid-container">
+            {/* REALTIME EMPTY STATE: no other Firestore users returned at all */}
+            {realtime && liveScholars.length === 0 && (
+              <div className="rounded-2xl border border-[#d9c4d6] bg-[#f7f1f8] p-5 text-center">
+                <p className="text-sm font-semibold text-[#3e2f41]">No other scholars on SkillSwap yet</p>
+                <p className="text-xs text-[#7a6880] mt-1">
+                  Other accounts won't appear here until their profiles sync to Firestore.
+                </p>
+              </div>
+            )}
+
+            {/* LIVE SCHOLARS (real Firebase users — request sessions in realtime) */}
+            {realtime && liveScholars.length > 0 && (
+              <div className="rounded-2xl border border-[#d9c4d6] bg-[#f7f1f8] p-5 space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex w-2.5 h-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full w-2.5 h-2.5 bg-emerald-500"></span>
+                  </span>
+                  <h2 className="text-sm font-bold text-[#3e2f41]">Live Scholars & Mentors</h2>
+                  <span className="text-[11px] font-semibold text-[#7a6880] bg-white px-2 py-0.5 rounded-full border border-[#e2d3e0]">
+                    Requests deliver in real time
+                  </span>
+                  {filteredLive.length > 0 && (
+                    <span className="text-[11px] font-semibold text-[#7a6880] px-2 py-0.5 rounded-full">
+                      {filteredLive.length} result{filteredLive.length === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+                {filteredLive.length === 0 ? (
+                  <div className="bg-white border border-dashed border-[#d9c4d6] rounded-2xl p-6 text-center">
+                    <p className="text-sm font-semibold text-[#3e2f41]">No scholars match your filters</p>
+                    <p className="text-xs text-[#7a6880] mt-1">
+                      Try clearing the search box or relaxing your filters.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredLive.map((person) => (
+                    <div
+                      key={person.id}
+                      className="bg-white border border-[#e2d3e0] rounded-2xl p-4 shadow-xs flex flex-col gap-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="relative shrink-0">
+                          <img
+                            src={person.avatarUrl}
+                            alt={person.name}
+                            referrerPolicy="no-referrer"
+                            className="w-11 h-11 rounded-full object-cover border-2 border-[#e2d3e0]"
+                          />
+                          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-bold text-[#201a1b] truncate">
+                            {person.name}
+                          </h3>
+                          <p className="text-[11px] text-[#705e69] truncate">{person.title}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {(person.skillsTeach || []).slice(0, 3).map((sk, i) => (
+                          <span
+                            key={i}
+                            className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-[#f7d6cd] text-[#5e3831]"
+                          >
+                            {typeof sk === 'string' ? sk : sk?.name}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => onRequestRealtime && onRequestRealtime(person)}
+                        className="w-full py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          calendar_add_on
+                        </span>
+                        <span>Request</span>
+                      </button>
+                      <button
+                        onClick={() => onMessageMentor && onMessageMentor(person)}
+                        className="w-full py-2 bg-[#eeddf2] hover:bg-[#e2c7e8] text-[#473b4b] rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          chat_bubble
+                        </span>
+                        <span>Message</span>
+                      </button>
+                    </div>
+                    </div>
+                  ))}
+                </div>
+                )}
+              </div>
+            )}
+
+            {/* PEER CARDS 2x2 GRID (hidden in realtime — real scholars appear above) */}
+            {!realtime && (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2" id="peers-grid-container">
               {paginatedPeers.map((peer) => (
                 <div
                   key={peer.id}
-                  className="bg-white border border-[#ebd8d4] rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-[#cfb3be] transition-all flex flex-col justify-between group"
+                  onClick={() => handleOpenPeer(peer)}
+                  className="bg-white border border-[#ebd8d4] rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-[#bfa8c7] transition-all flex flex-col justify-between group cursor-pointer"
                   id={`peer-card-${peer.id}`}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleOpenPeer(peer);
+                    }
+                  }}
                 >
                   <div>
                     {/* Top: Avatar, Name, Rating Badge & Title */}
@@ -592,7 +783,7 @@ export const DiscoverPage = ({
                             src={peer.avatarUrl}
                             alt={peer.name}
                             referrerPolicy="no-referrer"
-                            className="w-13 h-13 rounded-full object-cover border-2 border-[#eedfdc] shadow-2xs"
+                            className="w-13 h-13 rounded-full object-cover border-2 border-[#eedfdc] shadow-2xs group-hover:border-[#473b4b] transition-colors"
                           />
                           {peer.isOnline ? (
                             <span
@@ -652,13 +843,32 @@ export const DiscoverPage = ({
                       <span>Next available: {peer.nextAvailable}</span>
                     </div>
 
-                    <button
-                      onClick={() => handleOpenPeer(peer)}
-                      className="px-4 py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold tracking-wide transition-colors shadow-2xs active:scale-95"
-                      id={`btn-view-profile-${peer.id}`}
-                    >
-                      View Profile
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenRequestModal(peer);
+                        }}
+                        className="px-3.5 py-2 bg-[#eeddf2] hover:bg-[#e2c7e8] text-[#47364d] rounded-xl text-xs font-bold tracking-wide transition-colors shadow-2xs active:scale-95 cursor-pointer flex items-center gap-1.5"
+                        id={`btn-request-session-${peer.id}`}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          calendar_add_on
+                        </span>
+                        <span>Request Session</span>
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenPeer(peer);
+                        }}
+                        className="px-4 py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold tracking-wide transition-colors shadow-2xs active:scale-95 cursor-pointer"
+                        id={`btn-view-profile-${peer.id}`}
+                      >
+                        View Profile
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -675,96 +885,56 @@ export const DiscoverPage = ({
                   Try adjusting your search terms or unchecking some filter fields to explore more verified scholars.
                 </p>
                 <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedFields({
-                      'Data Science': false,
-                      'Academic Writing': true,
-                      'UI/UX Design': false,
-                      'Microeconomics': false,
-                    });
-                    setMinRating(4.0);
-                  }}
+                  onClick={resetFilters}
                   className="px-4 py-2 bg-[#473b4b] text-white rounded-xl text-xs font-bold hover:bg-[#342738] transition-colors inline-block mt-2"
                 >
                   Reset All Filters
                 </button>
               </div>
             )}
+              </>
+            )}
           </div>
 
-          {/* 3. PAGINATION CONTROLS (matching < (1) 2 3 ... 12 >) */}
-          <div className="flex items-center justify-center gap-2 py-8 select-none" id="pagination-controls">
+          {/* 3. PAGINATION CONTROLS (dynamic, sized to the result set) */}
+          {!realtime && (
+            <div className="flex items-center justify-center gap-2 py-8 select-none" id="pagination-controls">
             {/* Prev */}
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
+              disabled={effectivePage === 1}
               className="w-8 h-8 rounded-full border border-[#ebd8d4] bg-white text-[#705f69] hover:text-[#201a1b] hover:border-[#473b4b] flex items-center justify-center text-xs transition-colors disabled:opacity-40 disabled:hover:border-[#ebd8d4]"
               title="Previous Page"
             >
               <span className="material-symbols-outlined text-[16px]">chevron_left</span>
             </button>
 
-            {/* Page 1 */}
-            <button
-              onClick={() => setCurrentPage(1)}
-              className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center transition-all ${
-                currentPage === 1
-                  ? 'bg-[#473b4b] text-white shadow-xs'
-                  : 'bg-white border border-[#ebd8d4] text-[#705f69] hover:border-[#473b4b]'
-              }`}
-            >
-              1
-            </button>
-
-            {/* Page 2 */}
-            <button
-              onClick={() => setCurrentPage(2)}
-              className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center transition-all ${
-                currentPage === 2
-                  ? 'bg-[#473b4b] text-white shadow-xs'
-                  : 'bg-white border border-[#ebd8d4] text-[#705f69] hover:border-[#473b4b]'
-              }`}
-            >
-              2
-            </button>
-
-            {/* Page 3 */}
-            <button
-              onClick={() => setCurrentPage(3)}
-              className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center transition-all ${
-                currentPage === 3
-                  ? 'bg-[#473b4b] text-white shadow-xs'
-                  : 'bg-white border border-[#ebd8d4] text-[#705f69] hover:border-[#473b4b]'
-              }`}
-            >
-              3
-            </button>
-
-            <span className="text-xs text-[#9a8992] px-1">...</span>
-
-            {/* Page 12 */}
-            <button
-              onClick={() => setCurrentPage(12)}
-              className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center transition-all ${
-                currentPage === 12
-                  ? 'bg-[#473b4b] text-white shadow-xs'
-                  : 'bg-white border border-[#ebd8d4] text-[#705f69] hover:border-[#473b4b]'
-              }`}
-            >
-              12
-            </button>
+            {/* Page buttons */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center transition-all ${
+                  effectivePage === page
+                    ? 'bg-[#473b4b] text-white shadow-xs'
+                    : 'bg-white border border-[#ebd8d4] text-[#705f69] hover:border-[#473b4b]'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
 
             {/* Next */}
             <button
-              onClick={() => setCurrentPage((p) => Math.min(12, p + 1))}
-              disabled={currentPage === 12}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={effectivePage === totalPages}
               className="w-8 h-8 rounded-full border border-[#ebd8d4] bg-white text-[#705f69] hover:text-[#201a1b] hover:border-[#473b4b] flex items-center justify-center text-xs transition-colors disabled:opacity-40 disabled:hover:border-[#ebd8d4]"
               title="Next Page"
             >
               <span className="material-symbols-outlined text-[16px]">chevron_right</span>
             </button>
           </div>
+          )}
         </main>
       </div>
 
@@ -809,10 +979,7 @@ export const DiscoverPage = ({
         <div className="fixed bottom-6 right-6 z-30">
           <button
             onClick={() => {
-              onShowToast('Requesting a peer skill swap session...');
-              if (onOpenMentorModal) {
-                onOpenMentorModal(allPeers[0]);
-              }
+              handleOpenRequestModal(allPeers[0]);
             }}
             className="w-12 h-12 rounded-2xl bg-[#c5b3d3] hover:bg-[#b39dc3] text-[#2c1d30] shadow-lg flex items-center justify-center text-2xl font-bold transition-transform active:scale-95 border border-white/40"
             title="Create / Request a Skill Swap"
@@ -822,6 +989,137 @@ export const DiscoverPage = ({
           </button>
         </div>
       </footer>
+
+      {/* DYNAMIC REQUEST SESSION MODAL IN DISCOVER */}
+      {requestingPeer && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header with Peer Preview */}
+            <div className="flex items-start justify-between border-b border-[#f4e8e5] pb-4">
+              <div className="flex items-center gap-3.5">
+                <img
+                  src={requestingPeer.avatarUrl}
+                  alt={requestingPeer.name}
+                  referrerPolicy="no-referrer"
+                  className="w-12 h-12 rounded-full object-cover border-2 border-[#ebd8d4]"
+                />
+                <div>
+                  <h3 className="font-bold text-base text-[#201a1b]">
+                    Request Session with {requestingPeer.name}
+                  </h3>
+                  <p className="text-xs text-[#705e69]">
+                    {requestingPeer.title} • ★ {requestingPeer.rating}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRequestingPeer(null)}
+                className="text-[#8c7b86] hover:text-[#201a1b] p-1 rounded-lg hover:bg-[#fbf4f2]"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Request Form */}
+            <form onSubmit={handleConfirmDiscoverSession} className="space-y-4 text-xs">
+              {/* Topic Select */}
+              <div>
+                <label className="block font-bold text-[#201a1b] mb-1.5">
+                  Academic Focus / Topic:
+                </label>
+                <input
+                  type="text"
+                  value={reqTopic}
+                  onChange={(e) => setReqTopic(e.target.value)}
+                  placeholder="e.g. Structural Equation Modeling (SEM) in R"
+                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
+                  required
+                />
+              </div>
+
+              {/* Proposed Slot */}
+              <div>
+                <label className="block font-bold text-[#201a1b] mb-1.5">
+                  Preferred Time Slot:
+                </label>
+                <input
+                  type="text"
+                  value={reqSlot}
+                  onChange={(e) => setReqSlot(e.target.value)}
+                  placeholder="e.g. Wednesday, Oct 24 (02:30 PM)"
+                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
+                  required
+                />
+                <p className="text-[11px] text-[#705e69] mt-1">
+                  Peer availability: {requestingPeer.nextAvailable || 'Flexible schedule'}
+                </p>
+              </div>
+
+              {/* What You Offer */}
+              <div>
+                <label className="block font-bold text-[#201a1b] mb-1.5">
+                  Knowledge You Offer in Exchange:
+                </label>
+                <input
+                  type="text"
+                  value={reqOfferedSkill}
+                  onChange={(e) => setReqOfferedSkill(e.target.value)}
+                  placeholder="e.g. Python Data Science / LaTeX Typesetting"
+                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
+                />
+              </div>
+
+              {/* Pre-Session Notes */}
+              <div>
+                <label className="block font-bold text-[#201a1b] mb-1.5">
+                  Pre-Session Note or Agenda (Optional):
+                </label>
+                <textarea
+                  rows={3}
+                  value={reqNote}
+                  onChange={(e) => setReqNote(e.target.value)}
+                  placeholder="Add specific dataset links, hypothesis questions, or syllabus references..."
+                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl p-3 text-xs text-[#201a1b] focus:outline-none focus:border-[#57445f]"
+                />
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="pt-3 flex items-center justify-between border-t border-[#f4e8e5]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenPeer(requestingPeer);
+                    setRequestingPeer(null);
+                  }}
+                  className="text-xs font-semibold text-[#57445f] hover:underline"
+                >
+                  View Full Scholar Profile ›
+                </button>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRequestingPeer(null)}
+                    className="px-4 py-2 text-xs font-semibold text-[#705e69] hover:text-[#201a1b]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-[#473b4b] hover:bg-[#342738] text-white font-bold text-xs rounded-xl shadow-xs active:scale-98 transition-all cursor-pointer flex items-center gap-1.5"
+                    id="btn-confirm-discover-request"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      event_available
+                    </span>
+                    <span>Confirm & View Details</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

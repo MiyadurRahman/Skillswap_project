@@ -7,6 +7,9 @@ export const Modals = ({
   selectedSession,
   selectedMentor,
   onShowToast,
+  onProposeSwap,
+  onDirectMessage,
+  userProfile,
 }) => {
   // Meeting states
   const [isMuted, setIsMuted] = useState(false);
@@ -18,7 +21,7 @@ export const Modals = ({
   const [chatInput, setChatInput] = useState('');
 
   // Wallet states
-  const [creditBalance, setCreditBalance] = useState(24.5);
+  const creditBalance = userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5;
   const [filterType, setFilterType] = useState('all');
 
   const transactions = [
@@ -470,8 +473,12 @@ export const Modals = ({
             <div className="w-full grid grid-cols-2 gap-3">
               <button
                 onClick={() => {
-                  onShowToast(`Proposal sent to ${selectedMentor.name}! Waiting for confirmation.`);
-                  onClose();
+                  if (onProposeSwap) {
+                    onProposeSwap(selectedMentor);
+                  } else {
+                    onShowToast(`Proposal sent to ${selectedMentor.name}! Waiting for confirmation.`);
+                    onClose();
+                  }
                 }}
                 className="w-full py-3 bg-[#c5b3d3] hover:bg-[#a992bb] text-[#52445f] font-bold text-xs rounded-full transition-colors shadow-sm"
               >
@@ -479,8 +486,12 @@ export const Modals = ({
               </button>
               <button
                 onClick={() => {
-                  onShowToast(`Opened instant chat with ${selectedMentor.name}`);
-                  onClose();
+                  if (onDirectMessage) {
+                    onDirectMessage(selectedMentor);
+                  } else {
+                    onShowToast(`Opened instant chat with ${selectedMentor.name}`);
+                    onClose();
+                  }
                 }}
                 className="w-full py-3 border border-[#ccc4cd] hover:bg-[#ebe0e0] text-[#201a1b] font-semibold text-xs rounded-full transition-colors"
               >
