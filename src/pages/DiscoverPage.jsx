@@ -1,218 +1,80 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MobileNav } from '../component/MobileNav';
 import { allPeers } from '../data/peersData';
-
-// Unified search/filter matcher for BOTH demo peers (allPeers) and realtime
-// users (mapped by subscribeAllUsers). The two shapes don't share a schema, so
-// each peer is normalized into lowercase searchable strings.
-const ACADEMIC_KEYWORDS = {
-  "PhD Candidate": ['phd', 'ph.d', 'doctoral candidate', 'doctorate'],
-  "Master's Student": ['master', 'msc', 'graduate researcher'],
-  'Undergraduate Senior': ['undergraduate', 'bsc', 'bachelor', 'b.sc'],
-  'Postdoctoral Researcher': ['postdoc', 'post-doctoral', 'postdoctoral', 'fellow'],
-};
-
-const normalizePeer = (peer) => {
-  const skills = peer.skills || [];
-  const skillsTeach = peer.skillsTeach || [];
-  const badges = peer.badges || [];
-  const title = peer.title || peer.academicLevel || '';
-  const bio = peer.bio || '';
-  const university = peer.university || peer.institution || '';
-
-  const fieldStr = [
-    peer.primaryField,
-    title,
-    ...skills,
-    ...skillsTeach,
-    ...badges,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  const searchStr = [peer.name, title, bio, university, fieldStr]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  const academicStr = [peer.academicLevel, title].filter(Boolean).join(' ').toLowerCase();
-  const availabilityStr = [peer.availability, peer.nextAvailable]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  return { fieldStr, searchStr, academicStr, availabilityStr, rating: peer.rating };
-};
-
-const matchesFilters = (peer, { searchQuery, selectedFields, minRating, availability, academicLevel }) => {
-  const p = normalizePeer(peer);
-
-  if ((p.rating || 4.0) < minRating) {
-    return false;
-  }
-
-  if (searchQuery && searchQuery.trim()) {
-    const q = searchQuery.toLowerCase().trim();
-    if (!p.searchStr.includes(q)) {
-      return false;
-    }
-  }
-
-  const activeFields = Object.keys(selectedFields).filter((k) => selectedFields[k]);
-  if (activeFields.length > 0) {
-    const matched = activeFields.some(
-      (f) => p.fieldStr.includes(f.toLowerCase()) || f.toLowerCase().includes(p.fieldStr)
-    );
-    if (!matched) {
-      return false;
-    }
-  }
-
-  if (availability && availability !== 'Anytime') {
-    const kw = availability === 'Today' ? /today/ : availability === 'This Week' ? /this week|mon|tue|wed|thu|fri/ : /sat|sun|weekend/;
-    if (!kw.test(p.availabilityStr)) {
-      return false;
-    }
-  }
-
-  if (academicLevel && academicLevel !== 'Any Level') {
-    const kws = ACADEMIC_KEYWORDS[academicLevel];
-    if (kws && !kws.some((kw) => p.academicStr.includes(kw))) {
-      return false;
-    }
-  }
-
-  return true;
-};
+import { useDiscoverFilters } from '../hooks/useDiscoverFilters';
+import { useDiscoverRequests } from '../hooks/useDiscoverRequests';
+import { RequestPeerModal } from '../component/discover/RequestPeerModal';
 
 export const DiscoverPage = ({
   onNavigateScreen,
-  onOpenMentorModal,
-  onOpenMeetingModal,
   onOpenWalletModal,
   onShowToast,
   userProfile: propProfile,
   onSelectPeerProfile,
   onCreateSession,
-  onSelectSession,
   realtime = false,
   realtimeUsers = [],
   onRequestRealtime,
   onMessageMentor,
 }) => {
-  const { currentUser, userProfile: authProfile, logOut } = useAuth();
+  const { currentUser, userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
 
   // Real scholars who exist in Firestore (exclude the current viewer).
   const liveScholars = useMemo(
-    () =>
-      realtimeUsers.filter((u) => u.uid && u.uid !== currentUser?.uid),
+    () => realtimeUsers.filter((u) => u.uid && u.uid !== currentUser?.uid),
     [realtimeUsers, currentUser?.uid]
   );
 
-  // Active top navigation tab
-  const [activeTab, setActiveTab] = useState('discover');
-
-  // Search & Filter States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFields, setSelectedFields] = useState({
-    'Data Science': false,
-    'Academic Writing': false,
-    'UI/UX Design': false,
-    'Microeconomics': false,
-  });
-  const [minRating, setMinRating] = useState(4.0);
-  const [availability, setAvailability] = useState('Anytime');
-  const [academicLevel, setAcademicLevel] = useState('Any Level');
-  const [activeTrendingTag, setActiveTrendingTag] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Request Session from Discover Modal states
-  const [requestingPeer, setRequestingPeer] = useState(null);
-  const [reqTopic, setReqTopic] = useState('');
-  const [reqSlot, setReqSlot] = useState('');
-  const [reqOfferedSkill, setReqOfferedSkill] = useState('Python Data Science');
-  const [reqNote, setReqNote] = useState('');
-
-  const trendingTags = [
-    'Quantum Mechanics',
-    'Digraphities',
-    'Bioinformatics',
-    'Machine Learning',
-    'Academic Writing',
-  ];
-
-  const handleFieldToggle = (field) => {
-    setSelectedFields((prev) => ({
-      ...prev,
-      [field]: !prev[field],
-    }));
-  };
-
-  const resetFilters = () => {
-    setSearchQuery('');
-    setSelectedFields({
-      'Data Science': false,
-      'Academic Writing': false,
-      'UI/UX Design': false,
-      'Microeconomics': false,
-    });
-    setMinRating(4.0);
-    setAvailability('Anytime');
-    setAcademicLevel('Any Level');
-    setActiveTrendingTag('');
-    setCurrentPage(1);
-  };
-
-  const handleTagClick = (tag) => {
-    if (activeTrendingTag === tag) {
-      setActiveTrendingTag('');
-      setSearchQuery('');
-    } else {
-      setActiveTrendingTag(tag);
-      setSearchQuery(tag);
-      onShowToast(`Filtering peers for "${tag}"`);
-    }
-  };
-
-  // Filter peers (demo + realtime both run through the same matchesFilters).
-  const filterCriteria = {
+  // Search, filters, trending tags, pagination + derived result lists.
+  const {
+    trendingTags,
     searchQuery,
+    setSearchQuery,
     selectedFields,
+    handleFieldToggle,
     minRating,
+    setMinRating,
     availability,
+    setAvailability,
     academicLevel,
-  };
+    setAcademicLevel,
+    activeTrendingTag,
+    setActiveTrendingTag,
+    handleTagClick,
+    setCurrentPage,
+    filteredPeers,
+    filteredLive,
+    totalPages,
+    effectivePage,
+    paginatedPeers,
+    resetFilters,
+  } = useDiscoverFilters(liveScholars, onShowToast);
 
-  const filteredPeers = useMemo(
-    () => allPeers.filter((peer) => matchesFilters(peer, filterCriteria)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allPeers, searchQuery, selectedFields, minRating, availability, academicLevel]
-  );
-
-  const filteredLive = useMemo(
-    () => liveScholars.filter((person) => matchesFilters(person, filterCriteria)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [liveScholars, searchQuery, selectedFields, minRating, availability, academicLevel]
-  );
-
-  console.debug(
-    '[discover]',
-    { live: liveScholars.length, shown: filteredLive.length },
-    'excluded=',
-    liveScholars.filter((u) => !matchesFilters(u, filterCriteria)).map((u) => ({ name: u.name, rating: u.rating }))
-  );
-
-  // Paginated peers (4 per page to match exact 2x2 grid layout from screenshot)
-  const itemsPerPage = 4;
-  const totalPages = Math.ceil(filteredPeers.length / itemsPerPage) || 1;
-  const effectivePage = Math.min(currentPage, totalPages);
-  const paginatedPeers = filteredPeers.slice(
-    (effectivePage - 1) * itemsPerPage,
-    effectivePage * itemsPerPage
-  );
+  // Request Session from Discover modal state + submit handler.
+  const {
+    requestingPeer,
+    setRequestingPeer,
+    reqTopic,
+    setReqTopic,
+    reqSlot,
+    setReqSlot,
+    reqOfferedSkill,
+    setReqOfferedSkill,
+    reqNote,
+    setReqNote,
+    handleOpenRequestModal,
+    handleConfirmDiscoverSession,
+  } = useDiscoverRequests({
+    realtime,
+    onRequestRealtime,
+    onShowToast,
+    onCreateSession,
+    onNavigateScreen,
+    userProfile,
+    userAvatar,
+  });
 
   const handleOpenPeer = (peer) => {
     if (onSelectPeerProfile) {
@@ -256,85 +118,6 @@ export const DiscoverPage = ({
     onNavigateScreen('public-profile');
   };
 
-  const handleOpenRequestModal = (peer) => {
-    setRequestingPeer(peer);
-    setReqTopic(peer.skillsTeach?.[0] || peer.skills?.[0] || 'Quantitative Methods');
-    setReqSlot(peer.nextAvailable || 'Wednesday, Oct 24 (02:30 PM)');
-    setReqOfferedSkill('Python Data Science');
-    setReqNote('');
-  };
-
-  const handleConfirmDiscoverSession = (e) => {
-    e.preventDefault();
-    if (!requestingPeer) return;
-
-    // REALTIME: demo mentors can't receive requests — route real users to the
-    // Live Scholars request form instead of creating a fake instant session.
-    if (realtime && onRequestRealtime) {
-      if (requestingPeer?.uid) {
-        onRequestRealtime(requestingPeer);
-      } else {
-        onShowToast('In production mode, request sessions from Live Scholars (listed above).');
-      }
-      setRequestingPeer(null);
-      return;
-    }
-
-    const newSession = {
-      id: `session-${Date.now()}`,
-      title: reqTopic || requestingPeer.skillsTeach?.[0] || 'Academic Peer Session',
-      status: 'Accepted',
-      description: `Collaborative academic peer session focusing on ${reqTopic || requestingPeer.skillsTeach?.[0]} with ${requestingPeer.name}.`,
-      learningGoals: (requestingPeer.skillsTeach || ['Methodological Rigor', 'Statistical Modeling']).slice(0, 3).map((s) => `Master core foundations of ${s}`),
-      duration: '90 Minutes',
-      method: 'Video Call',
-      platform: 'SkillSwap Connect',
-      date: reqSlot.includes('(') ? reqSlot.split('(')[0].trim() : reqSlot.includes(',') ? reqSlot.split(',')[0].trim() : 'Wednesday, Oct 24',
-      time: reqSlot.includes('(') ? reqSlot.split('(')[1].replace(')', '').trim() : '02:30 PM — 04:00 PM',
-      partner: {
-        id: requestingPeer.id,
-        name: requestingPeer.name,
-        title: requestingPeer.title,
-        avatarUrl: requestingPeer.avatarUrl,
-        isOnline: requestingPeer.isOnline,
-        badges: (requestingPeer.badges || requestingPeer.skills || ['Scholar']).slice(0, 2),
-        skillsTeach: requestingPeer.skillsTeach || [],
-        skillsWant: requestingPeer.skillsWant || [],
-        rating: requestingPeer.rating,
-        reviewsCount: requestingPeer.reviewsCount,
-        credentials: requestingPeer.credentials || ['Verified Scholar'],
-        responseSpeed: requestingPeer.responseSpeed || 'Usually responds in 1h',
-        availability: requestingPeer.availability || 'Available on request',
-        preferredMode: requestingPeer.preferredMode || 'SkillSwap Connect Video Call',
-      },
-      notes: reqNote ? [
-        {
-          id: `note-${Date.now()}`,
-          authorName: userProfile?.name || 'You',
-          authorAvatar: userAvatar,
-          timestamp: 'Just now',
-          text: reqNote,
-        },
-      ] : [
-        {
-          id: `note-${Date.now()}`,
-          authorName: requestingPeer.name,
-          authorAvatar: requestingPeer.avatarUrl,
-          timestamp: 'Just now',
-          text: `Session confirmed for ${reqTopic}! Looking forward to our collaborative swap.`,
-        },
-      ],
-    };
-
-    if (onCreateSession) {
-      onCreateSession(newSession);
-    } else {
-      onShowToast(`✨ Session scheduled with ${requestingPeer.name}!`);
-      onNavigateScreen('session-details');
-    }
-    setRequestingPeer(null);
-  };
-
   const handleFindPeerCTA = () => {
     const count = realtime ? filteredLive.length : filteredPeers.length;
     const kind = realtime ? 'live' : 'verified';
@@ -357,7 +140,7 @@ export const DiscoverPage = ({
               items={[
                 { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
                 { label: 'Skill Manager', icon: 'school', onClick: () => onNavigateScreen('skill-manager') },
-                { label: 'Discover', icon: 'explore', active: true, onClick: () => setActiveTab('discover') },
+                { label: 'Discover', icon: 'explore', active: true, onClick: () => {} },
                 { label: 'Requests', icon: 'inbox', badge: true, onClick: () => onNavigateScreen('requests') },
                 { label: 'My Sessions', icon: 'calendar_today', onClick: () => onNavigateScreen('session-details') },
               ]}
@@ -386,7 +169,7 @@ export const DiscoverPage = ({
                 Skill Manager
               </button>
               <button
-                onClick={() => setActiveTab('discover')}
+                onClick={() => {}}
                 className="text-white font-bold border-b-2 border-white pb-0.5 tracking-wide"
                 id="nav-tab-discover"
               >
@@ -992,133 +775,23 @@ export const DiscoverPage = ({
 
       {/* DYNAMIC REQUEST SESSION MODAL IN DISCOVER */}
       {requestingPeer && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header with Peer Preview */}
-            <div className="flex items-start justify-between border-b border-[#f4e8e5] pb-4">
-              <div className="flex items-center gap-3.5">
-                <img
-                  src={requestingPeer.avatarUrl}
-                  alt={requestingPeer.name}
-                  referrerPolicy="no-referrer"
-                  className="w-12 h-12 rounded-full object-cover border-2 border-[#ebd8d4]"
-                />
-                <div>
-                  <h3 className="font-bold text-base text-[#201a1b]">
-                    Request Session with {requestingPeer.name}
-                  </h3>
-                  <p className="text-xs text-[#705e69]">
-                    {requestingPeer.title} • ★ {requestingPeer.rating}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setRequestingPeer(null)}
-                className="text-[#8c7b86] hover:text-[#201a1b] p-1 rounded-lg hover:bg-[#fbf4f2]"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            {/* Request Form */}
-            <form onSubmit={handleConfirmDiscoverSession} className="space-y-4 text-xs">
-              {/* Topic Select */}
-              <div>
-                <label className="block font-bold text-[#201a1b] mb-1.5">
-                  Academic Focus / Topic:
-                </label>
-                <input
-                  type="text"
-                  value={reqTopic}
-                  onChange={(e) => setReqTopic(e.target.value)}
-                  placeholder="e.g. Structural Equation Modeling (SEM) in R"
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
-                  required
-                />
-              </div>
-
-              {/* Proposed Slot */}
-              <div>
-                <label className="block font-bold text-[#201a1b] mb-1.5">
-                  Preferred Time Slot:
-                </label>
-                <input
-                  type="text"
-                  value={reqSlot}
-                  onChange={(e) => setReqSlot(e.target.value)}
-                  placeholder="e.g. Wednesday, Oct 24 (02:30 PM)"
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
-                  required
-                />
-                <p className="text-[11px] text-[#705e69] mt-1">
-                  Peer availability: {requestingPeer.nextAvailable || 'Flexible schedule'}
-                </p>
-              </div>
-
-              {/* What You Offer */}
-              <div>
-                <label className="block font-bold text-[#201a1b] mb-1.5">
-                  Knowledge You Offer in Exchange:
-                </label>
-                <input
-                  type="text"
-                  value={reqOfferedSkill}
-                  onChange={(e) => setReqOfferedSkill(e.target.value)}
-                  placeholder="e.g. Python Data Science / LaTeX Typesetting"
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
-                />
-              </div>
-
-              {/* Pre-Session Notes */}
-              <div>
-                <label className="block font-bold text-[#201a1b] mb-1.5">
-                  Pre-Session Note or Agenda (Optional):
-                </label>
-                <textarea
-                  rows={3}
-                  value={reqNote}
-                  onChange={(e) => setReqNote(e.target.value)}
-                  placeholder="Add specific dataset links, hypothesis questions, or syllabus references..."
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl p-3 text-xs text-[#201a1b] focus:outline-none focus:border-[#57445f]"
-                />
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="pt-3 flex items-center justify-between border-t border-[#f4e8e5]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleOpenPeer(requestingPeer);
-                    setRequestingPeer(null);
-                  }}
-                  className="text-xs font-semibold text-[#57445f] hover:underline"
-                >
-                  View Full Scholar Profile ›
-                </button>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRequestingPeer(null)}
-                    className="px-4 py-2 text-xs font-semibold text-[#705e69] hover:text-[#201a1b]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 bg-[#473b4b] hover:bg-[#342738] text-white font-bold text-xs rounded-xl shadow-xs active:scale-98 transition-all cursor-pointer flex items-center gap-1.5"
-                    id="btn-confirm-discover-request"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">
-                      event_available
-                    </span>
-                    <span>Confirm & View Details</span>
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
+        <RequestPeerModal
+          peer={requestingPeer}
+          topic={reqTopic}
+          onTopicChange={setReqTopic}
+          slot={reqSlot}
+          onSlotChange={setReqSlot}
+          offeredSkill={reqOfferedSkill}
+          onOfferedSkillChange={setReqOfferedSkill}
+          note={reqNote}
+          onNoteChange={setReqNote}
+          onSubmit={handleConfirmDiscoverSession}
+          onViewProfile={() => {
+            handleOpenPeer(requestingPeer);
+            setRequestingPeer(null);
+          }}
+          onClose={() => setRequestingPeer(null)}
+        />
       )}
     </div>
   );

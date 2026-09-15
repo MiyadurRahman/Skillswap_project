@@ -21,7 +21,9 @@ export const Modals = ({
   const [chatInput, setChatInput] = useState('');
 
   // Wallet states
-  const creditBalance = userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5;
+  const [creditBalance, setCreditBalance] = useState(
+    userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5
+  );
   const [filterType, setFilterType] = useState('all');
 
   const transactions = [
