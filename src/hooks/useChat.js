@@ -18,7 +18,6 @@ export function useChat({
   realtimeUsers,
   conversations,
   setConversations,
-  chatMessages,
   setChatMessages,
   showToast,
 }) {
@@ -28,18 +27,28 @@ export function useChat({
   useEffect(() => {
     const convId = activeChat?.conversation?.id;
     if (!isRealtime || !myUid || !convId) return;
+    const participantIds = activeChat.conversation.participantIds || [];
+    if (!participantIds.includes(myUid)) {
+      showToast('This conversation is not available to the current account.');
+      return undefined;
+    }
 
-    const unsubscribe = subscribeConversationMessages(convId, (msgs) => {
-      console.info(
-        '[chat] subscription',
-        convId,
-        `${msgs.length} msgs`,
-        msgs.map((m) => `${(m.fromUid || '?').slice(0, 6)}`).join(', ')
-      );
-      setChatMessages((prev) => ({ ...prev, [convId]: msgs }));
-    });
+    const unsubscribe = subscribeConversationMessages(
+      convId,
+      (msgs) => {
+        setChatMessages((prev) => ({ ...prev, [convId]: msgs }));
+      },
+      (error) => {
+        const permissionDenied = String(error?.code || '').includes('permission-denied');
+        showToast(
+          permissionDenied
+            ? 'Chat access needs the latest Firestore rules. Deploy the project rules and reopen this conversation.'
+            : 'Chat history is temporarily unavailable.'
+        );
+      }
+    );
     return () => unsubscribe();
-  }, [isRealtime, myUid, activeChat?.conversation?.id, setChatMessages]);
+  }, [isRealtime, myUid, activeChat, setChatMessages, showToast]);
 
   // Enrich conversations with the peer's live profile (avatar/name/title).
   const conversationsWithPeers = useMemo(() => {
@@ -84,7 +93,7 @@ export function useChat({
                 return JSON.parse(
                   localStorage.getItem('skillswap_chat_messages') || '{}'
                 )[convId];
-              } catch (e) {
+              } catch {
                 return undefined;
               }
             })() || initialMessages[convId] || [];
@@ -109,7 +118,7 @@ export function useChat({
 
   const handleNewChat = useCallback(
     (peer) => {
-      if (!peer?.uid) return;
+      if (!peer?.uid || !myUid) return;
       const convId = getConversationId(myUid, peer.uid);
       const convo = {
         id: convId,
@@ -123,14 +132,23 @@ export function useChat({
         unread: { [myUid]: 0, [peer.uid]: 0 },
         updatedAt: Date.now(),
       };
-      openChatSeed(convo, convo.peer);
       if (isRealtime) {
-        ensureConversation(myUid, peer.uid).catch((e) =>
-          console.warn('Could not create conversation:', e)
-        );
+        ensureConversation(myUid, peer.uid)
+          .then((persistedConversation) => {
+            openChatSeed(
+              { ...convo, ...persistedConversation, peer: convo.peer },
+              convo.peer
+            );
+          })
+          .catch((error) => {
+            console.warn('Could not create conversation:', error);
+            showToast('Could not start this conversation. Please try again.');
+          });
+        return;
       }
+      openChatSeed(convo, convo.peer);
     },
-    [isRealtime, myUid, openChatSeed]
+    [isRealtime, myUid, openChatSeed, showToast]
   );
 
   const handleSendChatMessage = useCallback(
@@ -147,15 +165,10 @@ export function useChat({
         try {
           await sendMessage({
             conversationId: convId,
+            participantIds: conversation.participantIds,
             fromUid: myUid,
             toUid: peerUid,
             fromName: myProfile?.name || 'Scholar',
-            text,
-          });
-          console.info('[chat] sent ->', {
-            convId,
-            fromUid: myUid,
-            toUid: peerUid,
             text,
           });
         } catch (e) {
@@ -229,8 +242,7 @@ export function useChat({
 
   const handleCloseChat = useCallback(() => {
     setActiveChat(null);
-    setChatMessages({});
-  }, [setChatMessages]);
+  }, []);
 
   return {
     activeChat,

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { academicAssets } from '../assets';
 import { AUTH_CONFIG } from '../config/authConfig';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 
 export const GetStartedPage = ({
   onNavigateToSignUp,
@@ -156,17 +156,17 @@ export const GetStartedPage = ({
     <div id="screen-get-started" className="min-h-screen bg-[#fff8f7] text-[#201a1b] flex flex-col font-sans selection:bg-[#c5b3d3] selection:text-[#22162e]">
       {/* Top Header */}
       <header className="sticky top-0 z-50 w-full bg-[#4e4353]/95 backdrop-blur-md shadow-sm border-b border-[#ccc4cd]/20">
-        <div className="max-w-[1240px] mx-auto px-4 sm:px-8 h-16 sm:h-[70px] flex items-center justify-between gap-4">
+        <div className="max-w-[1240px] mx-auto px-3 sm:px-8 h-16 sm:h-[70px] flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#675975] to-[#c5b3d3] flex items-center justify-center text-white shadow-sm shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-[#675975] to-[#c5b3d3] flex items-center justify-center text-white shadow-sm shrink-0">
               <span className="material-symbols-outlined text-[20px]">school</span>
             </div>
             <div className="min-w-0">
-              <span className="text-lg sm:text-xl font-extrabold text-[#c5b3d3] tracking-tight block leading-none truncate">
+              <span className="text-base sm:text-xl font-extrabold text-[#c5b3d3] tracking-tight block leading-none truncate">
                 SkillSwap
               </span>
-              <span className="text-[10px] text-white/75 font-semibold tracking-wider uppercase truncate block mt-0.5">
+              <span className="hidden min-[360px]:block text-[9px] sm:text-[10px] text-white/75 font-semibold tracking-wider uppercase truncate mt-0.5">
                 Academic Exchange
               </span>
             </div>
@@ -178,7 +178,7 @@ export const GetStartedPage = ({
               id="header-btn-login"
               type="button"
               onClick={onNavigateToLogin}
-              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer whitespace-nowrap min-h-[38px] flex items-center"
+              className="px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer whitespace-nowrap min-h-[38px] flex items-center"
             >
               Sign In
             </button>
@@ -186,33 +186,34 @@ export const GetStartedPage = ({
               id="header-btn-get-started"
               type="button"
               onClick={onNavigateToSignUp}
-              className="px-4 sm:px-5 py-1.5 sm:py-2 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm rounded-full shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5 min-h-[38px]"
+              className="px-3 sm:px-5 py-1.5 sm:py-2 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm rounded-full shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5 min-h-[38px]"
             >
-              <span>Get Started</span>
-              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+              <span className="sm:hidden">Join</span>
+              <span className="hidden sm:inline">Get Started</span>
+              <span className="material-symbols-outlined text-[16px] hidden min-[360px]:inline-block">arrow_forward</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-16 lg:py-20 px-4 sm:px-8 max-w-[1240px] mx-auto w-full">
+      <section className="relative overflow-hidden pt-10 sm:pt-12 pb-14 lg:py-20 px-4 sm:px-8 max-w-[1240px] mx-auto w-full">
         {/* Subtle Ambient Background Glows */}
         <div className="absolute top-10 left-1/4 w-72 h-72 bg-[#c5b3d3]/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
         <div className="absolute bottom-5 right-10 w-96 h-96 bg-[#ffdada]/30 rounded-full blur-3xl pointer-events-none -z-10"></div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           {/* Left Text Column */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#d2c0e0] text-[#52445f] text-xs font-semibold shadow-xs">
+          <div className="lg:col-span-7 space-y-5 sm:space-y-6 min-w-0">
+            <div className="inline-flex max-w-full items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#d2c0e0] text-[#52445f] text-[11px] sm:text-xs font-semibold shadow-xs">
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>Inter-University Knowledge Network • UIU & Partners</span>
+              <span className="truncate">Inter-University Knowledge Network • UIU & Partners</span>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-[54px] font-extrabold text-[#201a1b] tracking-tight leading-[1.12]">
+            <h1 className="text-[2rem] sm:text-5xl lg:text-[54px] font-extrabold text-[#201a1b] tracking-tight leading-[1.12]">
               Exchange academic skills.{' '}
               <span className="text-[#675975] relative inline-block">
                 Learn for free.
@@ -258,16 +259,16 @@ export const GetStartedPage = ({
             </div>
 
             {/* Metrics Row */}
-            <div className="pt-6 border-t border-[#ccc4cd]/40 grid grid-cols-3 gap-4 max-w-lg">
+            <div className="pt-6 border-t border-[#ccc4cd]/40 grid grid-cols-3 gap-2 sm:gap-4 max-w-lg overflow-hidden">
               <div>
                 <div className="text-2xl sm:text-3xl font-extrabold text-[#675975]">2,400+</div>
                 <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Verified Scholars</div>
               </div>
-              <div className="border-l border-[#ccc4cd]/50 pl-4">
+              <div className="border-l border-[#ccc4cd]/50 pl-2 sm:pl-4">
                 <div className="text-2xl sm:text-3xl font-extrabold text-[#675975]">1:1</div>
                 <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Time-Credit Swap</div>
               </div>
-              <div className="border-l border-[#ccc4cd]/50 pl-4">
+              <div className="border-l border-[#ccc4cd]/50 pl-2 sm:pl-4">
                 <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700">100%</div>
                 <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Zero Tuition Fees</div>
               </div>
@@ -278,7 +279,7 @@ export const GetStartedPage = ({
           <div className="lg:col-span-5 relative">
             <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xl border border-[#ccc4cd]/50 space-y-4 relative z-10 ambient-lift">
               {/* Card Header */}
-              <div className="flex items-center justify-between pb-3.5 border-b border-[#ccc4cd]/30">
+              <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-[#ccc4cd]/30">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
                   <span className="text-xs font-bold text-[#201a1b] tracking-wide uppercase">

@@ -24,13 +24,20 @@ export function useFirestoreSubscriptions({
   setConversations,
   setCreditTransactions,
 }) {
-  const [readyCount, setReadyCount] = useState(0);
+  const [readyState, setReadyState] = useState({ uid: null, count: 0 });
+  const readyCount = isRealtime && readyState.uid === myUid ? readyState.count : 0;
 
   useEffect(() => {
     if (!isRealtime || !myUid) return;
 
-    setReadyCount(0);
-    const onFirst = () => setReadyCount((c) => c + 1);
+    let active = true;
+    const onFirst = () => {
+      if (!active) return;
+      setReadyState((state) => ({
+        uid: myUid,
+        count: state.uid === myUid ? state.count + 1 : 1,
+      }));
+    };
 
     const unsubscribers = [
       subscribeIncomingRequests(myUid, setIncomingRequests, onFirst),
@@ -41,7 +48,10 @@ export function useFirestoreSubscriptions({
       subscribeTransactions(myUid, setCreditTransactions, onFirst),
     ];
 
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+    return () => {
+      active = false;
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
   }, [
     isRealtime,
     myUid,
@@ -58,11 +68,18 @@ export function useFirestoreSubscriptions({
   useEffect(() => {
     if (readyCount >= REQUIRED_SNAPSHOTS) return;
     const t = setTimeout(
-      () => setReadyCount((c) => (c >= REQUIRED_SNAPSHOTS ? c : REQUIRED_SNAPSHOTS)),
+      () =>
+        setReadyState((state) => ({
+          uid: myUid,
+          count:
+            state.uid === myUid
+              ? Math.max(state.count, REQUIRED_SNAPSHOTS)
+              : REQUIRED_SNAPSHOTS,
+        })),
       GATE_TIMEOUT_MS
     );
     return () => clearTimeout(t);
-  }, [readyCount]);
+  }, [isRealtime, myUid, readyCount]);
 
   return { readyCount };
 }

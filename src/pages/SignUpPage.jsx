@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { academicAssets } from '../assets';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 
 export const SignUpPage = ({
   onSignUpSuccess,
   onNavigateToLogin,
   onNavigateToGetStarted,
-  onOpenSSO,
   onShowToast,
 }) => {
   const { signUp, signInWithGoogleOAuth } = useAuth();

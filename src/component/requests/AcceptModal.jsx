@@ -1,3 +1,5 @@
+import { useDialogBehavior } from '../../hooks/useDialogBehavior';
+
 // Accept-incoming-request confirmation modal.
 export function AcceptModal({
   request,
@@ -10,9 +12,11 @@ export function AcceptModal({
   onCancel,
   onConfirm,
 }) {
+  useDialogBehavior(true, onCancel);
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4" onClick={(event) => event.target === event.currentTarget && onCancel()} role="presentation">
+      <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150" role="dialog" aria-modal="true" aria-labelledby="accept-request-title">
         <div className="flex items-start justify-between border-b border-[#f4e8e5] pb-4">
           <div className="flex items-center gap-3">
             <img
@@ -22,7 +26,7 @@ export function AcceptModal({
               className="w-12 h-12 rounded-full object-cover border-2 border-[#ebd8d4]"
             />
             <div>
-              <h3 className="font-bold text-base text-[#201a1b]">
+              <h3 id="accept-request-title" className="font-bold text-base text-[#201a1b]">
                 Confirm Session with {request.requester.name}
               </h3>
               <p className="text-xs text-[#705e69]">
@@ -32,6 +36,7 @@ export function AcceptModal({
           </div>
           <button
             onClick={onCancel}
+            aria-label="Close accept request dialog"
             className="text-[#8c7b86] hover:text-[#201a1b] p-1 rounded-lg"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>

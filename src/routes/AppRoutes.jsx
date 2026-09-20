@@ -5,7 +5,7 @@ import { ProfileSetupPage } from '../pages/ProfileSetupPage';
 import { GetStartedPage } from '../pages/GetStartedPage';
 import { DiscoverPage } from '../pages/DiscoverPage';
 import { SkillManagerPage } from '../pages/SkillManagerPage';
-import { PublicProfilePage } from '../pages/PublicProfilePage';
+import { PublicProfilePage } from '../pages/ScholarProfilePage';
 import { SessionDetailsPage } from '../pages/SessionDetailsPage';
 import { RequestsPage } from '../pages/RequestsPage';
 import { SchedulePage } from '../pages/SchedulePage';
@@ -32,7 +32,6 @@ export const AppRoutes = ({
   setSelectedProfile,
   sessions = [],
   selectedSession,
-  setSelectedSession,
   onCreateSession,
   onUpdateSession,
   onSelectSession,
@@ -42,7 +41,7 @@ export const AppRoutes = ({
   outgoingRequests = [],
   onUpdateOutgoingRequests,
   selectedMentorForRequest,
-  setSelectedMentorForRequest,
+  onSaveProfileSkills,
   realtime = false,
   realtimeUsers = [],
   onRequestRealtime,
@@ -170,7 +169,6 @@ export const AppRoutes = ({
           onLoginSuccess={() => setCurrentScreen('dashboard')}
           onNavigateToSignUp={() => setCurrentScreen('signup')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
-          onOpenSSO={onOpenSSO}
           onShowToast={onShowToast}
         />
       );
@@ -185,13 +183,7 @@ export const AppRoutes = ({
           onOpenMeetingModal={onOpenMeeting}
           onOpenWalletModal={onOpenWallet}
           onShowToast={onShowToast}
-          onSaveProfileSkills={({ skillsTeach, skillsWant }) => {
-            setUserProfile((prev) => ({
-              ...prev,
-              expertiseAreas: skillsTeach,
-              learningGoals: skillsWant,
-            }));
-          }}
+          onSaveProfileSkills={onSaveProfileSkills}
         />
       );
       break;
@@ -244,7 +236,6 @@ export const AppRoutes = ({
           }}
           onNavigateToLogin={() => setCurrentScreen('login')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
-          onOpenSSO={onOpenSSO}
           onShowToast={onShowToast}
         />
       );

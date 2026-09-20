@@ -9,7 +9,6 @@ import {
   query,
   where,
   orderBy,
-  getDocs,
   getDoc,
   arrayUnion,
   increment,
@@ -685,19 +684,13 @@ export const getConversationId = (uidA, uidB) => [uidA, uidB].sort().join('__');
 export const ensureConversation = async (uidA, uidB) => {
   const convId = getConversationId(uidA, uidB);
   const ref = doc(db, 'conversations', convId);
-  const snap = await getDoc(ref);
-  if (snap.exists()) {
-    return { id: snap.id, ...snap.data() };
-  }
   const data = {
     participantIds: [uidA, uidB],
-    lastText: '',
-    lastFrom: '',
-    lastFromName: '',
-    unread: { [uidA]: 0, [uidB]: 0 },
-    updatedAt: Date.now(),
   };
-  await setDoc(ref, data);
+  // A read of a non-existent document cannot satisfy the participant-based
+  // read rule. An idempotent merge works for both cases: it creates the parent
+  // for a new chat and leaves all existing message metadata untouched.
+  await setDoc(ref, data, { merge: true });
   return { id: convId, ...data };
 };
 
@@ -754,7 +747,8 @@ export const subscribeConversations = (uid, callback, onFirst) => {
 // Live messages of a single conversation (oldest first).
 // Retries automatically on transient errors (offline, cold rules, index
 // warm-up) so the history view isn't silently killed.
-export const subscribeConversationMessages = (conversationId, callback) => {
+export const subscribeConversationMessages = (conversationId, callback, onError) => {
+  if (!conversationId) return () => {};
   const q = query(
     collection(db, 'conversations', conversationId, 'messages'),
     orderBy('createdAt', 'asc')
@@ -762,13 +756,35 @@ export const subscribeConversationMessages = (conversationId, callback) => {
   let unsub = () => {};
   let retryTimer = null;
   let stopped = false;
+  let retryAttempt = 0;
+  const retryableCodes = new Set([
+    'aborted',
+    'cancelled',
+    'deadline-exceeded',
+    'internal',
+    'resource-exhausted',
+    'unavailable',
+    'unknown',
+  ]);
   const listen = () => {
     unsub = onSnapshot(
       q,
-      (snap) => callback(snap.docs.map(mapMessage)),
+      (snap) => {
+        retryAttempt = 0;
+        callback(snap.docs.map(mapMessage));
+      },
       (err) => {
-        console.warn('Messages listener error:', err);
-        if (!stopped) retryTimer = setTimeout(listen, 2000);
+        if (stopped) return;
+        const code = String(err?.code || '').replace('firestore/', '');
+        if (!retryableCodes.has(code)) {
+          console.warn('Messages listener stopped:', code || err);
+          onError?.(err);
+          return;
+        }
+        const delay = Math.min(30_000, 1_000 * 2 ** retryAttempt);
+        retryAttempt += 1;
+        console.warn(`Messages listener retrying in ${delay}ms:`, code);
+        retryTimer = setTimeout(listen, delay);
       }
     );
   };
@@ -780,30 +796,29 @@ export const subscribeConversationMessages = (conversationId, callback) => {
   };
 };
 
-// Send a message, creating the conversation if needed and bumping the
-// recipient's unread counter. Both writes happen in a single atomic batch, so
-// a message can never be sent to a non-existent conversation.
+// Send a message and bump the recipient's unread counter atomically. The
+// conversation is created by ensureConversation before the chat opens. Do not
+// rewrite participantIds here: reversing the same two IDs still counts as a
+// protected array-field change in Firestore and makes replies fail for the
+// participant whose sender/recipient order differs from the stored order.
 export const sendMessage = async ({ conversationId, participantIds, fromUid, toUid, fromName, text }) => {
   const convId = conversationId || getConversationId(fromUid, toUid);
   const convRef = doc(db, 'conversations', convId);
   const msgRef = doc(collection(db, 'conversations', convId, 'messages'));
   const now = Date.now();
+  const messageParticipantIds = participantIds || [fromUid, toUid];
 
   const batch = writeBatch(db);
-  batch.set(
-    convRef,
-    {
-      participantIds: participantIds || [fromUid, toUid],
-      lastText: text,
-      lastFrom: fromUid,
-      lastFromName: fromName || 'Scholar',
-      updatedAt: now,
-    },
-    { merge: true }
-  );
+  batch.update(convRef, {
+    lastText: text,
+    lastFrom: fromUid,
+    lastFromName: fromName || 'Scholar',
+    updatedAt: now,
+    [`unread.${toUid}`]: increment(1),
+  });
   batch.set(msgRef, {
     conversationId: convId,
-    participantIds: participantIds || [fromUid, toUid],
+    participantIds: messageParticipantIds,
     fromUid,
     toUid,
     text,
@@ -811,14 +826,10 @@ export const sendMessage = async ({ conversationId, participantIds, fromUid, toU
     read: false,
   });
 
-  // Commit the message + conversation atomically, then bump the recipient's
-  // unread counter. increment() creates `unread.<toUid>` if it does not exist,
-  // so a brand-new conversation gets `{ toUid: 1 }` without ever clobbering an
-  // existing recipient count (which a merge-set of the whole map would do).
+  // increment() creates `unread.<toUid>` when that nested counter is absent.
+  // Keeping it in this batch prevents a successfully stored message from being
+  // reported as failed merely because a later unread update was rejected.
   await batch.commit();
-  await updateDoc(convRef, {
-    [`unread.${toUid}`]: increment(1),
-  });
 };
 
 // Reset the current user's unread counter for a conversation.
@@ -984,6 +995,16 @@ export const settleSessionSide = async ({ sessionId, currentUid }) => {
 
 export const reviewDocumentId = (sessionId, authorUid) =>
   `${sessionId}__${authorUid}`;
+
+export const subscribeReviewStatus = (sessionId, authorUid, callback) => {
+  if (!sessionId || !authorUid) return () => {};
+  const reviewRef = doc(db, 'reviews', reviewDocumentId(sessionId, authorUid));
+  return onSnapshot(
+    reviewRef,
+    (snapshot) => callback(snapshot.exists()),
+    (error) => console.warn('Review status listener error:', error?.code || error)
+  );
+};
 
 export const mapReview = (doc) => {
   const r = doc.data();

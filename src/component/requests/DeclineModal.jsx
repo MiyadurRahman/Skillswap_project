@@ -1,3 +1,5 @@
+import { useDialogBehavior } from '../../hooks/useDialogBehavior';
+
 // Decline-incoming-request confirmation modal.
 export function DeclineModal({
   request,
@@ -8,10 +10,12 @@ export function DeclineModal({
   onCancel,
   onConfirm,
 }) {
+  useDialogBehavior(true, onCancel);
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-        <h3 className="font-bold text-base text-[#201a1b]">Decline Session Request</h3>
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4" onClick={(event) => event.target === event.currentTarget && onCancel()} role="presentation">
+      <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150" role="dialog" aria-modal="true" aria-labelledby="decline-request-title">
+        <h3 id="decline-request-title" className="font-bold text-base text-[#201a1b]">Decline Session Request</h3>
         <p className="text-xs text-[#705e69]">
           Please select a professional academic reason for declining {request.requester.name}
           's request.

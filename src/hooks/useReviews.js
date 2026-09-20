@@ -5,25 +5,26 @@ import { subscribeReviews } from '../services/realtime';
 // so the page renders immediately and refreshes in real time when a new
 // review is posted.
 export function useReviews(targetUid) {
-  const [reviews, setReviews] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [reviewState, setReviewState] = useState({
+    targetUid: null,
+    reviews: [],
+  });
 
   useEffect(() => {
-    if (!targetUid) {
-      setReviews([]);
-      setLoading(false);
-      return undefined;
-    }
-    setLoading(true);
+    if (!targetUid) return undefined;
     const unsubscribe = subscribeReviews(targetUid, (list) => {
-      setReviews(list);
-      setLoading(false);
+      setReviewState({ targetUid, reviews: list });
     });
     return () => {
-      setLoading(false);
       if (typeof unsubscribe === 'function') unsubscribe();
     };
   }, [targetUid]);
+
+  const reviews = useMemo(
+    () => (reviewState.targetUid === targetUid ? reviewState.reviews : []),
+    [reviewState, targetUid]
+  );
+  const loading = Boolean(targetUid && reviewState.targetUid !== targetUid);
 
   const summary = useMemo(() => {
     if (reviews.length === 0) {

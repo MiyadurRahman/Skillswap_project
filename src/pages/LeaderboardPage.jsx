@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 import { resolveAvatarForName } from '../assets';
 import { allPeers } from '../data/peersData';
@@ -220,7 +220,7 @@ export const LeaderboardPage = ({
         {/* PODIUM TOP 3 */}
         {podium.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {podium.map((p, i) => (
+            {podium.map((p) => (
               <div
                 key={p.id}
                 className={`rounded-3xl border p-5 sm:p-6 shadow-xs relative overflow-hidden ${

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import './App.css';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/auth';
 import { AppRoutes } from './routes/AppRoutes';
 import { Modals } from './component/Modals';
 import { NotificationBell } from './component/NotificationBell';
 import { ChatPanel } from './component/ChatPanel';
-import { academicAssets } from './assets';
+import { academicAssets, createInitialAvatar } from './assets';
 import { initialSessions } from './data/sessionsData';
 import { initialConversations } from './data/chatData';
 import {
@@ -23,9 +24,16 @@ import { useChat } from './hooks/useChat';
 import { useSessionHandlers } from './hooks/useSessionHandlers';
 import { useRequestHandlers } from './hooks/useRequestHandlers';
 import { toMentorModel } from './utils/toMentorModel';
+import { openExternalUrl } from './utils/urlUtils';
 
 function AppContent() {
-  const { currentUser, userProfile: authProfile, signIn, loading } = useAuth();
+  const {
+    currentUser,
+    userProfile: authProfile,
+    signIn,
+    loading,
+    updateProfileData,
+  } = useAuth();
   const [currentScreen, setCurrentScreen] = useState('get-started');
   const [activeModal, setActiveModal] = useState(null);
 
@@ -89,6 +97,14 @@ function AppContent() {
 
   const { toastMessage, showToast } = useToast();
 
+  const handleImageError = useCallback((event) => {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement) || image.dataset.fallbackApplied) return;
+    image.dataset.fallbackApplied = 'true';
+    image.removeAttribute('srcset');
+    image.src = createInitialAvatar(image.alt || 'Scholar');
+  }, []);
+
   // Live Firestore subscriptions + the initial-paint readiness gate.
   const { readyCount } = useFirestoreSubscriptions({
     isRealtime,
@@ -132,7 +148,6 @@ function AppContent() {
   } = useSessionHandlers({
     isRealtime,
     setSessions,
-    setLocalProfile,
     setSelectedSessionId,
     setCurrentScreen,
     showToast,
@@ -163,7 +178,7 @@ function AppContent() {
         setConversations(Array.isArray(cachedConvs) ? cachedConvs : initialConversations);
         handleCloseChat();
         setSelectedSessionId(null);
-      } catch (e) {
+      } catch {
         setSessions(initialSessions);
         setIncomingRequests(initialIncomingRequests);
         setOutgoingRequests(initialOutgoingRequests);
@@ -187,25 +202,28 @@ function AppContent() {
     setCurrentScreen('request-session');
   }, []);
 
-  // Sync auth state to screen navigation on change
-  useEffect(() => {
+  const handleSaveProfileSkills = async ({ skillsTeach, skillsWant }) => {
+    const updates = {
+      expertiseAreas: skillsTeach,
+      learningGoals: skillsWant,
+    };
     if (currentUser) {
-      if (
-        currentScreen === 'login' ||
-        currentScreen === 'signup' ||
-        currentScreen === 'get-started'
-      ) {
-        setCurrentScreen('dashboard');
-      }
+      await updateProfileData(updates);
+    } else {
+      setLocalProfile((previous) => ({ ...previous, ...updates }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser]);
+  };
+
+  const isPublicAuthScreen = ['login', 'signup', 'get-started'].includes(currentScreen);
+  const routedScreen = currentUser && isPublicAuthScreen ? 'dashboard' : currentScreen;
 
   const handleOpenMeeting = (session) => {
     // REALTIME sessions carry a real Meet/Zoom link — open it directly.
     if (isRealtime && session?.meetingLink) {
       setSelectedSessionId(session.id || null);
-      window.open(session.meetingLink, '_blank', 'noopener,noreferrer');
+      if (!openExternalUrl(session.meetingLink)) {
+        showToast('This meeting link is invalid. Ask the session host to update it.');
+      }
       return;
     }
     setSelectedSessionId(session?.id || null);
@@ -253,10 +271,10 @@ function AppContent() {
 
   const handleExploreDemo = async () => {
     try {
-      const res = await signIn('unknown@bscse.uiu.ac.bd', 'password123');
+      const res = await signIn('demo@skillswap.edu', 'password123');
       showToast(`Logged in as ${res.profile?.fullName || 'UIU'}!`);
       setCurrentScreen('dashboard');
-    } catch (err) {
+    } catch {
       showToast('Exploring dashboard...');
       setCurrentScreen('dashboard');
     }
@@ -273,20 +291,25 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fff8f7] font-sans antialiased text-[#201a1b] selection:bg-[#c5b3d3] selection:text-[#22162e]">
+    <div
+      className="min-h-screen bg-[#fff8f7] font-sans antialiased text-[#201a1b] selection:bg-[#c5b3d3] selection:text-[#22162e]"
+      onError={handleImageError}
+    >
       {toastMessage && (
         <div
           id="toast-notification"
-          className="fixed top-5 left-1/2 -translate-x-1/2 z-[110] bg-[#352f2f]/95 text-white px-5 py-2.5 rounded-full shadow-xl border border-white/20 flex items-center gap-2.5 text-xs font-medium backdrop-blur-md animate-bounce"
+          role="status"
+          aria-live="polite"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[120] max-w-[calc(100vw-2rem)] bg-[#352f2f]/95 text-white px-5 py-2.5 rounded-full shadow-xl border border-white/20 flex items-center gap-2.5 text-xs font-medium backdrop-blur-md animate-toast-in"
         >
           <span className="material-symbols-outlined text-[18px] text-[#efdbfd]">info</span>
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Global notification bell (messaging) */}
+      {/* Global message launcher */}
       {currentUser && !activeChat && (
-        <div className="fixed top-16 right-4 z-[108]">
+        <div className="fixed top-[76px] right-4 z-[80]">
           <NotificationBell
             conversations={conversationsWithPeers}
             myUid={myUid}
@@ -311,7 +334,7 @@ function AppContent() {
       )}
 
       <AppRoutes
-        currentScreen={currentScreen}
+        currentScreen={routedScreen}
         setCurrentScreen={setCurrentScreen}
         userProfile={myProfile}
         setUserProfile={setLocalProfile}
@@ -334,7 +357,7 @@ function AppContent() {
         outgoingRequests={outgoingRequests}
         onUpdateOutgoingRequests={setOutgoingRequests}
         selectedMentorForRequest={selectedMentorForRequest}
-        setSelectedMentorForRequest={setSelectedMentorForRequest}
+        onSaveProfileSkills={handleSaveProfileSkills}
         realtime={isRealtime}
         realtimeUsers={realtimeUsers}
         onRequestRealtime={handleRequestRealtime}

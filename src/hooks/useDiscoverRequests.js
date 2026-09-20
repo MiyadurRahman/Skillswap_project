@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatAvailability } from '../utils/dateUtils';
 
 // "Request Session from Discover" modal state + submit handler.
 export function useDiscoverRequests({
@@ -19,7 +20,7 @@ export function useDiscoverRequests({
   const handleOpenRequestModal = (peer) => {
     setRequestingPeer(peer);
     setReqTopic(peer.skillsTeach?.[0] || peer.skills?.[0] || 'Quantitative Methods');
-    setReqSlot(peer.nextAvailable || 'Wednesday, Oct 24 (02:30 PM)');
+    setReqSlot(peer.nextAvailable || formatAvailability(2));
     setReqOfferedSkill('Python Data Science');
     setReqNote('');
   };
@@ -40,6 +41,13 @@ export function useDiscoverRequests({
       return;
     }
 
+    const slotWithTime = reqSlot.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+    const tomorrowWithTime = reqSlot.match(/^(Tomorrow)\s*,\s*(.+)$/i);
+    const requestedDate =
+      slotWithTime?.[1]?.trim() || tomorrowWithTime?.[1] || reqSlot || formatAvailability(2);
+    const requestedTime =
+      slotWithTime?.[2]?.trim() || tomorrowWithTime?.[2]?.trim() || '02:30 PM — 04:00 PM';
+
     const newSession = {
       id: `session-${Date.now()}`,
       title: reqTopic || requestingPeer.skillsTeach?.[0] || 'Academic Peer Session',
@@ -51,14 +59,8 @@ export function useDiscoverRequests({
       duration: '90 Minutes',
       method: 'Video Call',
       platform: 'SkillSwap Connect',
-      date: reqSlot.includes('(')
-        ? reqSlot.split('(')[0].trim()
-        : reqSlot.includes(',')
-        ? reqSlot.split(',')[0].trim()
-        : 'Wednesday, Oct 24',
-      time: reqSlot.includes('(')
-        ? reqSlot.split('(')[1].replace(')', '').trim()
-        : '02:30 PM — 04:00 PM',
+      date: requestedDate,
+      time: requestedTime,
       partner: {
         id: requestingPeer.id,
         name: requestingPeer.name,

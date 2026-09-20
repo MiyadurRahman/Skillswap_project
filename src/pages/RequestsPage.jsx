@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 import { AcceptModal } from '../component/requests/AcceptModal';
 import { DeclineModal } from '../component/requests/DeclineModal';
@@ -19,7 +19,6 @@ import { useRequestForm } from '../hooks/useRequestForm';
 export const RequestsPage = ({
   userProfile: propProfile,
   onNavigateScreen,
-  onOpenMeetingModal,
   onOpenWalletModal,
   onShowToast,
   incomingRequests = initialIncomingRequests,
@@ -137,6 +136,7 @@ export const RequestsPage = ({
     selectedSkillId,
     setSelectedSkillId,
     preferredDate,
+    minPreferredDate,
     setPreferredDate,
     preferredTimeSlot,
     setPreferredTimeSlot,
@@ -172,7 +172,7 @@ export const RequestsPage = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#fff8f7] text-[#201a1b] font-sans antialiased flex flex-col justify-between">
+    <div id="screen-requests" className="min-h-screen bg-[#fff8f7] text-[#201a1b] font-sans antialiased flex flex-col justify-between">
       {/* 1. TOP NAVBAR (Matching the Screenshot) */}
       <header className="sticky top-0 w-full h-[68px] bg-[#3e313f] shadow-md z-50">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1360px] mx-auto h-full">
@@ -1013,7 +1013,7 @@ export const RequestsPage = ({
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-[#8c6773] mt-0.5">•</span>
-                    <span>Credits are only deducted once the mentor accepts.</span>
+                    <span>Credits transfer only after the session is completed and settled.</span>
                   </li>
                 </ul>
               </div>
@@ -1092,6 +1092,7 @@ export const RequestsPage = ({
                         <input
                           type="date"
                           value={preferredDate}
+                          min={minPreferredDate}
                           onChange={(e) => setPreferredDate(e.target.value)}
                           className="w-full bg-white border border-[#ebdcd8] rounded-xl px-4 py-3 text-sm text-[#201a1b] focus:outline-none focus:border-[#524156] shadow-2xs"
                           required
@@ -1251,7 +1252,7 @@ export const RequestsPage = ({
         <div className="max-w-[1240px] mx-auto px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <div className="font-bold text-sm text-[#201a1b] mb-1">SkillSwap</div>
-            <p>© 2024 SkillSwap Academic. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} SkillSwap Academic. All rights reserved.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-6">

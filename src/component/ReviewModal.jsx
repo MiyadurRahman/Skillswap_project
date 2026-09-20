@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
+import { useDialogBehavior } from '../hooks/useDialogBehavior';
 
 // Star picker + comment form for reviewing a completed session partner.
 export const ReviewModal = ({
   session,
-  authorName,
-  authorAvatar,
   targetUid,
   onSubmitReview,
   onClose,
@@ -13,6 +12,7 @@ export const ReviewModal = ({
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  useDialogBehavior(true, onClose);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,7 +26,7 @@ export const ReviewModal = ({
         comment: comment.trim(),
       });
       onClose();
-    } catch (err) {
+    } catch {
       // Parent shows the toast with the specific message.
     } finally {
       setSubmitting(false);
@@ -39,10 +39,17 @@ export const ReviewModal = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      role="presentation"
     >
-      <div className="bg-white text-[#201a1b] w-full max-w-md rounded-3xl shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-7 relative animate-in fade-in zoom-in-95 duration-150">
+      <div
+        className="bg-white text-[#201a1b] w-full max-w-md rounded-3xl shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-7 relative animate-in fade-in zoom-in-95 duration-150"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="review-dialog-title"
+      >
         <button
           onClick={onClose}
+          aria-label="Close review dialog"
           className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
         >
           <span className="material-symbols-outlined text-[20px]">close</span>
@@ -53,7 +60,7 @@ export const ReviewModal = ({
             <span className="material-symbols-outlined text-2xl">rate_review</span>
           </div>
           <div>
-            <h3 className="text-lg font-bold text-[#201a1b]">Rate this session</h3>
+            <h3 id="review-dialog-title" className="text-lg font-bold text-[#201a1b]">Rate this session</h3>
             <p className="text-xs text-[#4a454c]">
               Share how the swap went — your review stays on their profile.
             </p>

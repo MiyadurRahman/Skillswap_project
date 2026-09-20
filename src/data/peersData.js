@@ -1,7 +1,9 @@
 // Shared demo scholar dataset.
 // Used by DiscoverPage (peer directory), DashboardPage ("Recommended Scholar Mentors"),
 // and any other screen that needs the peer directory feed.
-export const allPeers = [
+import { createInitialAvatar } from '../assets';
+
+const rawPeers = [
     {
       id: 'peer-aris-thorne',
       name: 'Dr. Aris Thorne',
@@ -478,3 +480,25 @@ export const allPeers = [
       ],
     },
   ];
+
+const avatarPalettes = [
+  ['#675975', '#bca5ca'],
+  ['#365a69', '#86b2bd'],
+  ['#7a4f65', '#d9a8bd'],
+  ['#365a4d', '#82b49f'],
+];
+
+export const allPeers = rawPeers.map((peer, index) => {
+  const palette = avatarPalettes[index % avatarPalettes.length];
+  return {
+    ...peer,
+    avatarUrl: createInitialAvatar(peer.name, ...palette),
+    reviews: (peer.reviews || []).map((review, reviewIndex) => ({
+      ...review,
+      avatarUrl: createInitialAvatar(
+        review.name,
+        ...avatarPalettes[(index + reviewIndex + 1) % avatarPalettes.length]
+      ),
+    })),
+  };
+});

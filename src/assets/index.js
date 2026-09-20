@@ -1,21 +1,47 @@
+// Network-independent avatar artwork keeps cards usable when remote profile
+// photos are blocked, slow, or unavailable. Real users can still upload a
+// photo; these SVGs are the polished default for seeded/demo scholars.
+const escapeXml = (value) =>
+  String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+
+export const createInitialAvatar = (
+  name = 'Scholar',
+  startColor = '#675975',
+  endColor = '#c5b3d3'
+) => {
+  const initials = String(name)
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'S';
+  const safeInitials = escapeXml(initials);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${startColor}"/><stop offset="1" stop-color="${endColor}"/></linearGradient></defs><rect width="240" height="240" rx="120" fill="url(#g)"/><circle cx="190" cy="50" r="62" fill="#fff" opacity=".08"/><circle cx="42" cy="208" r="78" fill="#fff" opacity=".06"/><text x="120" y="137" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="72" font-weight="700" fill="#fff">${safeInitials}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
+
 // Assets helper for academic avatars, university badges, and images
 export const academicAssets = {
   logoTitle: "SkillSwap Academic",
   avatars: {
-    // Professional South Asian / Bangladeshi male scholar & student portraits
-    tanvirAhmed: "https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80",
-    rafiqulIslam: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=240&auto=format&fit=crop&q=80",
-    mahirFaisal: "https://images.unsplash.com/photo-1531891437562-4301cf092a3d?w=240&auto=format&fit=crop&q=80",
-    shakibChowdhury: "https://images.unsplash.com/photo-1615813967515-e1838c1c5116?w=240&auto=format&fit=crop&q=80",
-    abrarZahin: "https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=240&auto=format&fit=crop&q=80",
+    tanvirAhmed: createInitialAvatar('Tanvir Ahmed', '#365a69', '#86b2bd'),
+    rafiqulIslam: createInitialAvatar('Rafiqul Islam', '#4f415c', '#b89ac7'),
+    mahirFaisal: createInitialAvatar('Mahir Faisal', '#735548', '#d3a88d'),
+    shakibChowdhury: createInitialAvatar('Shakib Chowdhury', '#365a4d', '#82b49f'),
+    abrarZahin: createInitialAvatar('Abrar Zahin', '#564b78', '#a89acb'),
     // Backwards-compatible aliases for existing keys
-    alexRivera: "https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80",
-    julianSterling: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=240&auto=format&fit=crop&q=80",
-    sarahKhan: "https://images.unsplash.com/photo-1531891437562-4301cf092a3d?w=240&auto=format&fit=crop&q=80",
-    jamesWhitmore: "https://images.unsplash.com/photo-1615813967515-e1838c1c5116?w=240&auto=format&fit=crop&q=80",
-    defaultScholar: "https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80",
-    defaultMaleScholar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80",
-    defaultFemaleScholar: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=240&auto=format&fit=crop&q=80",
+    alexRivera: createInitialAvatar('Alex Rivera', '#365a69', '#86b2bd'),
+    julianSterling: createInitialAvatar('Julian Sterling', '#4f415c', '#b89ac7'),
+    sarahKhan: createInitialAvatar('Sarah Khan', '#7a4f65', '#d9a8bd'),
+    jamesWhitmore: createInitialAvatar('James Whitmore', '#365a4d', '#82b49f'),
+    defaultScholar: createInitialAvatar('Scholar'),
+    defaultMaleScholar: createInitialAvatar('Scholar', '#4f415c', '#9a83aa'),
+    defaultFemaleScholar: createInitialAvatar('Scholar', '#7a4f65', '#c997ad'),
   },
   photos: {
     libraryStudy: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&auto=format&fit=crop&q=80",

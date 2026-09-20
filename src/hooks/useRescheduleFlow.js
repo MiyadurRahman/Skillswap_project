@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toDateInput } from '../utils/dateUtils';
 
 // Reschedule an incoming request (propose an alternate time) and respond to a
 // mentor's proposed alternate time on outgoing requests.
@@ -14,13 +15,13 @@ export function useRescheduleFlow({
   onShowToast,
 }) {
   const [reschedulingReq, setReschedulingReq] = useState(null);
-  const [newProposedDate, setNewProposedDate] = useState('2024-10-28');
+  const [newProposedDate, setNewProposedDate] = useState(() => toDateInput(3));
   const [newProposedSlot, setNewProposedSlot] = useState('Afternoon (14:00 - 15:30)');
   const [rescheduleNote, setRescheduleNote] = useState('');
 
   const handleOpenRescheduleModal = (req) => {
     setReschedulingReq(req);
-    setNewProposedDate(req.preferredDate || '2024-10-28');
+    setNewProposedDate(req.preferredDate || toDateInput(3));
     setNewProposedSlot('Afternoon (14:00 - 15:30)');
     setRescheduleNote(
       'I have a lab conflict at your requested time, but I am available at this alternate slot.'

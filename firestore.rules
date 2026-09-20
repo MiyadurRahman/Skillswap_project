@@ -15,21 +15,15 @@ service cloud.firestore {
     // two permitted variables.
     function ratingBumpOnly(requestData, currentData) {
       let keys = requestData.diff(currentData).affectedKeys();
-      if (!keys.hasOnly(['ratingCount', 'ratingSum'])) {
-        return false;
-      }
-      let bumpCount = (
-        'ratingCount' in requestData
-          ? requestData.ratingCount
-          : currentData.get('ratingCount', 0)
-      );
-      let bumpSum = (
-        'ratingSum' in requestData
-          ? requestData.ratingSum
-          : currentData.get('ratingSum', 0)
-      );
-      return bumpSum is number && bumpSum > 0 &&
-        bumpCount is number && bumpCount > 0;
+      let oldCount = currentData.get('ratingCount', 0);
+      let oldSum = currentData.get('ratingSum', 0);
+      let nextCount = requestData.get('ratingCount', oldCount);
+      let nextSum = requestData.get('ratingSum', oldSum);
+      return keys.hasOnly(['ratingCount', 'ratingSum']) &&
+        oldCount is number && oldSum is number &&
+        nextCount is number && nextSum is number &&
+        nextCount == oldCount + 1 &&
+        nextSum >= oldSum + 1 && nextSum <= oldSum + 5;
     }
     // Top-level keys that a write would add / change / delete.
     function changedKeys(requestData, currentData) {
@@ -201,14 +195,27 @@ service cloud.firestore {
 
       // Messages are restricted to participants; only the sender can create.
       match /messages/{messageId} {
+        // Authorize reads from the parent conversation. A collection query
+        // cannot prove that every child document's participantIds contains the
+        // caller, so checking resource.data here causes valid listeners to be
+        // rejected with permission-denied.
         allow read: if request.auth != null &&
-          request.auth.uid in resource.data.participantIds;
+          request.auth.uid in
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
         allow create: if request.auth != null &&
           request.auth.uid in request.resource.data.participantIds &&
           request.resource.data.fromUid == request.auth.uid &&
-          request.resource.data.conversationId == conversationId;
+          request.resource.data.conversationId == conversationId &&
+          request.resource.data.participantIds.hasAll(
+            getAfter(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
+          ) &&
+          getAfter(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds.hasAll(
+            request.resource.data.participantIds
+          );
         allow update: if request.auth != null &&
-          request.auth.uid in resource.data.participantIds;
+          request.auth.uid in
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds &&
+          changedKeys(request.resource.data, resource.data).hasOnly(['read']);
         allow delete: if false;
       }
     }

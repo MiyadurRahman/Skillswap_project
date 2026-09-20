@@ -1,7 +1,7 @@
 // Demo-mode chat seed data (persisted to localStorage like sessions/requests).
+import { createInitialAvatar } from '../assets';
 
-const DEMO_AVATAR =
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+const DEMO_AVATAR = createInitialAvatar('Dr. Elena Vance', '#7a4f65', '#d9a8bd');
 
 export const initialMessages = {
   'Algometer__Dr. Elena Vance': [

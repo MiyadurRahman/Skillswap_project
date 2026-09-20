@@ -127,7 +127,7 @@ export function useAcceptFlow({
     }
 
     onShowToast(
-      `🎉 Request from ${acceptingReq.requester.name} accepted! +${acceptingReq.creditsOffered} Academic Credits added to your balance.`
+      `🎉 Request from ${acceptingReq.requester.name} accepted! Credits will settle after the completed session.`
     );
     setAcceptingReq(null);
   };

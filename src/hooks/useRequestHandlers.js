@@ -8,6 +8,7 @@ import {
   declineRequest,
   rescheduleRequest,
 } from '../services/realtime';
+import { isSafeWebUrl } from '../utils/urlUtils';
 
 // Realtime request lifecycle handlers: send, accept, decline, reschedule,
 // confirm reschedule, cancel outgoing.
@@ -36,6 +37,9 @@ export function useRequestHandlers({ myUid, myProfile, setSelectedSessionId }) {
         (platform === 'Zoom Meeting Room'
           ? 'https://zoom.us/j/new'
           : 'https://meet.google.com/new');
+      if (!isSafeWebUrl(fixedLink)) {
+        throw new Error('Please enter a valid http:// or https:// meeting link.');
+      }
       const sessionId = await acceptRequest({
         requestId: request.id,
         request,

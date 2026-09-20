@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { academicAssets, resolveAvatarForName } from '../assets';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 
 export const ProfileSetupPage = ({
@@ -10,47 +10,32 @@ export const ProfileSetupPage = ({
   onShowToast,
 }) => {
   const { currentUser, logOut, updateProfileData } = useAuth();
+  const nameParts = (userProfile?.name || '').split(' ');
   const [currentStep, setCurrentStep] = useState(1);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [university, setUniversity] = useState('');
-  const [academicLevel, setAcademicLevel] = useState('');
-  const [bio, setBio] = useState('');
-  const [avatarPreview, setAvatarPreview] = useState(academicAssets.avatars.defaultMaleScholar);
+  const [firstName, setFirstName] = useState(() => nameParts[0] || '');
+  const [lastName, setLastName] = useState(() => nameParts.slice(1).join(' '));
+  const [university, setUniversity] = useState(() => userProfile?.university || '');
+  const [academicLevel, setAcademicLevel] = useState(
+    () => userProfile?.academicLevel || ''
+  );
+  const [bio, setBio] = useState(() => userProfile?.bio || '');
+  const [avatarPreview, setAvatarPreview] = useState(
+    () =>
+      userProfile?.avatarUrl ||
+      resolveAvatarForName(userProfile?.name || 'Scholar', academicAssets.avatars.defaultMaleScholar)
+  );
   const [saving, setSaving] = useState(false);
 
-  const [expertise, setExpertise] = useState([]);
-  const [learningGoals, setLearningGoals] = useState([]);
+  const [expertise, setExpertise] = useState(() => [...(userProfile?.expertiseAreas || [])]);
+  const [learningGoals, setLearningGoals] = useState(
+    () => [...(userProfile?.learningGoals || [])]
+  );
   const [newSkillInput, setNewSkillInput] = useState('');
   const [newGoalInput, setNewGoalInput] = useState('');
   const [showSkillInput, setShowSkillInput] = useState(false);
   const [showGoalInput, setShowGoalInput] = useState(false);
 
   const fileInputRef = useRef(null);
-
-  useEffect(() => {
-    if (userProfile) {
-      if (userProfile.name) {
-        const parts = userProfile.name.split(' ');
-        setFirstName(parts[0] || 'Scholar');
-        setLastName(parts.slice(1).join(' ') || '');
-      }
-      if (userProfile.university) setUniversity(userProfile.university);
-      if (userProfile.academicLevel) setAcademicLevel(userProfile.academicLevel);
-      if (userProfile.bio) setBio(userProfile.bio);
-      if (userProfile.avatarUrl) {
-        setAvatarPreview(userProfile.avatarUrl);
-      } else {
-        setAvatarPreview(resolveAvatarForName(userProfile.name || firstName || 'Scholar', academicAssets.avatars.defaultMaleScholar));
-      }
-      if (userProfile.expertiseAreas && userProfile.expertiseAreas.length > 0) {
-        setExpertise(userProfile.expertiseAreas);
-      }
-      if (userProfile.learningGoals && userProfile.learningGoals.length > 0) {
-        setLearningGoals(userProfile.learningGoals);
-      }
-    }
-  }, [userProfile]);
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
@@ -149,7 +134,7 @@ export const ProfileSetupPage = ({
         }
         onShowToast('Academic profile updated & saved successfully!');
         onNavigateScreen('dashboard');
-      } catch (err) {
+      } catch {
         onShowToast('Profile saved locally.');
         if (onUpdateProfile) onUpdateProfile(payload);
         onNavigateScreen('dashboard');
@@ -164,7 +149,7 @@ export const ProfileSetupPage = ({
       await logOut();
       onShowToast('Signed out of scholar session.');
       onNavigateScreen('login');
-    } catch (err) {
+    } catch {
       onShowToast('Logged out.');
       onNavigateScreen('login');
     }

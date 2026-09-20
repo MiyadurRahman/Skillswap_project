@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { academicAssets } from '../assets';
+import { useDialogBehavior } from '../hooks/useDialogBehavior';
 
 export const Modals = ({
   activeModal,
@@ -23,6 +24,7 @@ export const Modals = ({
 
   // Wallet states
   const [filterType, setFilterType] = useState('all');
+  useDialogBehavior(Boolean(activeModal), onClose);
 
   // Live ledger from Firestore; falls back to the demo rows in demo mode.
   const demoTransactions = [
@@ -97,6 +99,17 @@ export const Modals = ({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={
+        activeModal === 'meeting'
+          ? 'Live meeting room'
+          : activeModal === 'wallet'
+            ? 'Academic credit ledger'
+            : activeModal === 'mentor'
+              ? 'Scholar profile'
+              : 'Dialog'
+      }
     >
       {/* 1. Live Meeting Call Modal */}
       {activeModal === 'meeting' && (
@@ -123,6 +136,7 @@ export const Modals = ({
               </span>
               <button
                 onClick={onClose}
+                aria-label="Close meeting room"
                 className="p-1.5 rounded-full hover:bg-white/10 text-white/70 hover:text-white"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
@@ -233,6 +247,7 @@ export const Modals = ({
                 />
                 <button
                   type="submit"
+                  aria-label="Send chat message"
                   className="p-2 bg-[#c5b3d3] text-[#22162e] rounded-xl hover:bg-[#a992bb] transition-colors"
                 >
                   <span className="material-symbols-outlined text-[16px]">send</span>
@@ -307,6 +322,7 @@ export const Modals = ({
         >
           <button
             onClick={onClose}
+            aria-label="Close credit ledger"
             className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -452,6 +468,7 @@ export const Modals = ({
         >
           <button
             onClick={onClose}
+            aria-label="Close scholar profile"
             className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -559,6 +576,7 @@ export const Modals = ({
         >
           <button
             onClick={onClose}
+            aria-label="Close report"
             className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -623,6 +641,7 @@ export const Modals = ({
         >
           <button
             onClick={onClose}
+            aria-label="Close sign-in dialog"
             className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>

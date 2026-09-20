@@ -1,3 +1,5 @@
+import { useDialogBehavior } from '../../hooks/useDialogBehavior';
+
 // "Request Session from Discover" modal.
 export function RequestPeerModal({
   peer,
@@ -13,9 +15,15 @@ export function RequestPeerModal({
   onViewProfile,
   onClose,
 }) {
+  useDialogBehavior(true, onClose);
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4"
+      onClick={(event) => event.target === event.currentTarget && onClose()}
+      role="presentation"
+    >
+      <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150" role="dialog" aria-modal="true" aria-labelledby="request-peer-title">
         {/* Modal Header with Peer Preview */}
         <div className="flex items-start justify-between border-b border-[#f4e8e5] pb-4">
           <div className="flex items-center gap-3.5">
@@ -26,7 +34,7 @@ export function RequestPeerModal({
               className="w-12 h-12 rounded-full object-cover border-2 border-[#ebd8d4]"
             />
             <div>
-              <h3 className="font-bold text-base text-[#201a1b]">
+              <h3 id="request-peer-title" className="font-bold text-base text-[#201a1b]">
                 Request Session with {peer.name}
               </h3>
               <p className="text-xs text-[#705e69]">
@@ -36,6 +44,7 @@ export function RequestPeerModal({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close request dialog"
             className="text-[#8c7b86] hover:text-[#201a1b] p-1 rounded-lg hover:bg-[#fbf4f2]"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -68,7 +77,7 @@ export function RequestPeerModal({
               type="text"
               value={slot}
               onChange={(e) => onSlotChange(e.target.value)}
-              placeholder="e.g. Wednesday, Oct 24 (02:30 PM)"
+              placeholder="e.g. Next Wednesday (02:30 PM)"
               className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
               required
             />

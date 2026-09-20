@@ -1,3 +1,6 @@
+import { toDateInput } from '../../utils/dateUtils';
+import { useDialogBehavior } from '../../hooks/useDialogBehavior';
+
 // Propose-an-alternate-time modal for incoming requests.
 export function RescheduleModal({
   request,
@@ -10,10 +13,12 @@ export function RescheduleModal({
   onCancel,
   onConfirm,
 }) {
+  useDialogBehavior(true, onCancel);
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-        <h3 className="font-bold text-base text-[#201a1b]">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4" onClick={(event) => event.target === event.currentTarget && onCancel()} role="presentation">
+      <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150" role="dialog" aria-modal="true" aria-labelledby="reschedule-request-title">
+        <h3 id="reschedule-request-title" className="font-bold text-base text-[#201a1b]">
           Propose Alternate Time to {request.requester.name}
         </h3>
 
@@ -25,6 +30,7 @@ export function RescheduleModal({
             <input
               type="date"
               value={date}
+              min={toDateInput(1)}
               onChange={(e) => onDateChange(e.target.value)}
               className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3 py-2 text-xs"
             />

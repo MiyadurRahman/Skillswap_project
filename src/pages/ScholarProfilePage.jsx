@@ -1,13 +1,18 @@
-import React, { useState, useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 import { useReviews } from '../hooks/useReviews';
+import { formatAcademicDate, toDateInput } from '../utils/dateUtils';
+
+const PROFILE_SLOTS = [
+  { value: `${toDateInput(2)}|03:00 PM`, label: `${formatAcademicDate(2, false)} · 3:00 PM – 4:00 PM` },
+  { value: `${toDateInput(2)}|05:00 PM`, label: `${formatAcademicDate(2, false)} · 5:00 PM – 6:00 PM` },
+  { value: `${toDateInput(4)}|11:00 AM`, label: `${formatAcademicDate(4, false)} · 11:00 AM – 12:00 PM` },
+];
 
 export const PublicProfilePage = ({
   onNavigateScreen,
-  onOpenMeetingModal,
   onOpenWalletModal,
-  onOpenMentorModal,
   onShowToast,
   userProfile: currentLoggedProfile,
   profileData: customProfile,
@@ -19,12 +24,13 @@ export const PublicProfilePage = ({
 
   // Message Dialog state (real chat is opened via the global drawer)
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState('Thu, 3:00 PM');
+  const [selectedSlot, setSelectedSlot] = useState(PROFILE_SLOTS[0].value);
   const [offeredSkill, setOfferedSkill] = useState('Python Data Science');
   const [sessionTopic, setSessionTopic] = useState('Introduction to Behavioral Economics and Market Heuristics');
 
   // Reviews expansion state
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [requestSeed] = useState(Date.now);
 
   // Profile data defaults to Dr. Elena Vance matching exact uploaded screenshot
   const defaultElenaProfile = {
@@ -83,9 +89,9 @@ export const PublicProfilePage = ({
     ],
   };
 
-  const profile = useMemo(() => {
-    if (!customProfile) return defaultElenaProfile;
-    return {
+  const profile = !customProfile
+    ? defaultElenaProfile
+    : {
       id: customProfile.id || defaultElenaProfile.id,
       name: customProfile.name || defaultElenaProfile.name,
       title: customProfile.title || defaultElenaProfile.title,
@@ -103,8 +109,7 @@ export const PublicProfilePage = ({
       swapsCount: customProfile.swapsCount || defaultElenaProfile.swapsCount,
       learnersCount: customProfile.learnersCount || defaultElenaProfile.learnersCount,
       reviews: customProfile.reviews && customProfile.reviews.length > 0 ? customProfile.reviews : defaultElenaProfile.reviews,
-    };
-  }, [customProfile]);
+      };
 
   const displayedReviews = showAllReviews ? profile.reviews : profile.reviews.slice(0, 2);
 
@@ -144,7 +149,7 @@ export const PublicProfilePage = ({
     setIsRequestModalOpen(false);
 
     const newSession = {
-      id: `session-${Date.now()}`,
+      id: `session-${requestSeed}`,
       title: sessionTopic || (profile.skillsTeach && profile.skillsTeach[0]) || 'Academic Peer Exchange',
       status: 'Accepted',
       description: `In-depth collaborative academic session on ${sessionTopic || (profile.skillsTeach && profile.skillsTeach[0]) || 'academic peer tutoring'}. Exchange focused on practical modeling and theoretical foundations.`,
@@ -152,8 +157,8 @@ export const PublicProfilePage = ({
       duration: '90 Minutes',
       method: 'Video Call',
       platform: 'SkillSwap Connect',
-      date: selectedSlot.includes(',') ? selectedSlot.split(',')[0] : 'Wednesday, Oct 24',
-      time: selectedSlot.includes(',') ? selectedSlot.split(',')[1].trim() : '02:30 PM — 04:00 PM',
+      date: selectedSlot.split('|')[0],
+      time: selectedSlot.split('|')[1] || '02:30 PM',
       partner: {
         id: profile.id,
         name: profile.name,
@@ -172,7 +177,7 @@ export const PublicProfilePage = ({
       },
       notes: [
         {
-          id: `note-${Date.now()}`,
+          id: `note-${requestSeed}`,
           authorName: profile.name,
           authorAvatar: profile.avatarUrl,
           timestamp: 'Just now',
@@ -710,9 +715,9 @@ export const PublicProfilePage = ({
                 >
                   <option value="Tue, 2:00 PM">Tue, 2:00 PM - 3:00 PM</option>
                   <option value="Tue, 4:30 PM">Tue, 4:30 PM - 5:30 PM</option>
-                  <option value="Thu, 3:00 PM">Thu, 3:00 PM - 4:00 PM</option>
-                  <option value="Thu, 5:00 PM">Thu, 5:00 PM - 6:00 PM</option>
-                  <option value="Sat, 11:00 AM">Sat, 11:00 AM - 12:00 PM</option>
+                  {PROFILE_SLOTS.map((slot) => (
+                    <option key={slot.value} value={slot.value}>{slot.label}</option>
+                  ))}
                 </select>
               </div>
 

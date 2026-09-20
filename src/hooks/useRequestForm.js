@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatAcademicDate, toDateInput } from '../utils/dateUtils';
 
 // State + submit handler for the "Request a Learning Session" form.
 export function useRequestForm({
@@ -16,7 +17,7 @@ export function useRequestForm({
     selectedMentorForRequest || fallbackMentor
   );
   const [selectedSkillId, setSelectedSkillId] = useState('qm');
-  const [preferredDate, setPreferredDate] = useState('2024-10-28');
+  const [preferredDate, setPreferredDate] = useState(() => toDateInput(2));
   const [preferredTimeSlot, setPreferredTimeSlot] = useState('Morning (09:00 - 12:00)');
   const [sessionGoals, setSessionGoals] = useState('');
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
@@ -27,6 +28,7 @@ export function useRequestForm({
 
     const chosenSkill =
       currentMentor.skills.find((s) => s.id === selectedSkillId) || currentMentor.skills[0];
+    const formattedPreferredDate = formatAcademicDate(`${preferredDate}T12:00:00`);
 
     // REALTIME: push the request to Firestore so the mentor sees it instantly.
     if (realtime) {
@@ -45,7 +47,7 @@ export function useRequestForm({
           cost: currentMentor.cost || 250,
           creditsOffered: currentMentor.cost || 250,
           preferredDate: preferredDate,
-          formattedDate: preferredDate,
+          formattedDate: formattedPreferredDate,
           preferredTimeSlot: preferredTimeSlot,
           goals: sessionGoals || 'Learning fundamentals and advanced application.',
         });
@@ -73,7 +75,7 @@ export function useRequestForm({
       skillLevel: chosenSkill.level,
       cost: currentMentor.cost || 250,
       preferredDate: preferredDate,
-      formattedDate: preferredDate,
+      formattedDate: formattedPreferredDate,
       preferredTimeSlot: preferredTimeSlot,
       goals: sessionGoals || 'Learning fundamentals and advanced application.',
       status: 'pending',
@@ -94,6 +96,7 @@ export function useRequestForm({
     selectedSkillId,
     setSelectedSkillId,
     preferredDate,
+    minPreferredDate: toDateInput(1),
     setPreferredDate,
     preferredTimeSlot,
     setPreferredTimeSlot,

@@ -12,7 +12,6 @@ import {
 export function useSessionHandlers({
   isRealtime,
   setSessions,
-  setLocalProfile,
   setSelectedSessionId,
   setCurrentScreen,
   showToast,
@@ -37,14 +36,10 @@ export function useSessionHandlers({
       };
       setSessions((prev) => [created, ...prev]);
       setSelectedSessionId(created.id);
-      setLocalProfile((prev) => ({
-        ...prev,
-        timeCredits: Number((prev.timeCredits + 2.5).toFixed(1)),
-      }));
       setCurrentScreen('session-details');
       showToast(`✨ Session scheduled with ${created.partner?.name || 'peer'}!`);
     },
-    [isRealtime, setSessions, setSelectedSessionId, setLocalProfile, setCurrentScreen, showToast]
+    [isRealtime, setSessions, setSelectedSessionId, setCurrentScreen, showToast]
   );
 
   const handleUpdateSession = useCallback(
@@ -108,7 +103,7 @@ export function useSessionHandlers({
         });
         return result;
       }
-      // Demo: cosmetic completion + a small local credit bump.
+      // Demo: cosmetic completion only; credit balances never change in the preview.
       const settledBy = { ...(session.settledBy || {}), demo: 'demo' };
       const allSettled = (session.participantIds || []).every(
         (p) => settledBy[p] != null

@@ -7,10 +7,11 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write src/",
+    "check": "npm run lint && npm run typecheck && npm run build",
     "deploy:rules": "firebase deploy --only firestore"
   },
   "dependencies": {
