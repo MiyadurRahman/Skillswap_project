@@ -10,6 +10,27 @@ service cloud.firestore {
     function isMentor(resData, auth) {
       return resData.mentor.uid == auth.uid;
     }
+    // True when a write ONLY bumps a profile's rating counters. Every key it
+    // touches must be numeric, use a positive increment, and be one of the
+    // two permitted variables.
+    function ratingBumpOnly(requestData, currentData) {
+      let keys = requestData.diff(currentData).affectedKeys();
+      if (!keys.hasOnly(['ratingCount', 'ratingSum'])) {
+        return false;
+      }
+      let bumpCount = (
+        'ratingCount' in requestData
+          ? requestData.ratingCount
+          : currentData.get('ratingCount', 0)
+      );
+      let bumpSum = (
+        'ratingSum' in requestData
+          ? requestData.ratingSum
+          : currentData.get('ratingSum', 0)
+      );
+      return bumpSum is number && bumpSum > 0 &&
+        bumpCount is number && bumpCount > 0;
+    }
     // Top-level keys that a write would add / change / delete.
     function changedKeys(requestData, currentData) {
       return requestData.diff(currentData).affectedKeys();
@@ -24,7 +45,52 @@ service cloud.firestore {
     // directory, which the Discover/session features depend on.
     match /users/{uid} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      // Owners can edit their own profile; additionally, a rating bump (a
+      // positive increment to ratingCount/ratingSum only) is allowed by any
+      // authenticated user — this is what a review submission uses.
+      allow update: if request.auth != null &&
+        (request.auth.uid == uid || ratingBumpOnly(request.resource.data, resource.data));
+      allow delete: if false;
+    }
+
+    // ---- Time-credit ledger -----------------------------------------------
+    // Each transaction belongs to exactly one user and is immutable. Users can
+    // only ever read their own entries and can never forge or alter a ledger
+    // that isn't theirs.
+    match /transactions/{transactionId} {
+      allow read: if request.auth != null &&
+        (resource.data.uid == request.auth.uid ||
+          request.auth.uid in (resource.data.participantIds || []));
+      allow create: if request.auth != null &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.type in ['earned', 'spent'] &&
+        request.resource.data.amount is number &&
+        request.resource.data.sessionId is string &&
+        changedKeys(request.resource.data, {}).hasAll(['uid', 'type', 'amount', 'sessionId']);
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ---- Reviews -----------------------------------------------------------
+    // Any authenticated scholar can read reviews (they're displayed on public
+    // profiles). A review can only be created once per (session, author), for
+    // a completed session the author actually participated in, rating 1-5.
+    match /reviews/{reviewId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null &&
+        request.resource.data.authorUid == request.auth.uid &&
+        request.resource.data.targetUid != request.auth.uid &&
+        request.resource.data.rating is int &&
+        request.resource.data.rating >= 1 &&
+        request.resource.data.rating <= 5 &&
+        request.resource.data.sessionId is string &&
+        get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data != null &&
+        get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'Completed' &&
+        request.auth.uid in get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.participantIds &&
+        request.resource.data.targetUid in get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.participantIds;
+      allow update: if false;
+      allow delete: if false;
     }
 
     // ---- Session requests ------------------------------------------------

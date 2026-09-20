@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MobileNav } from '../component/MobileNav';
+import { useReviews } from '../hooks/useReviews';
 
 export const PublicProfilePage = ({
   onNavigateScreen,
@@ -106,6 +107,37 @@ export const PublicProfilePage = ({
   }, [customProfile]);
 
   const displayedReviews = showAllReviews ? profile.reviews : profile.reviews.slice(0, 2);
+
+  // Live reviews for realtime Firestore profiles; demo profiles keep the
+  // seeded review list.
+  const reviewTargetUid = customProfile?.uid || customProfile?.id || null;
+  const {
+    reviews: liveReviews,
+    count: liveCount,
+    average: liveAverage,
+    hasReviews,
+  } = useReviews(reviewTargetUid);
+  const isLiveProfile = Boolean(reviewTargetUid);
+
+  const reviewsToShow = isLiveProfile
+    ? (hasReviews
+        ? liveReviews.map((r) => ({
+            id: r.id,
+            name: r.authorName || 'Scholar',
+            avatarUrl: r.authorAvatar,
+            rating: r.rating,
+            quote: r.comment || 'No written comment.',
+            meta: r.meta || 'Recent review',
+          }))
+        : [])
+    : displayedReviews;
+
+  const shownRating = isLiveProfile
+    ? hasReviews
+      ? liveAverage.toFixed(1)
+      : 'New'
+    : profile.rating.toFixed(1);
+  const shownReviewCount = isLiveProfile ? (hasReviews ? liveCount : 0) : profile.reviewsCount;
 
   const handleSendSessionRequest = (e) => {
     e.preventDefault();
@@ -326,16 +358,15 @@ export const PublicProfilePage = ({
 
                     {/* Rating Badge */}
                     <div className="inline-flex items-center gap-1.5 bg-[#fbf0ea] border border-[#f1ddd5] text-[#201a1b] px-3 py-1 rounded-full shrink-0 self-start sm:self-auto">
-                      <span
-                        className="material-symbols-outlined text-[16px] text-[#e0892d]"
+                      <span className="material-symbols-outlined text-[16px] text-[#e0892d]"
                         style={{ fontVariationSettings: "'FILL' 1" }}
                       >
                         star
                       </span>
                       <span className="text-xs sm:text-sm font-bold text-[#201a1b]">
-                        {profile.rating.toFixed(1)}{' '}
+                        {shownRating}{' '}
                         <span className="font-normal text-[#6c5a66]">
-                          ({profile.reviewsCount} reviews)
+                          ({shownReviewCount} reviews)
                         </span>
                       </span>
                     </div>
@@ -448,23 +479,29 @@ export const PublicProfilePage = ({
                   className="text-xs font-semibold text-[#65525e] hover:text-[#201a1b] transition-colors cursor-pointer"
                   id="btn-view-all-reviews"
                 >
-                  {showAllReviews ? 'Show Fewer' : 'View All'}
+                  {isLiveProfile ? '' : showAllReviews ? 'Show Fewer' : 'View All'}
                 </button>
               </div>
 
               {/* Reviews Cards List */}
               <div className="space-y-4">
-                {displayedReviews.map((rev) => (
+                {reviewsToShow.length === 0 && (
+                  <p className="text-xs text-[#8c7b86] italic bg-white rounded-2xl border border-[#ecd9d5] p-5">
+                    No reviews yet — be the first to swap with {profile.name}.
+                  </p>
+                )}
+                {reviewsToShow.map((rev) => (
                   <div
                     key={rev.id}
                     className="bg-white rounded-2xl border border-[#ecd9d5] p-5 shadow-xs space-y-2.5 hover:border-[#cfb3be] transition-colors"
                   >
-                    {/* Top Row: Reviewer Avatar + Name and 5 Gold Stars */}
+                    {/* Top Row: Reviewer Avatar + Name and Gold Stars */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <img
                           src={rev.avatarUrl}
                           alt={rev.name}
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
                           className="w-10 h-10 rounded-full object-cover border border-[#ecd9d5]"
                         />
                         <span className="font-bold text-sm text-[#201a1b]">
@@ -472,13 +509,16 @@ export const PublicProfilePage = ({
                         </span>
                       </div>
 
-                      {/* 5 Gold Stars */}
-                      <div className="flex items-center gap-0.5 text-[#e0892d] text-base select-none">
-                        <span>★</span>
-                        <span>★</span>
-                        <span>★</span>
-                        <span>★</span>
-                        <span>★</span>
+                      {/* Stars (filled to the reviewer's rating) */}
+                      <div className="flex items-center gap-0.5 text-base select-none">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <span
+                            key={i}
+                            className={i <= Number(rev.rating || 0) ? 'text-[#e0892d]' : 'text-[#e7dde2]'}
+                          >
+                            ★
+                          </span>
+                        ))}
                       </div>
                     </div>
 

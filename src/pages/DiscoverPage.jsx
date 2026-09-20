@@ -20,6 +20,9 @@ export const DiscoverPage = ({
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
+  const userAvatar =
+    userProfile?.avatarUrl ||
+    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
 
   // Real scholars who exist in Firestore (exclude the current viewer).
   const liveScholars = useMemo(
@@ -123,10 +126,6 @@ export const DiscoverPage = ({
     const kind = realtime ? 'live' : 'verified';
     onShowToast(`Found ${count} ${kind} academic peers matching your criteria.`);
   };
-
-  const userAvatar =
-    userProfile?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
 
   return (
     <div id="screen-discover" className="min-h-screen bg-[#fff8f7] text-[#201a1b] flex flex-col font-sans selection:bg-[#c5b3d3] selection:text-[#22162e]">
@@ -502,7 +501,7 @@ export const DiscoverPage = ({
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {(person.skillsTeach || []).slice(0, 3).map((sk, i) => (
+                        {(Array.isArray(person.skillsTeach) ? person.skillsTeach : []).slice(0, 3).map((sk, i) => (
                           <span
                             key={i}
                             className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-[#f7d6cd] text-[#5e3831]"
@@ -606,7 +605,7 @@ export const DiscoverPage = ({
 
                     {/* Middle: Specialized Skill Badges (Soft terracotta pills with uppercase text) */}
                     <div className="flex flex-wrap gap-1.5 my-3.5">
-                      {peer.skills.map((skill, idx) => (
+                      {(Array.isArray(peer.skills) ? peer.skills : []).map((skill, idx) => (
                         <span
                           key={idx}
                           className="text-[10px] sm:text-[11px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded bg-[#f7d6cd] text-[#5e3831]"

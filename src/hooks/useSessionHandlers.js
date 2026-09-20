@@ -1,9 +1,14 @@
 import { useCallback } from 'react';
-import { addSessionNote, resolveSessionTimes, updateSession } from '../services/realtime';
+import {
+  addSessionNote,
+  resolveSessionTimes,
+  settleSessionSide,
+  updateSession,
+} from '../services/realtime';
 
 // Session actions: create (demo mode), update (date/time/title/status),
-// select, and add notes. Realtime updates go to Firestore; demo updates
-// mutate local state.
+// select, add notes, and settle (credit transfer + review flow). Realtime
+// updates go to Firestore; demo updates mutate local state.
 export function useSessionHandlers({
   isRealtime,
   setSessions,
@@ -11,6 +16,7 @@ export function useSessionHandlers({
   setSelectedSessionId,
   setCurrentScreen,
   showToast,
+  myUid,
 }) {
   const handleCreateSession = useCallback(
     (newSession) => {
@@ -89,10 +95,41 @@ export function useSessionHandlers({
     [isRealtime, setSessions]
   );
 
+  // Settle the current user's side of a session. In realtime mode it runs the
+  // server-guarded Firestore transaction and returns the result; in demo mode
+  // it just updates local state for a cosmetic "completion" feel.
+  const handleSettleSession = useCallback(
+    async (session) => {
+      if (!session) return null;
+      if (isRealtime) {
+        const result = await settleSessionSide({
+          sessionId: session.id,
+          currentUid: myUid,
+        });
+        return result;
+      }
+      // Demo: cosmetic completion + a small local credit bump.
+      const settledBy = { ...(session.settledBy || {}), demo: 'demo' };
+      const allSettled = (session.participantIds || []).every(
+        (p) => settledBy[p] != null
+      ) || session.participantIds?.length === 0;
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === session.id
+            ? { ...s, status: allSettled ? 'Completed' : s.status, settledBy }
+            : s
+        )
+      );
+      return { demo: true, allSettled };
+    },
+    [isRealtime, setSessions, myUid]
+  );
+
   return {
     handleCreateSession,
     handleUpdateSession,
     handleSelectSession,
     handleAddSessionNote,
+    handleSettleSession,
   };
 }

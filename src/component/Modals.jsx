@@ -10,6 +10,7 @@ export const Modals = ({
   onProposeSwap,
   onDirectMessage,
   userProfile,
+  creditTransactions = [],
 }) => {
   // Meeting states
   const [isMuted, setIsMuted] = useState(false);
@@ -21,45 +22,71 @@ export const Modals = ({
   const [chatInput, setChatInput] = useState('');
 
   // Wallet states
-  const [creditBalance, setCreditBalance] = useState(
-    userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5
-  );
   const [filterType, setFilterType] = useState('all');
 
-  const transactions = [
+  // Live ledger from Firestore; falls back to the demo rows in demo mode.
+  const demoTransactions = [
     {
-      id: 'tx-1',
+      id: 'demo-tx-1',
+      sessionId: 'demo-1',
       title: 'Peer Tutoring: Dynamic Programming',
       type: 'earned',
-      amount: '+2.5 hrs',
+      amount: 2.5,
       date: 'Today, 11:20 AM',
       partner: 'Shakib Chowdhury',
     },
     {
-      id: 'tx-2',
+      id: 'demo-tx-2',
+      sessionId: 'demo-2',
       title: 'Workshop: Graph Algorithms',
       type: 'spent',
-      amount: '-1.0 hr',
+      amount: -1.0,
       date: 'Yesterday',
       partner: 'Dr. Rafiqul Islam',
     },
     {
-      id: 'tx-3',
+      id: 'demo-tx-3',
+      sessionId: 'demo-3',
       title: 'Mentoring: LaTeX Paper Drafting',
       type: 'earned',
-      amount: '+2.0 hrs',
+      amount: 2.0,
       date: 'Aug 28, 2026',
       partner: 'Abrar Zahin',
     },
     {
-      id: 'tx-4',
+      id: 'demo-tx-4',
+      sessionId: 'demo-4',
       title: 'Review: Neural Architecture',
       type: 'spent',
-      amount: '-1.5 hrs',
+      amount: -1.5,
       date: 'Aug 25, 2026',
       partner: 'Mahir Faisal',
     },
   ];
+
+  const transactions = creditTransactions.length > 0 ? creditTransactions : demoTransactions;
+
+  // A spent row stores a negative amount; earned rows are positive. Sum by
+  // their signed values so nothing is ever counted on the wrong side.
+  const signedOf = (raw) => {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 0;
+    return n;
+  };
+
+  // Chips are derived from the ledger itself (never double-counted).
+  const byType = (type) =>
+    transactions
+      .filter((tx) => tx.type === type)
+      .reduce((sum, tx) => sum + signedOf(tx.amount), 0);
+  const earnedTotal = Math.max(0, byType('earned'));
+  const spentTotal = Math.min(0, byType('spent'));
+  const settleRows = transactions.filter((tx) => /settl|transfer/.test(String(tx.date || '')));
+
+  const availableBalance =
+    userProfile?.timeCredits !== undefined
+      ? Number(userProfile.timeCredits)
+      : Number((earnedTotal + spentTotal).toFixed(2));
 
   if (!activeModal) return null;
 
@@ -305,23 +332,42 @@ export const Modals = ({
               </span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-4xl font-extrabold text-[#675975]">
-                  {creditBalance.toFixed(1)}
+                  {availableBalance.toFixed(1)}
                 </span>
                 <span className="text-sm font-semibold text-[#4a454c]">Academic Hours</span>
               </div>
               <p className="text-xs text-[#4a454c]/80 mt-1">
-                ≈ 24 verified peer mentoring sessions available
+                Verified peer mentoring sessions — updated live from your ledger
               </p>
             </div>
-            <button
-              onClick={() => {
-                setCreditBalance((prev) => prev + 1.0);
-                onShowToast('Earned +1.0 Hour Credit by offering peer tutoring!');
-              }}
-              className="px-4 py-2 bg-[#675975] text-white rounded-full text-xs font-semibold hover:bg-[#52445f] transition-all shadow-sm active:scale-95"
-            >
-              + Deposit Swap Hours
-            </button>
+
+            {/* Earned / Spent / Settles chips (derived from the ledger) */}
+            <div className="flex items-center gap-2.5">
+              <div className="bg-emerald-50 border border-emerald-200/70 rounded-xl px-3.5 py-2 text-center min-w-[86px]">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700/70">
+                  Earned
+                </span>
+                <span className="block text-lg font-extrabold text-emerald-700">
+                  +{earnedTotal.toFixed(1)}
+                </span>
+              </div>
+              <div className="bg-rose-50 border border-rose-200/70 rounded-xl px-3.5 py-2 text-center min-w-[86px]">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-rose-700/70">
+                  Spent
+                </span>
+                <span className="block text-lg font-extrabold text-rose-700">
+                  {spentTotal.toFixed(1)}
+                </span>
+              </div>
+              <div className="bg-[#f3ecf2] border border-[#e0d2de] rounded-xl px-3.5 py-2 text-center min-w-[86px]">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#7b6a84]/70">
+                  Settles
+                </span>
+                <span className="block text-lg font-extrabold text-[#52445f]">
+                  {settleRows.length}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Filters */}
@@ -379,7 +425,8 @@ export const Modals = ({
                       tx.type === 'earned' ? 'text-emerald-700' : 'text-rose-700'
                     }`}
                   >
-                    {tx.amount}
+                    {tx.type === 'earned' ? '+' : ''}
+                    {signedOf(tx.amount).toFixed(1)} hrs
                   </span>
                 </div>
               ))}

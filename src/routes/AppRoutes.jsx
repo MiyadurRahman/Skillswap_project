@@ -1,25 +1,21 @@
-import { lazy, Suspense } from 'react';
+import { LoginPage } from '../pages/LoginPage';
+import { DashboardPage } from '../pages/DashboardPage';
+import { SignUpPage } from '../pages/SignUpPage';
+import { ProfileSetupPage } from '../pages/ProfileSetupPage';
+import { GetStartedPage } from '../pages/GetStartedPage';
+import { DiscoverPage } from '../pages/DiscoverPage';
+import { SkillManagerPage } from '../pages/SkillManagerPage';
+import { PublicProfilePage } from '../pages/PublicProfilePage';
+import { SessionDetailsPage } from '../pages/SessionDetailsPage';
+import { RequestsPage } from '../pages/RequestsPage';
+import { SchedulePage } from '../pages/SchedulePage';
+import { LeaderboardPage } from '../pages/LeaderboardPage';
 
-const loadPage = (name) =>
-  lazy(() => import(`../pages/${name}.jsx`).then((mod) => ({ default: mod[name] })));
-
-const LoginPage = loadPage('LoginPage');
-const DashboardPage = loadPage('DashboardPage');
-const SignUpPage = loadPage('SignUpPage');
-const ProfileSetupPage = loadPage('ProfileSetupPage');
-const GetStartedPage = loadPage('GetStartedPage');
-const DiscoverPage = loadPage('DiscoverPage');
-const SkillManagerPage = loadPage('SkillManagerPage');
-const PublicProfilePage = loadPage('PublicProfilePage');
-const SessionDetailsPage = loadPage('SessionDetailsPage');
-const RequestsPage = loadPage('RequestsPage');
-const SchedulePage = loadPage('SchedulePage');
-
-const fallback = (
-  <div className="min-h-screen flex items-center justify-center bg-[#fff8f7]">
-    <div className="w-8 h-8 border-4 border-[#675975] border-t-transparent rounded-full animate-spin"></div>
-  </div>
-);
+// NOTE: Pages are intentionally imported eagerly (no React.lazy / code
+// splitting). Vite's code-splitting of these modules produced a circular
+// shared-chunk graph that crashed Discover with a chunk-initialization TDZ
+// error (blank white screen). The app is small (~380 kB gzip ~90 kB), so
+// bundling everything into one chunk is deliberate and safe.
 
 export const AppRoutes = ({
   currentScreen,
@@ -57,6 +53,7 @@ export const AppRoutes = ({
   onSendRequest,
   onCancelOutgoingRequest,
   onConfirmRescheduleRequest,
+  onSettleSession,
 }) => {
   let screen;
   switch (currentScreen) {
@@ -106,6 +103,7 @@ export const AppRoutes = ({
           onAddSessionNote={onAddSessionNote}
           realtime={realtime}
           onMessageMentor={onMessageMentor}
+          onSettleSession={onSettleSession}
         />
       );
       break;
@@ -119,6 +117,19 @@ export const AppRoutes = ({
           onSelectSession={onSelectSession}
           onUpdateSession={onUpdateSession}
           onShowToast={onShowToast}
+        />
+      );
+      break;
+
+    case 'leaderboard':
+      screen = (
+        <LeaderboardPage
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onOpenWalletModal={onOpenWallet}
+          onShowToast={onShowToast}
+          onSelectPeerProfile={(peer) => setSelectedProfile(peer)}
+          realtime={realtime}
+          realtimeUsers={realtimeUsers}
         />
       );
       break;
@@ -263,5 +274,5 @@ export const AppRoutes = ({
       break;
   }
 
-  return <Suspense fallback={fallback}>{screen}</Suspense>;
+  return <>{screen}</>;
 };

@@ -9,10 +9,21 @@ export const ACADEMIC_KEYWORDS = {
   'Postdoctoral Researcher': ['postdoc', 'post-doctoral', 'postdoctoral', 'fellow'],
 };
 
+// Coerce a peer's list field into a real array. Firestore profiles can store
+// these as arrays, comma/;-separated strings, or single values.
+export const toArray = (value) => {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return String(value)
+    .split(/[,;•|\n]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
 const normalizePeer = (peer) => {
-  const skills = peer.skills || [];
-  const skillsTeach = peer.skillsTeach || [];
-  const badges = peer.badges || [];
+  const skills = toArray(peer.skills);
+  const skillsTeach = toArray(peer.skillsTeach);
+  const badges = toArray(peer.badges);
   const title = peer.title || peer.academicLevel || '';
   const bio = peer.bio || '';
   const university = peer.university || peer.institution || '';

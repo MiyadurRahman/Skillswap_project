@@ -5,9 +5,10 @@ import {
   subscribeIncomingRequests,
   subscribeOutgoingRequests,
   subscribeSessions,
+  subscribeTransactions,
 } from '../services/realtime';
 
-export const REQUIRED_SNAPSHOTS = 5;
+export const REQUIRED_SNAPSHOTS = 6; // incoming + outgoing + sessions + users + conversations + transactions
 const GATE_TIMEOUT_MS = 2500;
 
 // Live Firestore subscriptions (realtime mode only). Counts how many
@@ -21,6 +22,7 @@ export function useFirestoreSubscriptions({
   setSessions,
   setRealtimeUsers,
   setConversations,
+  setCreditTransactions,
 }) {
   const [readyCount, setReadyCount] = useState(0);
 
@@ -36,6 +38,7 @@ export function useFirestoreSubscriptions({
       subscribeSessions(myUid, setSessions, onFirst),
       subscribeAllUsers(setRealtimeUsers, onFirst),
       subscribeConversations(myUid, setConversations, onFirst),
+      subscribeTransactions(myUid, setCreditTransactions, onFirst),
     ];
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -47,6 +50,7 @@ export function useFirestoreSubscriptions({
     setSessions,
     setRealtimeUsers,
     setConversations,
+    setCreditTransactions,
   ]);
 
   // Safety net: never leave the UI blocked if a subscription errors out or the

@@ -78,6 +78,7 @@ function AppContent() {
   );
 
   const [realtimeUsers, setRealtimeUsers] = useState([]);
+  const [creditTransactions, setCreditTransactions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [selectedMentorForRequest, setSelectedMentorForRequest] = useState(drJulianVance);
   const [selectedMentor, setSelectedMentor] = useState(null);
@@ -97,6 +98,7 @@ function AppContent() {
     setSessions,
     setRealtimeUsers,
     setConversations,
+    setCreditTransactions,
   });
   const dataReady = !isRealtime || readyCount >= REQUIRED_SNAPSHOTS;
 
@@ -126,6 +128,7 @@ function AppContent() {
     handleUpdateSession,
     handleSelectSession,
     handleAddSessionNote,
+    handleSettleSession,
   } = useSessionHandlers({
     isRealtime,
     setSessions,
@@ -133,6 +136,7 @@ function AppContent() {
     setSelectedSessionId,
     setCurrentScreen,
     showToast,
+    myUid,
   });
 
   const {
@@ -341,6 +345,7 @@ function AppContent() {
         onSendRequest={handleSendRequest}
         onCancelOutgoingRequest={handleCancelOutgoing}
         onConfirmRescheduleRequest={handleConfirmRescheduleRequest}
+        onSettleSession={handleSettleSession}
       />
 
       <Modals
@@ -352,6 +357,7 @@ function AppContent() {
         onProposeSwap={handleProposeSwap}
         onDirectMessage={handleDirectMessage}
         userProfile={myProfile}
+        creditTransactions={creditTransactions}
       />
     </div>
   );

@@ -271,6 +271,13 @@ export const DashboardPage = ({
               Discover Peers
             </button>
             <button
+              onClick={() => go('leaderboard')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+              Leaderboard
+            </button>
+            <button
               onClick={() => go('requests')}
               className="w-full flex items-center justify-between px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
               id="btn-nav-session-requests-dash"
@@ -379,6 +386,13 @@ export const DashboardPage = ({
                 id="dash-nav-sessions"
               >
                 My Sessions
+              </button>
+              <button
+                onClick={() => onNavigateScreen('leaderboard')}
+                className="text-white/80 font-medium hover:text-white transition-colors text-sm cursor-pointer"
+                id="dash-nav-leaderboard"
+              >
+                Leaderboard
               </button>
             </div>
           </div>

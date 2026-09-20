@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MobileNav } from '../component/MobileNav';
-import { resolveSessionTimes } from '../services/realtime';
+import { ReviewModal } from '../component/ReviewModal';
+import { resolveSessionTimes, submitReview } from '../services/realtime';
 
 export const SessionDetailsPage = ({
   session: activeSessionProp,
@@ -16,6 +17,7 @@ export const SessionDetailsPage = ({
   onAddSessionNote,
   realtime = false,
   onMessageMentor,
+  onSettleSession,
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
   const userRole = authProfile?.academicLevel || 'PhD Candidate';
@@ -88,6 +90,75 @@ export const SessionDetailsPage = ({
   );
   const [rescheduleTime, setRescheduleTime] = useState(session?.time || 'Morning (09:00 - 12:00)');
   const [showSessionsDropdown, setShowSessionsDropdown] = useState(false);
+
+  // Review flow: opened after settling a session, saved to Firestore on submit.
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isSettling, setIsSettling] = useState(false);
+
+  // Is the current user the requester (based on the session's participant ids)?
+  const currentUid = currentUser?.uid;
+  const partnerUid = session.partner?.id || session.partner?.uid;
+  const mySideSettled = Boolean(session.settledBy && session.settledBy[currentUid]);
+
+  const handleCompleteSession = async () => {
+    if (session.status === 'Completed') {
+      onShowToast?.('This session is already completed.');
+      return;
+    }
+    if (isSettling) return;
+
+    // REALTIME: persist the settlement to Firestore (each user settles their
+    // own side), then invite the user to review their partner.
+    if (realtime && onSettleSession && session?.id) {
+      setIsSettling(true);
+      try {
+        const result = await onSettleSession(session);
+        if (result?.allSettled) {
+          onShowToast?.('✅ Session settled! Time credits transferred.');
+        } else {
+          onShowToast?.('✅ Your side of the session is settled.');
+        }
+        if (partnerUid) {
+          setIsReviewModalOpen(true);
+        }
+      } catch (err) {
+        console.warn('Settle failed:', err);
+        onShowToast?.(err?.message || 'Could not settle this session.');
+      } finally {
+        setIsSettling(false);
+      }
+      return;
+    }
+
+    // DEMO: cosmetic completion (existing behavior).
+    const updatedSession = {
+      ...session,
+      status: 'Completed',
+    };
+    if (onUpdateSession) {
+      onUpdateSession(updatedSession);
+    }
+    onShowToast?.('✅ Session completed! Academic credits have been released.');
+  };
+
+  const handleSubmitReview = async ({ sessionId, targetUid, rating, comment }) => {
+    try {
+      await submitReview({
+        sessionId,
+        authorUid: currentUser?.uid,
+        authorName: authProfile?.name || 'You',
+        authorAvatar: authProfile?.avatarUrl,
+        targetUid,
+        rating,
+        comment,
+      });
+      onShowToast?.('⭐ Review submitted — thanks for the feedback!');
+    } catch (err) {
+      console.warn('Review failed:', err);
+      onShowToast?.(err?.message || 'Could not post review.');
+      throw err;
+    }
+  };
 
   // REALTIME: no sessions yet — show an honest empty state instead of demo data.
   if (realtime && !activeSessionProp) {
@@ -198,22 +269,6 @@ export const SessionDetailsPage = ({
     } else {
       onShowToast?.('Session has been cancelled.');
     }
-  };
-
-  // Complete Handler
-  const handleCompleteSession = () => {
-    if (session.status === 'Completed') {
-      onShowToast?.('This session is already completed.');
-      return;
-    }
-    const updatedSession = {
-      ...session,
-      status: 'Completed',
-    };
-    if (onUpdateSession) {
-      onUpdateSession(updatedSession);
-    }
-    onShowToast?.('✅ Session completed! Academic credits have been released.');
   };
 
   // Add to Calendar .ics exporter
@@ -933,12 +988,23 @@ export const SessionDetailsPage = ({
                 {/* Complete Session Button */}
                 <button
                   onClick={handleCompleteSession}
-                  disabled={session.status === 'Completed' || session.status === 'Cancelled'}
+                  disabled={
+                    session.status === 'Completed' ||
+                    session.status === 'Cancelled' ||
+                    mySideSettled ||
+                    isSettling
+                  }
                   className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-[#dfe8e2] disabled:text-[#8a9a90] disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-xs font-bold flex items-center justify-between transition-colors shadow-sm cursor-pointer"
                   id="btn-complete-session"
                 >
                   <span>
-                    {session.status === 'Completed' ? 'Session Completed' : 'Mark Session Complete'}
+                    {session.status === 'Completed'
+                      ? 'Session Completed'
+                      : mySideSettled
+                        ? 'Awaiting Partner'
+                        : isSettling
+                          ? 'Settling Credits…'
+                          : 'Settle & Review'}
                   </span>
                   <span className="material-symbols-outlined text-[18px]">
                     {session.status === 'Completed' ? 'check_circle' : 'check'}
@@ -1041,6 +1107,18 @@ export const SessionDetailsPage = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Review Modal (after settling a session) */}
+      {isReviewModalOpen && (
+        <ReviewModal
+          session={session}
+          authorName={authProfile?.name || 'You'}
+          authorAvatar={authProfile?.avatarUrl}
+          targetUid={partnerUid}
+          onSubmitReview={handleSubmitReview}
+          onClose={() => setIsReviewModalOpen(false)}
+        />
       )}
     </div>
   );
