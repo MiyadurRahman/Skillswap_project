@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 
 export const ProtectedRoute = ({ children, fallback = null }) => {
   const { currentUser, loading } = useAuth();
@@ -19,4 +19,4 @@ export const ProtectedRoute = ({ children, fallback = null }) => {
   return children;
 };
 
-export default ProtectedRoute;
+export default ProtectedRoute;

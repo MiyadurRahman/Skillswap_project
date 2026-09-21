@@ -39,6 +39,7 @@ export const CalendarView = ({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedKey, setSelectedKey] = useState(null);
+  const [now] = useState(Date.now);
 
   const byDay = useMemo(() => {
     const map = new Map();
@@ -215,7 +216,7 @@ export const CalendarView = ({
           ) : (
             <ul className="space-y-3">
               {agenda.map((ev) => {
-                const isPast = ev.startMs && ev.startMs < Date.now() && ev.status !== 'Completed' && ev.status !== 'Accepted';
+                const isPast = ev.startMs && ev.startMs < now;
                 return (
                   <li
                     key={ev.id}
@@ -244,15 +245,14 @@ export const CalendarView = ({
                       </div>
                     </div>
 
-                    {(!isPast || ev.status === 'Accepted') && (
-                      <div className="mt-3 flex items-center gap-2 flex-wrap">
-                        <button
-                          onClick={() => onSelectSession?.(ev)}
-                          className="px-3 py-1.5 rounded-lg bg-[#675975] hover:bg-[#52445f] text-white text-[11px] font-bold transition-colors cursor-pointer"
-                        >
-                          Open Details
-                        </button>
-                        {ev.status === 'Accepted' && (
+                    <div className="mt-3 flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => onSelectSession?.(ev)}
+                        className="px-3 py-1.5 rounded-lg bg-[#675975] hover:bg-[#52445f] text-white text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        Open Details
+                      </button>
+                      {ev.status === 'Accepted' && !isPast && (
                           <>
                             <button
                               onClick={() => onReschedule?.(ev)}
@@ -267,9 +267,8 @@ export const CalendarView = ({
                               Cancel
                             </button>
                           </>
-                        )}
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </li>
                 );
               })}

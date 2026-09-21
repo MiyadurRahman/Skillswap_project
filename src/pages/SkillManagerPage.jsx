@@ -1,64 +1,59 @@
-import React, { useState, useMemo } from 'react';
-import { resolveAvatarForName } from '../assets';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { academicAssets, resolveAvatarForName } from '../assets';
+import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 
 export const SkillManagerPage = ({
   onNavigateScreen,
   onOpenMentorModal,
-  onOpenMeetingModal,
-  onOpenWalletModal,
   onShowToast,
   userProfile: propProfile,
   onSaveProfileSkills,
 }) => {
-  const { currentUser, userProfile: authProfile, logOut, updateProfileData } = useAuth();
+  const { currentUser, userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
 
-  // Active top navigation tab
-  const [activeNavTab, setActiveNavTab] = useState('dashboard');
-  const [activeSidebarItem, setActiveSidebarItem] = useState('skill-manager');
-
   // Skills I Teach state
-  const [skillsTeach, setSkillsTeach] = useState([
-    'Python Data Science',
-    'Academic Writing',
-    'Statistical Analysis',
-  ]);
+  const [skillsTeach, setSkillsTeach] = useState(() =>
+    userProfile.expertiseAreas?.length
+      ? [...userProfile.expertiseAreas]
+      : ['Python Data Science', 'Academic Writing', 'Statistical Analysis']
+  );
   const [teachInput, setTeachInput] = useState('');
 
   // Skills I Want state
-  const [skillsWant, setSkillsWant] = useState([
-    'UI/UX Design',
-    'Spanish B2',
-  ]);
+  const [skillsWant, setSkillsWant] = useState(() =>
+    userProfile.learningGoals?.length
+      ? [...userProfile.learningGoals]
+      : ['UI/UX Design', 'Spanish B2']
+  );
   const [wantInput, setWantInput] = useState('');
 
   // Suggested for Your Profile
-  const [suggestedSkills, setSuggestedSkills] = useState([
+  const suggestedSkills = [
     'Research Methodology',
     'R Programming',
     'Latex Formatting',
     'Deep Learning',
     'Econometrics',
-  ]);
+  ];
 
   // Popular Exchanges
-  const [popularExchanges, setPopularExchanges] = useState([
+  const popularExchanges = [
     'Machine Learning',
     'Public Speaking',
     'Financial Modeling',
     'Cloud Architecture',
     'Bioinformatics',
-  ]);
+  ];
 
   // Matches Activity dataset
-  const [recentMatches, setRecentMatches] = useState([
+  const recentMatches = [
     {
       id: 'match-1',
       name: 'Prof. Julian V.',
       title: 'PhD Scholar & Language Tutor',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
+      avatarUrl: academicAssets.avatars.julianSterling,
       matchesSkill: 'Spanish B2',
       quote: 'I can help you master academic Spanish while you help me with my Python data pipeline.',
       compatibility: 98,
@@ -71,7 +66,7 @@ export const SkillManagerPage = ({
       id: 'match-2',
       name: 'Sarah Chen',
       title: 'Senior UI/UX Researcher',
-      avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=240&auto=format&fit=crop&q=80',
+      avatarUrl: academicAssets.avatars.sarahKhan,
       matchesSkill: 'UI/UX',
       quote: 'Looking to transition from Psychology to Design. I can teach Figma & UX research methodologies.',
       compatibility: 95,
@@ -80,7 +75,7 @@ export const SkillManagerPage = ({
       hourlyCredits: 1.0,
       skills: ['USER RESEARCH', 'FIGMA', 'UI/UX DESIGN'],
     },
-  ]);
+  ];
 
   // Add / Remove Handlers for "Skills I Teach"
   const handleAddTeachSkill = (skillToAdd) => {
@@ -122,30 +117,28 @@ export const SkillManagerPage = ({
 
   // Discard Changes
   const handleDiscard = () => {
-    setSkillsTeach(['Python Data Science', 'Academic Writing', 'Statistical Analysis']);
-    setSkillsWant(['UI/UX Design', 'Spanish B2']);
+    setSkillsTeach(
+      userProfile.expertiseAreas?.length
+        ? [...userProfile.expertiseAreas]
+        : ['Python Data Science', 'Academic Writing', 'Statistical Analysis']
+    );
+    setSkillsWant(
+      userProfile.learningGoals?.length
+        ? [...userProfile.learningGoals]
+        : ['UI/UX Design', 'Spanish B2']
+    );
     onShowToast('Changes discarded.');
   };
 
   // Save Skills
   const handleSave = async () => {
-    if (onSaveProfileSkills) {
-      onSaveProfileSkills({
-        skillsTeach,
-        skillsWant,
-      });
+    try {
+      await onSaveProfileSkills?.({ skillsTeach, skillsWant });
+      onShowToast('✨ Skill profile successfully updated and synchronized!');
+    } catch (error) {
+      console.warn('Could not save skills:', error);
+      onShowToast('Could not save your skill profile. Please try again.');
     }
-    if (currentUser && !currentUser.isDemo && updateProfileData) {
-      try {
-        await updateProfileData({
-          expertiseAreas: skillsTeach,
-          learningGoals: skillsWant,
-        });
-      } catch (e) {
-        console.warn('Could not sync skills to Firestore:', e);
-      }
-    }
-    onShowToast('✨ Skill profile successfully updated and synchronized!');
   };
 
   const handleProposeSwap = (match) => {
@@ -172,8 +165,6 @@ export const SkillManagerPage = ({
   const userAvatar =
     userProfile?.avatarUrl ||
     resolveAvatarForName(userProfile?.name || currentUser?.displayName || 'Scholar', 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80');
-
-  const userRole = userProfile?.academicLevel || 'PhD Candidate';
 
   return (
     <div id="screen-skill-manager" className="min-h-screen bg-[#fcf5f3] text-[#201a1b] flex flex-col font-sans selection:bg-[#c5b3d3] selection:text-[#22162e]">
@@ -300,9 +291,9 @@ export const SkillManagerPage = ({
 
               {/* Active Skill Manager Nav Tab (with highlighted soft box & dark border) */}
               <button
-                onClick={() => setActiveSidebarItem('skill-manager')}
                 className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-[#2d1c2b] bg-[#ecd8d5] border border-[#d6beba] rounded-xl shadow-2xs text-left"
                 id="menu-item-skill-manager"
+                aria-current="page"
               >
                 <span className="material-symbols-outlined text-[18px] text-[#4a3b47]">
                   school

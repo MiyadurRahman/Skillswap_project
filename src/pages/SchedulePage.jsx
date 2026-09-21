@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 import { CalendarView } from '../component/CalendarView';
 import { ScheduleHistoryList } from '../component/ScheduleHistoryList';
+import { resolveSessionTimes } from '../services/realtime';
+import { toLocalDayKey } from '../utils/dateUtils';
+import { useDialogBehavior } from '../hooks/useDialogBehavior';
 
 const startOfWeek = (d) => {
   const copy = new Date(d);
@@ -20,22 +23,39 @@ export const SchedulePage = ({
   onUpdateSession,
   onShowToast,
 }) => {
-  const { currentUser, userProfile: authProfile } = useAuth();
+  const { userProfile: authProfile } = useAuth();
   const userAvatar =
     authProfile?.avatarUrl ||
     userProfile?.avatarUrl ||
     'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
 
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [now] = useState(Date.now);
+  useDialogBehavior(Boolean(cancelTarget), () => setCancelTarget(null));
 
-  const calendarEvents = useMemo(
-    () => sessions.filter((s) => s.status !== 'Cancelled'),
+  const normalizedSessions = useMemo(
+    () =>
+      sessions.map((session) => {
+        const { startAt, endAt } = resolveSessionTimes(session);
+        const startMs = session.startMs || startAt;
+        return {
+          ...session,
+          startMs,
+          endMs: session.endMs || endAt,
+          dayKey: startMs ? toLocalDayKey(startMs) : session.dayKey || null,
+        };
+      }),
     [sessions]
   );
 
+  const calendarEvents = useMemo(
+    () => normalizedSessions.filter((s) => s.status !== 'Cancelled'),
+    [normalizedSessions]
+  );
+
   const confirmed = useMemo(
-    () => sessions.filter((s) => s.status === 'Accepted'),
-    [sessions]
+    () => normalizedSessions.filter((s) => s.status === 'Accepted'),
+    [normalizedSessions]
   );
 
   const thisWeek = useMemo(() => {
@@ -47,14 +67,14 @@ export const SchedulePage = ({
   const upcoming = useMemo(
     () =>
       confirmed
-        .filter((s) => !s.startMs || s.startMs >= Date.now())
+        .filter((s) => !s.startMs || s.startMs >= now)
         .sort((a, b) => (a.startMs || Infinity) - (b.startMs || Infinity))
         .slice(0, 4),
-    [confirmed]
+    [confirmed, now]
   );
 
-  const completedCount = sessions.filter((s) => s.status === 'Completed').length;
-  const cancelledCount = sessions.filter((s) => s.status === 'Cancelled').length;
+  const completedCount = normalizedSessions.filter((s) => s.status === 'Completed').length;
+  const cancelledCount = normalizedSessions.filter((s) => s.status === 'Cancelled').length;
 
   const handleCancel = (session) => {
     if (!session?.id) return;
@@ -260,11 +280,16 @@ export const SchedulePage = ({
             onClick={() => setCancelTarget(null)}
             aria-hidden="true"
           />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-session-title"
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4"
+          >
             <div className="flex items-start gap-3">
               <span className="material-symbols-outlined text-2xl text-red-600">event_busy</span>
               <div>
-                <h3 className="text-base font-bold text-[#201a1b]">Cancel this session?</h3>
+                <h3 id="cancel-session-title" className="text-base font-bold text-[#201a1b]">Cancel this session?</h3>
                 <p className="text-xs text-[#4a454c] mt-1">
                   <strong>{cancelTarget.title}</strong> with{' '}
                   {cancelTarget.partner?.name || 'your peer'} will be removed from your calendar

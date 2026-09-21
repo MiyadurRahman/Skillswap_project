@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { formatTimeAgo } from '../services/realtime';
+import { academicAssets } from '../assets';
 
-const DEFAULT_AVATAR =
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+const DEFAULT_AVATAR = academicAssets.avatars.defaultFemaleScholar;
 
 export const NotificationBell = ({
   conversations,
@@ -31,8 +31,20 @@ export const NotificationBell = ({
         setSearch('');
       }
     };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        setShowNewChat(false);
+        setSearch('');
+        bellRef.current?.focus();
+      }
+    };
     document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handle);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const totalUnread = Object.values(
@@ -71,7 +83,7 @@ export const NotificationBell = ({
 
   return (
     <div className="relative">
-      {/* Bell button */}
+      {/* Message launcher */}
       <button
         ref={bellRef}
         onClick={() => {
@@ -80,8 +92,10 @@ export const NotificationBell = ({
           setSearch('');
         }}
         className="relative w-9 h-9 rounded-full bg-[#473649] hover:bg-[#342636] text-white flex items-center justify-center transition-colors cursor-pointer"
+        aria-label={totalUnread > 0 ? `Messages, ${totalUnread} unread` : 'Messages'}
+        aria-expanded={open}
       >
-        <span className="material-symbols-outlined text-[20px]">notifications</span>
+        <span className="material-symbols-outlined text-[20px]">chat_bubble</span>
         {totalUnread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-[#d85a4e] text-white text-[10px] font-extrabold rounded-full px-1">
             {totalUnread > 9 ? '9+' : totalUnread}
@@ -93,6 +107,8 @@ export const NotificationBell = ({
       {open && (
         <div
           ref={panelRef}
+          role="dialog"
+          aria-label="Message notifications"
           className="absolute right-0 top-full mt-2 w-[340px] max-w-[calc(100vw-2rem)] max-h-[440px] bg-white border border-[#e8dfe4] rounded-2xl shadow-2xl z-[110] overflow-hidden flex flex-col"
         >
           {/* Header */}
@@ -176,7 +192,6 @@ export const NotificationBell = ({
                 </div>
               )}
               {conversations.map((convo) => {
-                const peerId = convo.participantIds.find((id) => id !== myUid);
                 const isUnread = (convo.unread?.[myUid] || 0) > 0;
                 return (
                   <button

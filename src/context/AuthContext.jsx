@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { academicAssets, resolveAvatarForName } from '../assets';
+import { AuthContext } from './auth';
 import { auth, googleProvider } from '../firebase';
 import {
   createUserWithEmailAndPassword,
@@ -12,27 +13,73 @@ import {
 } from 'firebase/auth';
 import { upsertUserProfile, ensureUserProfile, subscribeUserProfile } from '../services/realtime';
 
-const AuthContext = createContext();
+const DEMO_SESSION_KEY = 'skillswap_demo_session';
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+const buildDemoAccount = (email = 'demo@skillswap.edu') => ({
+  user: {
+    uid: 'demo-uiu-scholar',
+    email,
+    displayName: 'Alex Rivera',
+    photoURL: null,
+    isDemo: true,
+  },
+  profile: {
+    name: 'Alex Rivera',
+    email,
+    avatarUrl: academicAssets.avatars.alexRivera,
+    university: 'Stanford University',
+    academicLevel: 'PhD Candidate',
+    title: 'PhD Scholar',
+    bio: 'Doctoral candidate focusing on high-energy mathematical physics and stochastic modeling.',
+    timeCredits: 24.5,
+    expertiseAreas: ['Applied Math', 'LaTeX', 'Python', 'Fourier Analysis'],
+    learningGoals: ['Game Theory', 'R-Studio', 'CRISPR Data Analysis'],
+  },
+});
+
+const loadDemoAccount = () => {
+  try {
+    const email = localStorage.getItem(DEMO_SESSION_KEY);
+    if (!email) return null;
+    const account = buildDemoAccount(email);
+    const cachedProfile = JSON.parse(
+      localStorage.getItem('skillswap_profile_demo-uiu-scholar') || 'null'
+    );
+    return cachedProfile
+      ? { ...account, profile: { ...account.profile, ...cachedProfile } }
+      : account;
+  } catch {
+    return null;
   }
-  return context;
+};
+
+const clearDemoSession = () => {
+  try {
+    localStorage.removeItem(DEMO_SESSION_KEY);
+  } catch {
+    // Storage can be unavailable in privacy-restricted browsers.
+  }
 };
 
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [restoredDemo] = useState(loadDemoAccount);
+  const [currentUser, setCurrentUser] = useState(restoredDemo?.user || null);
+  const [userProfile, setUserProfile] = useState(restoredDemo?.profile || null);
+  const [loading, setLoading] = useState(!restoredDemo);
+  const demoModeRef = useRef(Boolean(restoredDemo));
+  const profileUnsubRef = useRef(null);
+
+  const stopProfileSubscription = () => {
+    profileUnsubRef.current?.();
+    profileUnsubRef.current = null;
+  };
 
   // Helper to sync profile with localStorage
   const saveProfileLocally = (uid, profileData) => {
     try {
       localStorage.setItem(`skillswap_profile_${uid}`, JSON.stringify(profileData));
-    } catch (e) {
-      console.warn('Could not cache profile locally', e);
+    } catch {
+      console.warn('Could not cache profile locally');
     }
   };
 
@@ -40,13 +87,15 @@ export const AuthProvider = ({ children }) => {
     try {
       const cached = localStorage.getItem(`skillswap_profile_${uid}`);
       return cached ? JSON.parse(cached) : null;
-    } catch (e) {
+    } catch {
       return null;
     }
   };
 
   // Sign up with Email, Password, Name, University
   const signUp = async (email, password, fullName, university) => {
+    demoModeRef.current = false;
+    clearDemoSession();
     const res = await createUserWithEmailAndPassword(auth, email, password);
     if (fullName) {
       await updateProfile(res.user, { displayName: fullName });
@@ -73,25 +122,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Demo Scholar Account Sign In
-  const loginAsDemo = async (demoEmail = 'unknown@bscse.uiu.ac.bd') => {
-    const demoUser = {
-      uid: 'demo-uiu-scholar',
-      email: demoEmail,
-      displayName: 'Unknown',
-      photoURL: null,
-      isDemo: true,
-    };
-    const demoProfile = {
-      name: 'Unknown',
-      email: demoEmail,
-      avatarUrl: resolveAvatarForName('Unknown', academicAssets.avatars.defaultMaleScholar),
-      university: 'United International University (UIU)',
-      academicLevel: 'BSc in Computer Science & Engineering',
-      bio: 'UIU Student Scholar (Demo Account)',
-      timeCredits: 24.5,
-      expertiseAreas: ['Data Structures', 'Algorithms', 'C++', 'Python'],
-      learningGoals: ['Machine Learning', 'Artificial Intelligence', 'Cloud Systems'],
-    };
+  const loginAsDemo = async (demoEmail = 'demo@skillswap.edu') => {
+    demoModeRef.current = true;
+    const { user: demoUser, profile: demoProfile } = buildDemoAccount(demoEmail);
+    try {
+      localStorage.setItem(DEMO_SESSION_KEY, demoEmail);
+    } catch {
+      // The in-memory demo still works when persistent storage is unavailable.
+    }
     saveProfileLocally('demo-uiu-scholar', demoProfile);
     setCurrentUser(demoUser);
     setUserProfile(demoProfile);
@@ -109,6 +147,8 @@ export const AuthProvider = ({ children }) => {
       return loginAsDemo(email);
     }
 
+    demoModeRef.current = false;
+    clearDemoSession();
     const res = await signInWithEmailAndPassword(auth, email, password);
     const existing = loadProfileLocally(res.user.uid);
     const profile = existing || {
@@ -137,6 +177,8 @@ export const AuthProvider = ({ children }) => {
 
   // Google OAuth Sign In
   const signInWithGoogleOAuth = async () => {
+    demoModeRef.current = false;
+    clearDemoSession();
     const res = await signInWithPopup(auth, googleProvider);
     const existing = loadProfileLocally(res.user.uid);
     const profile = existing || {
@@ -149,12 +191,15 @@ export const AuthProvider = ({ children }) => {
       expertiseAreas: ['Data Structures', 'Algorithms'],
       learningGoals: ['Machine Learning'],
     };
-    saveProfileLocally(res.user.uid, profile);
-    upsertUserProfile(res.user.uid, profile).catch((e) => {
-      console.warn('Could not sync profile to Firestore:', e);
-    });
-    setUserProfile(profile);
-    return { user: res.user, profile };
+    let resolvedProfile = profile;
+    try {
+      resolvedProfile = (await ensureUserProfile(res.user.uid, profile)) || profile;
+    } catch (error) {
+      console.warn('Could not sync profile to Firestore:', error);
+    }
+    saveProfileLocally(res.user.uid, resolvedProfile);
+    setUserProfile(resolvedProfile);
+    return { user: res.user, profile: resolvedProfile };
   };
 
   // Send Password Reset Email
@@ -169,9 +214,7 @@ export const AuthProvider = ({ children }) => {
     if (currentUser?.uid) {
       saveProfileLocally(currentUser.uid, merged);
       if (!currentUser?.isDemo) {
-        upsertUserProfile(currentUser.uid, merged).catch((e) =>
-          console.warn('Could not update Firestore profile:', e)
-        );
+        await upsertUserProfile(currentUser.uid, merged);
       }
     }
     return merged;
@@ -179,11 +222,17 @@ export const AuthProvider = ({ children }) => {
 
   // Log Out
   const logOut = async () => {
+    demoModeRef.current = false;
+    clearDemoSession();
+    // Firestore rules require authentication to read profiles. Stop the live
+    // listener before revoking Firebase Auth so it cannot emit a harmless
+    // permission-denied error during logout.
+    stopProfileSubscription();
     setUserProfile(null);
     setCurrentUser(null);
     try {
       await signOut(auth);
-    } catch (e) {
+    } catch {
       // ignore if demo user
     }
   };
@@ -195,19 +244,22 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }, 800);
 
-    let profileUnsub = null;
-
     const unsubscribe = onAuthStateChanged(
       auth,
       (user) => {
         clearTimeout(timer);
-        if (currentUser?.isDemo) {
+        // Firebase still reports an anonymous user while the local demo is
+        // active. Never let that delayed callback wipe the demo session.
+        if (demoModeRef.current) {
           setLoading(false);
           return;
         }
 
+        // Authentication may move directly from one account to another.
+        // Never leave the previous account's profile listener running.
+        stopProfileSubscription();
         setCurrentUser(user);
-        if (user && !currentUser?.isDemo) {
+        if (user) {
           const fallbackName = user.displayName || user.email?.split('@')[0] || 'Scholar';
           const fallbackProfile = {
             name: fallbackName,
@@ -227,7 +279,7 @@ export const AuthProvider = ({ children }) => {
           }).catch((e) => console.warn('Profile ensure/sync:', e));
 
           // Live-sync profile from Firestore.
-          profileUnsub = subscribeUserProfile(user.uid, (p) => {
+          profileUnsubRef.current = subscribeUserProfile(user.uid, (p) => {
             if (p) setUserProfile(p);
           });
         } else {
@@ -245,9 +297,9 @@ export const AuthProvider = ({ children }) => {
     return () => {
       clearTimeout(timer);
       unsubscribe();
-      if (profileUnsub) profileUnsub();
+      stopProfileSubscription();
     };
-  }, [currentUser?.isDemo]);
+  }, []);
 
   const value = {
     currentUser,

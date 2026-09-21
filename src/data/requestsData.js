@@ -1,11 +1,13 @@
+import { academicAssets } from '../assets';
+import { formatAcademicDate, toDateInput } from '../utils/dateUtils';
+
 export const drJulianVance = {
   id: 'mentor-julian-vance',
   name: 'Dr. Julian Vance',
   title: 'PhD in Quantum Computing • Stanford University',
-  avatarUrl:
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&auto=format&fit=crop&q=80',
+  avatarUrl: academicAssets.avatars.julianSterling,
   isOnline: true,
-  badge1: 'Top 1% Mentor 2023',
+  badge1: 'Top 1% Mentor 2026',
   badge2: '450+ Sessions Completed',
   skills: [
     {
@@ -25,7 +27,7 @@ export const drJulianVance = {
   bookingPolicy: [
     'Requests are usually confirmed within 12 hours.',
     'Rescheduling is free up to 24 hours before the session.',
-    'Credits are only deducted once the mentor accepts.',
+    'Credits transfer only after the session is completed and settled.',
   ],
 };
 
@@ -37,8 +39,7 @@ export const initialIncomingRequests = [
       name: 'Sarah Chen',
       title: 'Master’s Candidate in Computational Biology',
       university: 'Harvard University',
-      avatarUrl:
-        'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&auto=format&fit=crop&q=80',
+      avatarUrl: academicAssets.avatars.sarahKhan,
       rating: 4.95,
       completedSwaps: 28,
       isOnline: true,
@@ -47,8 +48,8 @@ export const initialIncomingRequests = [
     skillLevel: 'Advanced Level • 60 min',
     offeredExchange: '250 Academic Credits',
     offeredSkill: 'Deep Learning with PyTorch & Multi-Omic Analysis',
-    preferredDate: '2024-10-26',
-    formattedDate: 'Saturday, Oct 26, 2024',
+    preferredDate: toDateInput(2),
+    formattedDate: formatAcademicDate(2),
     preferredTimeSlot: 'Morning (09:00 - 12:00)',
     goals:
       'I am modeling latent gene expression networks under high noise. I need guidance on solving stochastic differential equations and validating convergence before submitting to Nature Methods.',
@@ -64,8 +65,7 @@ export const initialIncomingRequests = [
       name: 'Liam O’Connor',
       title: 'Doctoral Researcher in Econometrics',
       university: 'Cambridge University',
-      avatarUrl:
-        'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&auto=format&fit=crop&q=80',
+      avatarUrl: academicAssets.avatars.jamesWhitmore,
       rating: 4.88,
       completedSwaps: 19,
       isOnline: true,
@@ -74,8 +74,8 @@ export const initialIncomingRequests = [
     skillLevel: 'Intermediate Level • 60 min',
     offeredExchange: '250 Academic Credits',
     offeredSkill: 'R-Studio Econometric Regressions & IV Estimation',
-    preferredDate: '2024-10-27',
-    formattedDate: 'Sunday, Oct 27, 2024',
+    preferredDate: toDateInput(3),
+    formattedDate: formatAcademicDate(3),
     preferredTimeSlot: 'Afternoon (13:00 - 16:00)',
     goals:
       'Applying Fourier series transforms to high-frequency econometric series. Looking to test discrete wavelets and high-pass filtering diagnostics for our QJE resubmission.',
@@ -91,8 +91,7 @@ export const initialIncomingRequests = [
       name: 'Maya Patel',
       title: 'Postdoctoral Fellow in Human-AI Interaction',
       university: 'MIT Media Lab',
-      avatarUrl:
-        'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+      avatarUrl: academicAssets.avatars.sarahKhan,
       rating: 5.0,
       completedSwaps: 44,
       isOnline: false,
@@ -101,8 +100,8 @@ export const initialIncomingRequests = [
     skillLevel: 'Advanced Level • 90 min',
     offeredExchange: 'Direct Swap + 100 Academic Credits',
     offeredSkill: 'Figma for Scientific Posters & Interactive Web Canvases',
-    preferredDate: '2024-10-29',
-    formattedDate: 'Tuesday, Oct 29, 2024',
+    preferredDate: toDateInput(4),
+    formattedDate: formatAcademicDate(4),
     preferredTimeSlot: 'Evening (17:00 - 20:00)',
     goals:
       'Optimizing high-dimensional t-SNE and custom loss functions in NumPy for an interactive scientific simulation canvas for our upcoming conference presentation.',
@@ -118,8 +117,7 @@ export const initialIncomingRequests = [
       name: 'Marcus Brody',
       title: 'Senior Scholar, Department of Physics',
       university: 'Stanford University',
-      avatarUrl:
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      avatarUrl: academicAssets.avatars.defaultMaleScholar,
       rating: 4.75,
       completedSwaps: 14,
       isOnline: true,
@@ -128,8 +126,8 @@ export const initialIncomingRequests = [
     skillLevel: 'Intermediate Level • 45 min',
     offeredExchange: '200 Academic Credits',
     offeredSkill: 'Introductory Quantum Circuit Simulation',
-    preferredDate: '2024-10-24',
-    formattedDate: 'Thursday, Oct 24, 2024',
+    preferredDate: toDateInput(1),
+    formattedDate: formatAcademicDate(1),
     preferredTimeSlot: 'Afternoon (13:00 - 16:00)',
     goals:
       'Formatting my physics honors thesis in LaTeX with complex TikZ commutative diagrams and custom biblatex citations.',
@@ -147,8 +145,8 @@ export const initialOutgoingRequests = [
     requestedSkill: 'Quantum Mechanics',
     skillLevel: 'Advanced Level • 60 min',
     cost: 250,
-    preferredDate: '2024-10-28',
-    formattedDate: 'Monday, Oct 28, 2024',
+    preferredDate: toDateInput(2),
+    formattedDate: formatAcademicDate(2),
     preferredTimeSlot: 'Morning (09:00 - 12:00)',
     goals:
       'Working on quantum error correction circuits and state decoherence models in superconducting qubits.',
@@ -162,16 +160,15 @@ export const initialOutgoingRequests = [
       name: 'Dr. Aris Thorne',
       title: 'Senior Researcher, Data Science',
       university: 'Stanford Institute for Computational Research',
-      avatarUrl:
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      avatarUrl: academicAssets.avatars.defaultFemaleScholar,
       badge1: 'Verified Senior Researcher',
       badge2: '88 Reviews • ★ 4.9',
     },
     requestedSkill: 'Structural Equation Modeling (SEM) in R',
     skillLevel: 'Advanced Level • 90 min',
     cost: 250,
-    preferredDate: '2024-10-24',
-    formattedDate: 'Wednesday, Oct 24, 2024',
+    preferredDate: toDateInput(1),
+    formattedDate: formatAcademicDate(1),
     preferredTimeSlot: 'Afternoon (02:30 PM)',
     goals:
       'Reviewing assumptions of latent variable models and working through practical fit diagnostics.',

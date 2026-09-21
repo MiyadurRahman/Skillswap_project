@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { academicAssets } from '../assets';
 import { AUTH_CONFIG } from '../config/authConfig';
+import { useAuth } from '../context/auth';
 
 export const GetStartedPage = ({
   onNavigateToSignUp,
@@ -8,9 +9,57 @@ export const GetStartedPage = ({
   onShowToast,
   onOpenSSO,
   onExploreDemo,
+  realtime = false,
+  realtimeUsers = [],
 }) => {
+  const { currentUser } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [activeFaq, setActiveFaq] = useState(0);
+
+  // Live Firestore scholars (display only). Never includes the signed-in
+  // viewer's own profile.
+  const liveScholars = realtime
+    ? realtimeUsers.filter((u) => u.uid && u.name && u.uid !== currentUser?.uid)
+    : [];
+
+  // Hero "Live Peer Exchange" card shows the first two live scholars.
+  const livePeerCards = liveScholars.slice(0, 2);
+
+  const liveSkillLine = (u) =>
+    u.skillsTeach?.[0] || u.badges?.[0] || u.title || 'Academic Peer Exchange';
+
+  // Category keyword heuristics so the filter pills still work on live cards.
+  const CATEGORY_KEYWORDS = {
+    cs: ['computer', 'programming', 'software', 'algorithm', 'data ', 'database', 'c++', 'python', 'java', 'javascript', 'machine learning', 'artificial intelligence', 'sql', 'web', 'cryptography', 'system design'],
+    math: ['math', 'statistics', 'calculus', 'algebra', 'probability', 'econometrics', 'linear algebra'],
+    bio: ['bio', 'biotech', 'genetics', 'genomics', 'biology', 'dna'],
+    eng: ['engineering', 'robotics', 'embedded', 'control', 'mechatronics', 'ros', 'mechanics'],
+  };
+
+  const deriveCategory = (u) => {
+    const hay = [u.title, u.academicLevel, ...(u.skillsTeach || []), ...(u.badges || [])]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    for (const cat of ['cs', 'math', 'bio', 'eng']) {
+      if (CATEGORY_KEYWORDS[cat].some((kw) => hay.includes(kw))) return cat;
+    }
+    return 'all';
+  };
+
+  // "Top Peer Skills Available Now" cards built from the first 4 live scholars.
+  const liveSkillCards = liveScholars.slice(0, 4).map((u, idx) => ({
+    id: `live-${idx}-${u.uid}`,
+    category: deriveCategory(u),
+    title: u.skillsTeach?.[0] || u.badges?.[0] || u.title || 'Academic Peer Exchange',
+    mentorName: u.name,
+    university: u.university || 'University Scholar',
+    tags: (u.badges && u.badges.length ? u.badges : u.skillsTeach || []).slice(0, 3),
+    rating: u.rating ?? 4.8,
+    reviewsCount: u.reviewsCount ?? u.completedSwaps ?? 0,
+    avatarUrl: u.avatarUrl,
+    status: 'Live Now',
+  }));
 
   const categories = [
     { id: 'all', label: 'All Fields', icon: 'auto_stories' },
@@ -94,26 +143,30 @@ export const GetStartedPage = ({
     },
   ];
 
+  // Grid shows live scholars when available, otherwise the static showcase.
+  const displayedCards =
+    realtime && liveSkillCards.length > 0 ? liveSkillCards : featuredSkills;
+
   const filteredSkills =
     selectedCategory === 'all'
-      ? featuredSkills
-      : featuredSkills.filter((s) => s.category === selectedCategory);
+      ? displayedCards
+      : displayedCards.filter((s) => s.category === selectedCategory);
 
   return (
     <div id="screen-get-started" className="min-h-screen bg-[#fff8f7] text-[#201a1b] flex flex-col font-sans selection:bg-[#c5b3d3] selection:text-[#22162e]">
       {/* Top Header */}
       <header className="sticky top-0 z-50 w-full bg-[#4e4353]/95 backdrop-blur-md shadow-sm border-b border-[#ccc4cd]/20">
-        <div className="max-w-[1240px] mx-auto px-4 sm:px-8 h-16 sm:h-[70px] flex items-center justify-between gap-4">
+        <div className="max-w-[1240px] mx-auto px-3 sm:px-8 h-16 sm:h-[70px] flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#675975] to-[#c5b3d3] flex items-center justify-center text-white shadow-sm shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-[#675975] to-[#c5b3d3] flex items-center justify-center text-white shadow-sm shrink-0">
               <span className="material-symbols-outlined text-[20px]">school</span>
             </div>
             <div className="min-w-0">
-              <span className="text-lg sm:text-xl font-extrabold text-[#c5b3d3] tracking-tight block leading-none truncate">
+              <span className="text-base sm:text-xl font-extrabold text-[#c5b3d3] tracking-tight block leading-none truncate">
                 SkillSwap
               </span>
-              <span className="text-[10px] text-white/75 font-semibold tracking-wider uppercase truncate block mt-0.5">
+              <span className="hidden min-[360px]:block text-[9px] sm:text-[10px] text-white/75 font-semibold tracking-wider uppercase truncate mt-0.5">
                 Academic Exchange
               </span>
             </div>
@@ -125,7 +178,7 @@ export const GetStartedPage = ({
               id="header-btn-login"
               type="button"
               onClick={onNavigateToLogin}
-              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer whitespace-nowrap min-h-[38px] flex items-center"
+              className="px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer whitespace-nowrap min-h-[38px] flex items-center"
             >
               Sign In
             </button>
@@ -133,33 +186,34 @@ export const GetStartedPage = ({
               id="header-btn-get-started"
               type="button"
               onClick={onNavigateToSignUp}
-              className="px-4 sm:px-5 py-1.5 sm:py-2 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm rounded-full shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5 min-h-[38px]"
+              className="px-3 sm:px-5 py-1.5 sm:py-2 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm rounded-full shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5 min-h-[38px]"
             >
-              <span>Get Started</span>
-              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+              <span className="sm:hidden">Join</span>
+              <span className="hidden sm:inline">Get Started</span>
+              <span className="material-symbols-outlined text-[16px] hidden min-[360px]:inline-block">arrow_forward</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-16 lg:py-20 px-4 sm:px-8 max-w-[1240px] mx-auto w-full">
+      <section className="relative overflow-hidden pt-10 sm:pt-12 pb-14 lg:py-20 px-4 sm:px-8 max-w-[1240px] mx-auto w-full">
         {/* Subtle Ambient Background Glows */}
         <div className="absolute top-10 left-1/4 w-72 h-72 bg-[#c5b3d3]/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
         <div className="absolute bottom-5 right-10 w-96 h-96 bg-[#ffdada]/30 rounded-full blur-3xl pointer-events-none -z-10"></div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           {/* Left Text Column */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#d2c0e0] text-[#52445f] text-xs font-semibold shadow-xs">
+          <div className="lg:col-span-7 space-y-5 sm:space-y-6 min-w-0">
+            <div className="inline-flex max-w-full items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#d2c0e0] text-[#52445f] text-[11px] sm:text-xs font-semibold shadow-xs">
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>Inter-University Knowledge Network • UIU & Partners</span>
+              <span className="truncate">Inter-University Knowledge Network • UIU & Partners</span>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-[54px] font-extrabold text-[#201a1b] tracking-tight leading-[1.12]">
+            <h1 className="text-[2rem] sm:text-5xl lg:text-[54px] font-extrabold text-[#201a1b] tracking-tight leading-[1.12]">
               Exchange academic skills.{' '}
               <span className="text-[#675975] relative inline-block">
                 Learn for free.
@@ -205,16 +259,16 @@ export const GetStartedPage = ({
             </div>
 
             {/* Metrics Row */}
-            <div className="pt-6 border-t border-[#ccc4cd]/40 grid grid-cols-3 gap-4 max-w-lg">
+            <div className="pt-6 border-t border-[#ccc4cd]/40 grid grid-cols-3 gap-2 sm:gap-4 max-w-lg overflow-hidden">
               <div>
                 <div className="text-2xl sm:text-3xl font-extrabold text-[#675975]">2,400+</div>
                 <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Verified Scholars</div>
               </div>
-              <div className="border-l border-[#ccc4cd]/50 pl-4">
+              <div className="border-l border-[#ccc4cd]/50 pl-2 sm:pl-4">
                 <div className="text-2xl sm:text-3xl font-extrabold text-[#675975]">1:1</div>
                 <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Time-Credit Swap</div>
               </div>
-              <div className="border-l border-[#ccc4cd]/50 pl-4">
+              <div className="border-l border-[#ccc4cd]/50 pl-2 sm:pl-4">
                 <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700">100%</div>
                 <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Zero Tuition Fees</div>
               </div>
@@ -225,7 +279,7 @@ export const GetStartedPage = ({
           <div className="lg:col-span-5 relative">
             <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xl border border-[#ccc4cd]/50 space-y-4 relative z-10 ambient-lift">
               {/* Card Header */}
-              <div className="flex items-center justify-between pb-3.5 border-b border-[#ccc4cd]/30">
+              <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-[#ccc4cd]/30">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
                   <span className="text-xs font-bold text-[#201a1b] tracking-wide uppercase">
@@ -237,67 +291,95 @@ export const GetStartedPage = ({
                 </span>
               </div>
 
-              {/* Scholar 1: Offering */}
-              <div className="p-3.5 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] transition-all hover:border-[#c5b3d3]">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2.5">
-                    <img
-                      src={academicAssets.avatars.tanvirAhmed}
-                      alt="Tanvir Ahmed"
-                      className="w-10 h-10 rounded-full object-cover border-2 border-[#675975]"
-                    />
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-[#201a1b]">Tanvir Ahmed</span>
-                        <span className="material-symbols-outlined text-[14px] text-[#675975]" title="Verified UIU Scholar">verified</span>
+              {/* Live Scholar Feed (display only — not interactive) */}
+              {livePeerCards.length > 0 ? (
+                <>
+                  {/* Scholar 1: Offering */}
+                  <div className="p-3.5 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] pointer-events-none select-none">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={livePeerCards[0].avatarUrl}
+                          alt={livePeerCards[0].name}
+                          referrerPolicy="no-referrer"
+                          className="w-10 h-10 rounded-full object-cover border-2 border-[#675975]"
+                        />
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-[#201a1b]">{livePeerCards[0].name}</span>
+                            <span className="material-symbols-outlined text-[14px] text-[#675975]" title="Verified Scholar">verified</span>
+                          </div>
+                          <span className="text-[10px] text-[#675975] font-medium">{livePeerCards[0].university || 'University Scholar'}</span>
+                        </div>
                       </div>
-                      <span className="text-[10px] text-[#675975] font-medium">UIU • Computer Science</span>
+                      <span className="text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded-md font-bold uppercase">
+                        Teaching
+                      </span>
+                    </div>
+                    <div className="bg-white px-3 py-2 rounded-xl text-xs font-semibold text-[#201a1b] border border-[#ccc4cd]/30 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[16px] text-[#675975]">school</span>
+                      <span>{liveSkillLine(livePeerCards[0])}</span>
                     </div>
                   </div>
-                  <span className="text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded-md font-bold uppercase">
-                    Teaching
-                  </span>
-                </div>
-                <div className="bg-white px-3 py-2 rounded-xl text-xs font-semibold text-[#201a1b] border border-[#ccc4cd]/30 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-[#675975]">code</span>
-                  <span>Data Structures & Algorithms in C++</span>
-                </div>
-              </div>
 
-              {/* Animated Exchange Connector */}
-              <div className="flex items-center justify-center -my-2 relative z-20">
-                <div className="bg-[#675975] text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-md flex items-center gap-1.5 border-2 border-white">
-                  <span className="material-symbols-outlined text-[13px]">sync_alt</span>
-                  <span>Direct Skill Exchange</span>
-                </div>
-              </div>
-
-              {/* Scholar 2: Receiving / Returning */}
-              <div className="p-3.5 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] transition-all hover:border-[#c5b3d3]">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2.5">
-                    <img
-                      src={academicAssets.avatars.sarahKhan}
-                      alt="Sarah Khan"
-                      className="w-10 h-10 rounded-full object-cover border-2 border-[#c5b3d3]"
-                    />
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-[#201a1b]">Sarah Khan</span>
-                        <span className="material-symbols-outlined text-[14px] text-[#675975]" title="Verified DU Scholar">verified</span>
-                      </div>
-                      <span className="text-[10px] text-[#675975] font-medium">Univ of Dhaka • Genetics</span>
+                  {/* Animated Exchange Connector */}
+                  <div className="flex items-center justify-center -my-2 relative z-20">
+                    <div className="bg-[#675975] text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-md flex items-center gap-1.5 border-2 border-white">
+                      <span className="material-symbols-outlined text-[13px]">sync_alt</span>
+                      <span>Direct Skill Exchange</span>
                     </div>
                   </div>
-                  <span className="text-[10px] bg-[#efdbfd] text-[#4f415c] px-2 py-0.5 rounded-md font-bold uppercase">
-                    Returning
-                  </span>
+
+                  {/* Scholar 2: Receiving / Returning (or placeholder) */}
+                  <div className="p-3.5 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] pointer-events-none select-none">
+                    {livePeerCards[1] ? (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={livePeerCards[1].avatarUrl}
+                              alt={livePeerCards[1].name}
+                              referrerPolicy="no-referrer"
+                              className="w-10 h-10 rounded-full object-cover border-2 border-[#c5b3d3]"
+                            />
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-[#201a1b]">{livePeerCards[1].name}</span>
+                                <span className="material-symbols-outlined text-[14px] text-[#675975]" title="Verified Scholar">verified</span>
+                              </div>
+                              <span className="text-[10px] text-[#675975] font-medium">{livePeerCards[1].university || 'University Scholar'}</span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] bg-[#efdbfd] text-[#4f415c] px-2 py-0.5 rounded-md font-bold uppercase">
+                            Returning
+                          </span>
+                        </div>
+                        <div className="bg-white px-3 py-2 rounded-xl text-xs font-semibold text-[#201a1b] border border-[#ccc4cd]/30 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[16px] text-[#675975]">school</span>
+                          <span>{liveSkillLine(livePeerCards[1])}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2.5 text-[#8c7b86] py-1">
+                        <span className="material-symbols-outlined text-[22px]">hourglass_empty</span>
+                        <div>
+                          <div className="text-xs font-bold text-[#705e69]">Awaiting matching scholar</div>
+                          <span className="text-[10px] font-medium">Your exchange partner will appear here in real time.</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Neutral empty state when no live scholars are online */
+                <div className="p-6 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] text-center space-y-2 pointer-events-none select-none">
+                  <span className="material-symbols-outlined text-3xl text-[#b7a4b3] block mx-auto">groups</span>
+                  <p className="text-xs font-bold text-[#705e69]">Live peer exchange feed is idle</p>
+                  <p className="text-[11px] text-[#8c7b86] max-w-[260px] mx-auto leading-relaxed">
+                    Scholars will appear here in real time as they come online for swaps.
+                  </p>
                 </div>
-                <div className="bg-white px-3 py-2 rounded-xl text-xs font-semibold text-[#201a1b] border border-[#ccc4cd]/30 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-[#675975]">biotech</span>
-                  <span>Computational Genomics & Python</span>
-                </div>
-              </div>
+              )}
 
               {/* Action Button */}
               <button

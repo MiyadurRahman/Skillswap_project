@@ -1,4 +1,3 @@
-import React from 'react';
 import { LoginPage } from '../pages/LoginPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { SignUpPage } from '../pages/SignUpPage';
@@ -6,10 +5,17 @@ import { ProfileSetupPage } from '../pages/ProfileSetupPage';
 import { GetStartedPage } from '../pages/GetStartedPage';
 import { DiscoverPage } from '../pages/DiscoverPage';
 import { SkillManagerPage } from '../pages/SkillManagerPage';
-import { PublicProfilePage } from '../pages/PublicProfilePage';
+import { PublicProfilePage } from '../pages/ScholarProfilePage';
 import { SessionDetailsPage } from '../pages/SessionDetailsPage';
 import { RequestsPage } from '../pages/RequestsPage';
 import { SchedulePage } from '../pages/SchedulePage';
+import { LeaderboardPage } from '../pages/LeaderboardPage';
+
+// NOTE: Pages are intentionally imported eagerly (no React.lazy / code
+// splitting). Vite's code-splitting of these modules produced a circular
+// shared-chunk graph that crashed Discover with a chunk-initialization TDZ
+// error (blank white screen). The app is small (~380 kB gzip ~90 kB), so
+// bundling everything into one chunk is deliberate and safe.
 
 export const AppRoutes = ({
   currentScreen,
@@ -26,7 +32,6 @@ export const AppRoutes = ({
   setSelectedProfile,
   sessions = [],
   selectedSession,
-  setSelectedSession,
   onCreateSession,
   onUpdateSession,
   onSelectSession,
@@ -36,7 +41,7 @@ export const AppRoutes = ({
   outgoingRequests = [],
   onUpdateOutgoingRequests,
   selectedMentorForRequest,
-  setSelectedMentorForRequest,
+  onSaveProfileSkills,
   realtime = false,
   realtimeUsers = [],
   onRequestRealtime,
@@ -47,11 +52,13 @@ export const AppRoutes = ({
   onSendRequest,
   onCancelOutgoingRequest,
   onConfirmRescheduleRequest,
+  onSettleSession,
 }) => {
+  let screen;
   switch (currentScreen) {
     case 'requests':
     case 'request-session':
-      return (
+      screen = (
         <RequestsPage
           userProfile={userProfile}
           onNavigateScreen={(screen) => setCurrentScreen(screen)}
@@ -78,9 +85,10 @@ export const AppRoutes = ({
           onMessageMentor={onMessageMentor}
         />
       );
+      break;
 
     case 'session-details':
-      return (
+      screen = (
         <SessionDetailsPage
           session={selectedSession}
           allSessions={sessions}
@@ -94,11 +102,13 @@ export const AppRoutes = ({
           onAddSessionNote={onAddSessionNote}
           realtime={realtime}
           onMessageMentor={onMessageMentor}
+          onSettleSession={onSettleSession}
         />
       );
+      break;
 
     case 'schedule':
-      return (
+      screen = (
         <SchedulePage
           userProfile={userProfile}
           sessions={sessions}
@@ -108,9 +118,23 @@ export const AppRoutes = ({
           onShowToast={onShowToast}
         />
       );
+      break;
+
+    case 'leaderboard':
+      screen = (
+        <LeaderboardPage
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onOpenWalletModal={onOpenWallet}
+          onShowToast={onShowToast}
+          onSelectPeerProfile={(peer) => setSelectedProfile(peer)}
+          realtime={realtime}
+          realtimeUsers={realtimeUsers}
+        />
+      );
+      break;
 
     case 'public-profile':
-      return (
+      screen = (
         <PublicProfilePage
           userProfile={userProfile}
           profileData={selectedProfile}
@@ -123,30 +147,35 @@ export const AppRoutes = ({
           onMessageMentor={onMessageMentor}
         />
       );
+      break;
+
     case 'get-started':
-      return (
+      screen = (
         <GetStartedPage
           onNavigateToSignUp={() => setCurrentScreen('signup')}
           onNavigateToLogin={() => setCurrentScreen('login')}
           onExploreDemo={onExploreDemo}
           onShowToast={onShowToast}
           onOpenSSO={onOpenSSO}
+          realtime={realtime}
+          realtimeUsers={realtimeUsers}
         />
       );
+      break;
 
     case 'login':
-      return (
+      screen = (
         <LoginPage
           onLoginSuccess={() => setCurrentScreen('dashboard')}
           onNavigateToSignUp={() => setCurrentScreen('signup')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
-          onOpenSSO={onOpenSSO}
           onShowToast={onShowToast}
         />
       );
+      break;
 
     case 'skill-manager':
-      return (
+      screen = (
         <SkillManagerPage
           userProfile={userProfile}
           onNavigateScreen={(screen) => setCurrentScreen(screen)}
@@ -154,18 +183,13 @@ export const AppRoutes = ({
           onOpenMeetingModal={onOpenMeeting}
           onOpenWalletModal={onOpenWallet}
           onShowToast={onShowToast}
-          onSaveProfileSkills={({ skillsTeach, skillsWant }) => {
-            setUserProfile((prev) => ({
-              ...prev,
-              expertiseAreas: skillsTeach,
-              learningGoals: skillsWant,
-            }));
-          }}
+          onSaveProfileSkills={onSaveProfileSkills}
         />
       );
+      break;
 
     case 'discover':
-      return (
+      screen = (
         <DiscoverPage
           userProfile={userProfile}
           onNavigateScreen={(screen) => setCurrentScreen(screen)}
@@ -182,9 +206,10 @@ export const AppRoutes = ({
           onMessageMentor={onMessageMentor}
         />
       );
+      break;
 
     case 'dashboard':
-      return (
+      screen = (
         <DashboardPage
           userProfile={userProfile}
           onNavigateScreen={(screen) => setCurrentScreen(screen)}
@@ -200,9 +225,10 @@ export const AppRoutes = ({
           onMessageMentor={onMessageMentor}
         />
       );
+      break;
 
     case 'signup':
-      return (
+      screen = (
         <SignUpPage
           onSignUpSuccess={({ name, email }) => {
             setUserProfile((prev) => ({ ...prev, name, email }));
@@ -210,13 +236,13 @@ export const AppRoutes = ({
           }}
           onNavigateToLogin={() => setCurrentScreen('login')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
-          onOpenSSO={onOpenSSO}
           onShowToast={onShowToast}
         />
       );
+      break;
 
     case 'profile-setup':
-      return (
+      screen = (
         <ProfileSetupPage
           userProfile={userProfile}
           onUpdateProfile={(updated) => setUserProfile((prev) => ({ ...prev, ...updated }))}
@@ -224,9 +250,10 @@ export const AppRoutes = ({
           onShowToast={onShowToast}
         />
       );
+      break;
 
     default:
-      return (
+      screen = (
         <DashboardPage
           onNavigateScreen={(screen) => setCurrentScreen(screen)}
           onOpenMeetingModal={onOpenMeeting}
@@ -235,5 +262,8 @@ export const AppRoutes = ({
           onShowToast={onShowToast}
         />
       );
+      break;
   }
+
+  return <>{screen}</>;
 };

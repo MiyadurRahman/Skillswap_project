@@ -1,14 +1,9 @@
 import React from 'react';
-import { Navbar } from './Navbar';
 
 export const MainLayout = ({
   children,
   currentScreen,
-  onNavigateScreen,
-  userProfile,
   toastMessage,
-  onShowToast,
-  onOpenQuickDemo,
 }) => {
   const showNav = currentScreen === 'dashboard' || currentScreen === 'admin-overview' || currentScreen === 'profile-setup';
 

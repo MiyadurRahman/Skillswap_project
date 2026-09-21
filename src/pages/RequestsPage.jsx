@@ -1,16 +1,24 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
+import { AcceptModal } from '../component/requests/AcceptModal';
+import { DeclineModal } from '../component/requests/DeclineModal';
+import { RescheduleModal } from '../component/requests/RescheduleModal';
 import {
   drJulianVance,
   initialIncomingRequests,
   initialOutgoingRequests,
 } from '../data/requestsData';
+import { useRequestLists } from '../hooks/useRequestLists';
+import { useRequestFilters } from '../hooks/useRequestFilters';
+import { useAcceptFlow } from '../hooks/useAcceptFlow';
+import { useDeclineFlow } from '../hooks/useDeclineFlow';
+import { useRescheduleFlow } from '../hooks/useRescheduleFlow';
+import { useRequestForm } from '../hooks/useRequestForm';
 
 export const RequestsPage = ({
   userProfile: propProfile,
   onNavigateScreen,
-  onOpenMeetingModal,
   onOpenWalletModal,
   onShowToast,
   incomingRequests = initialIncomingRequests,
@@ -32,7 +40,7 @@ export const RequestsPage = ({
   onConfirmRescheduleRequest,
   onMessageMentor,
 }) => {
-  const { currentUser, userProfile: authProfile } = useAuth();
+  const { userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
   const userAvatar =
     userProfile?.avatarUrl ||
@@ -40,325 +48,113 @@ export const RequestsPage = ({
 
   // Active top tab: 'incoming' | 'outgoing' | 'request-form'
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'accepted' | 'declined'
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // Local state for incoming requests (realtime mode uses the Firebase prop directly)
-  const [incomingListState, setIncomingListState] = useState(incomingRequests);
-  const [outgoingListState, setOutgoingListState] = useState(outgoingRequests);
-
-  const incomingList = realtime ? incomingRequests : incomingListState;
-  const outgoingList = realtime ? outgoingRequests : outgoingListState;
-
-  // Sync to parent if provided
-  const updateIncoming = (newList) => {
-    setIncomingListState(newList);
-    if (onUpdateIncomingRequests) onUpdateIncomingRequests(newList);
-  };
-
-  const updateOutgoing = (newList) => {
-    setOutgoingListState(newList);
-    if (onUpdateOutgoingRequests) onUpdateOutgoingRequests(newList);
-  };
-
-  // State for the "Request a Learning Session" form (matching the screenshot exactly)
-  const [currentMentor, setCurrentMentor] = useState(selectedMentorForRequest || drJulianVance);
-  const [selectedSkillId, setSelectedSkillId] = useState('qm');
-  const [preferredDate, setPreferredDate] = useState('2024-10-28');
-  const [preferredTimeSlot, setPreferredTimeSlot] = useState('Morning (09:00 - 12:00)');
-  const [sessionGoals, setSessionGoals] = useState('');
-  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
-
-  // Modals for actions on incoming requests
-  const [acceptingReq, setAcceptingReq] = useState(null);
-  const [acceptNote, setAcceptNote] = useState('');
-  const [acceptPlatform, setAcceptPlatform] = useState('SkillSwap Connect');
-  const [acceptMeetingLink, setAcceptMeetingLink] = useState('https://meet.google.com/new');
-
-  const [decliningReq, setDecliningReq] = useState(null);
-  const [declineReason, setDeclineReason] = useState('Schedule conflict during this time slot');
-  const [customDeclineNote, setCustomDeclineNote] = useState('');
-
-  const [reschedulingReq, setReschedulingReq] = useState(null);
-  const [newProposedDate, setNewProposedDate] = useState('2024-10-28');
-  const [newProposedSlot, setNewProposedSlot] = useState('Afternoon (14:00 - 15:30)');
-  const [rescheduleNote, setRescheduleNote] = useState('');
-
-  // Incoming pending count
-  const pendingCount = incomingList.filter((r) => r.status === 'pending').length;
-
-  // Filter incoming list
-  const filteredIncoming = incomingList.filter((req) => {
-    if (statusFilter !== 'all' && req.status !== statusFilter) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchName = req.requester.name.toLowerCase().includes(q);
-      const matchSkill = req.requestedSkill.toLowerCase().includes(q);
-      const matchUniv = req.requester.university.toLowerCase().includes(q);
-      return matchName || matchSkill || matchUniv;
-    }
-    return true;
+  const { incomingList, outgoingList, updateIncoming, updateOutgoing } = useRequestLists({
+    realtime,
+    incomingRequests,
+    onUpdateIncomingRequests,
+    outgoingRequests,
+    onUpdateOutgoingRequests,
   });
 
-  // Handler: Accept Incoming Request
-  const handleOpenAcceptModal = (req) => {
-    setAcceptingReq(req);
-    setAcceptNote(
-      `Accepted! I look forward to working on ${req.requestedSkill}. Please prepare any preliminary dataset or formulas prior to our session.`
-    );
-    setAcceptPlatform('SkillSwap Connect');
-    setAcceptMeetingLink('https://meet.google.com/new');
-  };
+  const {
+    statusFilter,
+    setStatusFilter,
+    searchQuery,
+    setSearchQuery,
+    pendingCount,
+    filteredIncoming,
+  } = useRequestFilters(incomingList);
 
-  const handleConfirmAccept = async () => {
-    if (!acceptingReq) return;
+  const {
+    acceptingReq,
+    setAcceptingReq,
+    acceptNote,
+    setAcceptNote,
+    acceptPlatform,
+    setAcceptPlatform,
+    acceptMeetingLink,
+    setAcceptMeetingLink,
+    handleOpenAcceptModal,
+    handleConfirmAccept,
+  } = useAcceptFlow({
+    realtime,
+    incomingList,
+    updateIncoming,
+    onAcceptRequest,
+    onCreateSession,
+    onSelectSession,
+    userProfile,
+    userAvatar,
+    onShowToast,
+  });
 
-    // REALTIME: persist the acceptance to Firestore (session created server-side).
-    if (realtime) {
-      try {
-        const sessionId = await onAcceptRequest(acceptingReq, {
-          note: acceptNote,
-          platform: acceptPlatform,
-          meetingLink: acceptMeetingLink,
-        });
-        onShowToast(
-          `🎉 Request from ${acceptingReq.requester.name} accepted! A session was scheduled with your meeting link.`
-        );
-        setAcceptingReq(null);
-        if (sessionId && onSelectSession) {
-          onSelectSession({ id: sessionId });
-        }
-      } catch (e) {
-        console.warn('Accept failed:', e);
-        onShowToast('Could not accept request. Please try again.');
-      }
-      return;
-    }
+  const {
+    decliningReq,
+    setDecliningReq,
+    declineReason,
+    setDeclineReason,
+    customDeclineNote,
+    setCustomDeclineNote,
+    handleOpenDeclineModal,
+    handleConfirmDecline,
+  } = useDeclineFlow({
+    realtime,
+    incomingList,
+    updateIncoming,
+    onDeclineRequest,
+    onShowToast,
+  });
 
-    // 1. Update request status in list
-    const createdSessionId = `session-${Date.now()}`;
-    const updated = incomingList.map((r) =>
-      r.id === acceptingReq.id
-        ? {
-            ...r,
-            status: 'accepted',
-            acceptedAt: 'Just now',
-            responseNote: acceptNote,
-            linkedSessionId: createdSessionId,
-          }
-        : r
-    );
-    updateIncoming(updated);
+  const {
+    reschedulingReq,
+    setReschedulingReq,
+    newProposedDate,
+    setNewProposedDate,
+    newProposedSlot,
+    setNewProposedSlot,
+    rescheduleNote,
+    setRescheduleNote,
+    handleOpenRescheduleModal,
+    handleConfirmReschedule,
+    handleConfirmRescheduleResponse,
+    handleDeclineReschedule,
+  } = useRescheduleFlow({
+    realtime,
+    incomingList,
+    updateIncoming,
+    outgoingList,
+    updateOutgoing,
+    onRescheduleRequest,
+    onConfirmRescheduleRequest,
+    onCancelOutgoingRequest,
+    onShowToast,
+  });
 
-    // 2. Create actual confirmed session in global sessions list
-    const newSession = {
-      id: createdSessionId,
-      originRequestId: acceptingReq.id,
-      title: acceptingReq.requestedSkill,
-      status: 'Accepted',
-      description: `Collaborative mentorship session requested by ${acceptingReq.requester.name}. Focus: ${acceptingReq.requestedSkill}.`,
-      learningGoals: [
-        `Master foundational theorems in ${acceptingReq.requestedSkill}`,
-        'Solve core applied problems and edge cases',
-        'Review methodological integrity and literature context',
-      ],
-      duration: acceptingReq.skillLevel?.includes('90')
-        ? '90 Minutes'
-        : acceptingReq.skillLevel?.includes('45')
-        ? '45 Minutes'
-        : '60 Minutes',
-      method: 'Video Call',
-      platform: acceptPlatform,
-      date: acceptingReq.formattedDate || acceptingReq.preferredDate,
-      time: acceptingReq.preferredTimeSlot,
-      partner: {
-        id: acceptingReq.requester.id,
-        name: acceptingReq.requester.name,
-        title: acceptingReq.requester.title,
-        avatarUrl: acceptingReq.requester.avatarUrl,
-        isOnline: acceptingReq.requester.isOnline,
-        badges: [acceptingReq.requester.university, 'Scholar Swap'],
-        rating: acceptingReq.requester.rating,
-        reviewsCount: acceptingReq.requester.completedSwaps || 12,
-        credentials: ['Verified Student Scholar'],
-        responseSpeed: 'Fast responder',
-        availability: acceptingReq.preferredTimeSlot,
-        preferredMode: 'SkillSwap Connect Video Call',
-      },
-      notes: [
-        {
-          id: `note-${Date.now()}-1`,
-          authorName: acceptingReq.requester.name,
-          authorAvatar: acceptingReq.requester.avatarUrl,
-          timestamp: acceptingReq.submittedAt || 'Recently',
-          text: acceptingReq.goals,
-        },
-        {
-          id: `note-${Date.now()}-2`,
-          authorName: userProfile?.name || 'You',
-          authorAvatar: userAvatar,
-          timestamp: 'Just now',
-          text: acceptNote,
-        },
-      ],
-    };
-
-    if (onCreateSession) {
-      onCreateSession(newSession);
-    }
-    if (onSelectSession) {
-      onSelectSession(newSession);
-    }
-
-    onShowToast(
-      `🎉 Request from ${acceptingReq.requester.name} accepted! +${acceptingReq.creditsOffered} Academic Credits added to your balance.`
-    );
-    setAcceptingReq(null);
-  };
-
-  // Handler: Decline Incoming Request
-  const handleOpenDeclineModal = (req) => {
-    setDecliningReq(req);
-    setDeclineReason('Schedule conflict during this time slot');
-    setCustomDeclineNote('');
-  };
-
-  const handleConfirmDecline = async () => {
-    if (!decliningReq) return;
-
-    if (realtime) {
-      try {
-        await onDeclineRequest(
-          decliningReq.id,
-          customDeclineNote || declineReason || 'Schedule conflict during this time slot'
-        );
-        onShowToast(
-          `Request from ${decliningReq.requester.name} politely declined. Credits returned to scholar.`
-        );
-        setDecliningReq(null);
-      } catch (e) {
-        console.warn('Decline failed:', e);
-        onShowToast('Could not decline request. Please try again.');
-      }
-      return;
-    }
-
-    const updated = incomingList.map((r) =>
-      r.id === decliningReq.id
-        ? {
-            ...r,
-            status: 'declined',
-            declinedAt: 'Just now',
-            declineReason: customDeclineNote || declineReason,
-          }
-        : r
-    );
-    updateIncoming(updated);
-
-    onShowToast(
-      `Request from ${decliningReq.requester.name} politely declined. Credits returned to scholar.`
-    );
-    setDecliningReq(null);
-  };
-
-  // Handler: Reschedule Incoming Request
-  const handleOpenRescheduleModal = (req) => {
-    setReschedulingReq(req);
-    setNewProposedDate(req.preferredDate || '2024-10-28');
-    setNewProposedSlot('Afternoon (14:00 - 15:30)');
-    setRescheduleNote('I have a lab conflict at your requested time, but I am available at this alternate slot.');
-  };
-
-  const handleConfirmReschedule = async () => {
-    if (!reschedulingReq) return;
-
-    if (realtime) {
-      try {
-        await onRescheduleRequest(reschedulingReq.id, {
-          date: newProposedDate,
-          slot: newProposedSlot,
-          note: rescheduleNote,
-        });
-        onShowToast(
-          `Alternate time proposal sent to ${reschedulingReq.requester.name}. Awaiting scholar confirmation.`
-        );
-        setReschedulingReq(null);
-      } catch (e) {
-        console.warn('Reschedule failed:', e);
-        onShowToast('Could not send proposal. Please try again.');
-      }
-      return;
-    }
-
-    const updated = incomingList.map((r) =>
-      r.id === reschedulingReq.id
-        ? {
-            ...r,
-            status: 'rescheduled',
-            rescheduledDate: newProposedDate,
-            rescheduledSlot: newProposedSlot,
-            rescheduleNote: rescheduleNote,
-          }
-        : r
-    );
-    updateIncoming(updated);
-
-    onShowToast(
-      `Alternate time proposal sent to ${reschedulingReq.requester.name}. Awaiting scholar confirmation.`
-    );
-    setReschedulingReq(null);
-  };
-
-  // Handler: Outgoing request — respond to a mentor's proposed alternate time
-  const handleConfirmRescheduleResponse = async (req) => {
-    if (realtime) {
-      try {
-        await onConfirmRescheduleRequest(
-          req.id,
-          req.rescheduledDate || req.preferredDate,
-          req.rescheduledSlot || req.preferredTimeSlot
-        );
-        onShowToast(`New time confirmed with ${req.mentor.name}. Mentor will be notified.`);
-      } catch (e) {
-        console.warn('Confirm reschedule failed:', e);
-        onShowToast('Could not confirm new time. Please try again.');
-      }
-      return;
-    }
-
-    const updated = outgoingList.map((r) =>
-      r.id === req.id
-        ? {
-            ...r,
-            status: 'pending',
-            preferredDate: r.rescheduledDate || r.preferredDate,
-            formattedDate: r.rescheduledDate || r.formattedDate,
-            preferredTimeSlot: r.rescheduledSlot || r.preferredTimeSlot,
-            rescheduledDate: undefined,
-            rescheduledSlot: undefined,
-            rescheduleNote: undefined,
-          }
-        : r
-    );
-    updateOutgoing(updated);
-    onShowToast('Alternate time accepted. Request is pending mentor confirmation.');
-  };
-
-  const handleDeclineReschedule = async (req) => {
-    if (realtime) {
-      try {
-        await onCancelOutgoingRequest(req.id);
-        onShowToast('Reschedule declined. Request has been withdrawn.');
-      } catch (e) {
-        console.warn('Decline reschedule failed:', e);
-        onShowToast('Could not withdraw request. Please try again.');
-      }
-      return;
-    }
-
-    updateOutgoing(outgoingList.filter((r) => r.id !== req.id));
-    onShowToast('Reschedule declined. Request has been withdrawn.');
-  };
+  const {
+    currentMentor,
+    selectedSkillId,
+    setSelectedSkillId,
+    preferredDate,
+    minPreferredDate,
+    setPreferredDate,
+    preferredTimeSlot,
+    setPreferredTimeSlot,
+    sessionGoals,
+    setSessionGoals,
+    isSubmittingRequest,
+    handleSendLearningRequest,
+  } = useRequestForm({
+    realtime,
+    selectedMentorForRequest,
+    fallbackMentor: drJulianVance,
+    onSendRequest,
+    onShowToast,
+    setActiveTab,
+    updateOutgoing,
+    outgoingList,
+    userProfile,
+  });
 
   // Handler: Open the real chat drawer with a scholar/requester/mentor.
   const openRealChat = (person) => {
@@ -375,77 +171,8 @@ export const RequestsPage = ({
     }
   };
 
-  // Handler: Submit the "Request a Learning Session" Form (from Screenshot)
-  const handleSendLearningRequest = async (e) => {
-    e.preventDefault();
-    setIsSubmittingRequest(true);
-
-    const chosenSkill =
-      currentMentor.skills.find((s) => s.id === selectedSkillId) ||
-      currentMentor.skills[0];
-
-    // REALTIME: push the request to Firestore so the mentor sees it instantly.
-    if (realtime) {
-      try {
-        if (!currentMentor?.uid) {
-          onShowToast('In production mode, request a Live Scholar from the Discover page.');
-          setIsSubmittingRequest(false);
-          return;
-        }
-        await onSendRequest({
-          mentor: currentMentor,
-          requestedSkill: chosenSkill?.name || currentMentor.name,
-          skillLevel: chosenSkill?.level || 'Advanced Level • 60 min',
-          offeredExchange: `${currentMentor.cost || 250} Academic Credits`,
-          offeredSkill: userProfile?.expertiseAreas?.[0] || 'Peer Expertise',
-          cost: currentMentor.cost || 250,
-          creditsOffered: currentMentor.cost || 250,
-          preferredDate: preferredDate,
-          formattedDate: preferredDate,
-          preferredTimeSlot: preferredTimeSlot,
-          goals: sessionGoals || 'Learning fundamentals and advanced application.',
-        });
-        onShowToast(`✨ Learning session requested from ${currentMentor.name}!`);
-        setIsSubmittingRequest(false);
-        setActiveTab('outgoing');
-      } catch (err) {
-        console.warn('Send request failed:', err);
-        setIsSubmittingRequest(false);
-        const permissionDenied =
-          typeof err?.code === 'string' && err.code.includes('permission-denied');
-        onShowToast(
-          permissionDenied
-            ? 'Request blocked by Firestore security rules. Make sure they are deployed (firebase deploy --only firestore).'
-            : 'Could not send request. Check your connection and try again.'
-        );
-      }
-      return;
-    }
-
-    const newOutReq = {
-      id: `req-out-${Date.now()}`,
-      mentor: currentMentor,
-      requestedSkill: chosenSkill.name,
-      skillLevel: chosenSkill.level,
-      cost: currentMentor.cost || 250,
-      preferredDate: preferredDate,
-      formattedDate: preferredDate,
-      preferredTimeSlot: preferredTimeSlot,
-      goals: sessionGoals || 'Learning fundamentals and advanced application.',
-      status: 'pending',
-      submittedAt: 'Just now',
-    };
-
-    setTimeout(() => {
-      updateOutgoing([newOutReq, ...outgoingList]);
-      setIsSubmittingRequest(false);
-      onShowToast(`✨ Learning session requested from ${currentMentor.name}!`);
-      setActiveTab('outgoing');
-    }, 400);
-  };
-
   return (
-    <div className="min-h-screen bg-[#fff8f7] text-[#201a1b] font-sans antialiased flex flex-col justify-between">
+    <div id="screen-requests" className="min-h-screen bg-[#fff8f7] text-[#201a1b] font-sans antialiased flex flex-col justify-between">
       {/* 1. TOP NAVBAR (Matching the Screenshot) */}
       <header className="sticky top-0 w-full h-[68px] bg-[#3e313f] shadow-md z-50">
         <div className="flex items-center justify-between px-4 sm:px-8 max-w-[1360px] mx-auto h-full">
@@ -1286,7 +1013,7 @@ export const RequestsPage = ({
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-[#8c6773] mt-0.5">•</span>
-                    <span>Credits are only deducted once the mentor accepts.</span>
+                    <span>Credits transfer only after the session is completed and settled.</span>
                   </li>
                 </ul>
               </div>
@@ -1365,6 +1092,7 @@ export const RequestsPage = ({
                         <input
                           type="date"
                           value={preferredDate}
+                          min={minPreferredDate}
                           onChange={(e) => setPreferredDate(e.target.value)}
                           className="w-full bg-white border border-[#ebdcd8] rounded-xl px-4 py-3 text-sm text-[#201a1b] focus:outline-none focus:border-[#524156] shadow-2xs"
                           required
@@ -1479,243 +1207,44 @@ export const RequestsPage = ({
 
       {/* 4. MODALS FOR INCOMING ACTIONS (Accept, Decline, Reschedule, Message) */}
 
-      {/* Accept Modal */}
       {acceptingReq && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between border-b border-[#f4e8e5] pb-4">
-              <div className="flex items-center gap-3">
-                <img
-                  src={acceptingReq.requester.avatarUrl}
-                  alt={acceptingReq.requester.name}
-                  referrerPolicy="no-referrer"
-                  className="w-12 h-12 rounded-full object-cover border-2 border-[#ebd8d4]"
-                />
-                <div>
-                  <h3 className="font-bold text-base text-[#201a1b]">
-                    Confirm Session with {acceptingReq.requester.name}
-                  </h3>
-                  <p className="text-xs text-[#705e69]">
-                    {acceptingReq.requestedSkill} • {acceptingReq.formattedDate}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setAcceptingReq(null)}
-                className="text-[#8c7b86] hover:text-[#201a1b] p-1 rounded-lg"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="bg-[#fcf7f6] p-3.5 rounded-xl border border-[#ebdcd8] space-y-1">
-                <div className="font-bold text-[#201a1b]">Compensation Summary:</div>
-                <div className="text-emerald-800 font-semibold flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span>
-                  <span>+{acceptingReq.creditsOffered} Academic Credits credited upon session completion</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-[#201a1b] mb-1.5">
-                  Pre-Session Welcome Note / Preparation Instructions:
-                </label>
-                <textarea
-                  rows={3}
-                  value={acceptNote}
-                  onChange={(e) => setAcceptNote(e.target.value)}
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl p-3 text-xs text-[#201a1b] focus:outline-none focus:border-[#524156]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-[#201a1b] mb-1.5">
-                  Video Platform:
-                </label>
-                <select
-                  value={acceptPlatform}
-                  onChange={(e) => {
-                    setAcceptPlatform(e.target.value);
-                    setAcceptMeetingLink(
-                      e.target.value === 'Zoom Meeting Room'
-                        ? 'https://zoom.us/j/new'
-                        : 'https://meet.google.com/new'
-                    );
-                  }}
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3 py-2 text-xs text-[#201a1b]"
-                >
-                  <option value="SkillSwap Connect">SkillSwap Connect (Integrated Audio/Video)</option>
-                  <option value="Zoom Meeting Room">University Zoom Room</option>
-                  <option value="Google Meet">Google Meet</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-[#201a1b] mb-1.5">
-                  Meeting Link (shared with the student):
-                </label>
-                <input
-                  type="url"
-                  value={acceptMeetingLink}
-                  onChange={(e) => setAcceptMeetingLink(e.target.value)}
-                  placeholder="https://meet.google.com/new"
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3 py-2 text-xs text-[#201a1b] focus:outline-none focus:border-[#524156]"
-                />
-                <p className="text-[11px] text-[#705e69] mt-1">
-                  Paste your Google Meet, Zoom, or other video link. The student opens this when the session starts.
-                </p>
-              </div>
-
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-[#f4e8e5]">
-                <button
-                  type="button"
-                  onClick={() => setAcceptingReq(null)}
-                  className="px-4 py-2 text-xs font-semibold text-[#705e69]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmAccept}
-                  className="px-5 py-2.5 bg-[#473b4b] hover:bg-[#342738] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
-                  id="btn-confirm-accept-request"
-                >
-                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                  <span>Confirm & Add to Schedule</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AcceptModal
+          request={acceptingReq}
+          note={acceptNote}
+          onNoteChange={setAcceptNote}
+          platform={acceptPlatform}
+          onPlatformChange={setAcceptPlatform}
+          meetingLink={acceptMeetingLink}
+          onMeetingLinkChange={setAcceptMeetingLink}
+          onCancel={() => setAcceptingReq(null)}
+          onConfirm={handleConfirmAccept}
+        />
       )}
 
-      {/* Decline Modal */}
       {decliningReq && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <h3 className="font-bold text-base text-[#201a1b]">
-              Decline Session Request
-            </h3>
-            <p className="text-xs text-[#705e69]">
-              Please select a professional academic reason for declining {decliningReq.requester.name}'s request.
-            </p>
-
-            <div className="space-y-2 text-xs">
-              {[
-                'Schedule conflict during this time slot',
-                'Topic outside my primary research specialization',
-                'Currently at maximum weekly student capacity',
-                'Other reason...',
-              ].map((r) => (
-                <label
-                  key={r}
-                  className="flex items-center gap-2 p-2.5 rounded-lg hover:bg-[#fbf4f2] cursor-pointer border border-[#f0e4e1]"
-                >
-                  <input
-                    type="radio"
-                    name="decline-reason"
-                    checked={declineReason === r}
-                    onChange={() => setDeclineReason(r)}
-                  />
-                  <span>{r}</span>
-                </label>
-              ))}
-
-              {declineReason === 'Other reason...' && (
-                <textarea
-                  rows={2}
-                  value={customDeclineNote}
-                  onChange={(e) => setCustomDeclineNote(e.target.value)}
-                  placeholder="Provide a brief explanation for the student..."
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl p-2.5 text-xs text-[#201a1b] mt-2"
-                />
-              )}
-            </div>
-
-            <div className="pt-3 flex items-center justify-end gap-2 border-t border-[#f4e8e5]">
-              <button
-                onClick={() => setDecliningReq(null)}
-                className="px-4 py-2 text-xs font-semibold text-[#705e69]"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDecline}
-                className="px-4 py-2 bg-[#8c3d44] hover:bg-[#722e35] text-white font-bold text-xs rounded-xl shadow-xs"
-              >
-                Confirm Decline
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeclineModal
+          request={decliningReq}
+          reason={declineReason}
+          onReasonChange={setDeclineReason}
+          customNote={customDeclineNote}
+          onCustomNoteChange={setCustomDeclineNote}
+          onCancel={() => setDecliningReq(null)}
+          onConfirm={handleConfirmDecline}
+        />
       )}
 
-      {/* Reschedule / Propose Alternate Time Modal */}
       {reschedulingReq && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#eddcd8] rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <h3 className="font-bold text-base text-[#201a1b]">
-              Propose Alternate Time to {reschedulingReq.requester.name}
-            </h3>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-[#201a1b] mb-1">
-                  Proposed Alternate Date:
-                </label>
-                <input
-                  type="date"
-                  value={newProposedDate}
-                  onChange={(e) => setNewProposedDate(e.target.value)}
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3 py-2 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-[#201a1b] mb-1">
-                  Proposed Alternate Time Slot:
-                </label>
-                <select
-                  value={newProposedSlot}
-                  onChange={(e) => setNewProposedSlot(e.target.value)}
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3 py-2 text-xs"
-                >
-                  <option value="Morning (09:00 - 11:00)">Morning (09:00 - 11:00)</option>
-                  <option value="Afternoon (14:00 - 15:30)">Afternoon (14:00 - 15:30)</option>
-                  <option value="Evening (17:00 - 18:30)">Evening (17:00 - 18:30)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-[#201a1b] mb-1">
-                  Note to Scholar:
-                </label>
-                <textarea
-                  rows={2}
-                  value={rescheduleNote}
-                  onChange={(e) => setRescheduleNote(e.target.value)}
-                  className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl p-2.5 text-xs text-[#201a1b]"
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 flex items-center justify-end gap-2 border-t border-[#f4e8e5]">
-              <button
-                onClick={() => setReschedulingReq(null)}
-                className="px-4 py-2 text-xs font-semibold text-[#705e69]"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmReschedule}
-                className="px-4 py-2 bg-[#473b4b] text-white font-bold text-xs rounded-xl"
-              >
-                Send Proposal
-              </button>
-            </div>
-          </div>
-        </div>
+        <RescheduleModal
+          request={reschedulingReq}
+          date={newProposedDate}
+          onDateChange={setNewProposedDate}
+          slot={newProposedSlot}
+          onSlotChange={setNewProposedSlot}
+          note={rescheduleNote}
+          onNoteChange={setRescheduleNote}
+          onCancel={() => setReschedulingReq(null)}
+          onConfirm={handleConfirmReschedule}
+        />
       )}
 
       {/* 5. FOOTER (Matching the Screenshot Exactly) */}
@@ -1723,7 +1252,7 @@ export const RequestsPage = ({
         <div className="max-w-[1240px] mx-auto px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <div className="font-bold text-sm text-[#201a1b] mb-1">SkillSwap</div>
-            <p>© 2024 SkillSwap Academic. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} SkillSwap Academic. All rights reserved.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-6">

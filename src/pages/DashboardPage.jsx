@@ -3,7 +3,7 @@ import { ActiveSessionCard } from '../component/ActiveSessionCard';
 import { MentorCard } from '../component/MentorCard';
 import { MobileNav } from '../component/MobileNav';
 import { academicAssets } from '../assets';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { allPeers } from '../data/peersData';
 
 export const DashboardPage = ({
@@ -93,7 +93,7 @@ export const DashboardPage = ({
     };
   };
 
-  const fallbackMentors = [
+  const fallbackMentors = useMemo(() => [
     {
       id: 'mentor-1',
       name: 'Dr. Rafiqul Islam',
@@ -142,7 +142,7 @@ export const DashboardPage = ({
       badges: ['React', 'Node.js', 'Docker'],
       hourlyRateCredits: 1.0,
     },
-  ];
+  ], []);
 
   // The same scholars Discover shows: live Firestore users in realtime mode,
   // the shared demo peer dataset otherwise.
@@ -152,7 +152,7 @@ export const DashboardPage = ({
       : allPeers;
     const mapped = source.map(toMentorCard);
     return mapped.length > 0 ? mapped : fallbackMentors;
-  }, [realtime, realtimeUsers, currentUser?.uid]);
+  }, [realtime, realtimeUsers, currentUser?.uid, fallbackMentors]);
 
   const weeklyGrowthBars = [
     { day: 'MON', height: '30%', hours: '1.5 hrs' },
@@ -197,7 +197,7 @@ export const DashboardPage = ({
       await logOut();
       onShowToast('Successfully logged out.');
       onNavigateScreen('login');
-    } catch (e) {
+    } catch {
       onShowToast('Logged out.');
       onNavigateScreen('login');
     }
@@ -271,6 +271,13 @@ export const DashboardPage = ({
               Discover Peers
             </button>
             <button
+              onClick={() => go('leaderboard')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+              Leaderboard
+            </button>
+            <button
               onClick={() => go('requests')}
               className="w-full flex items-center justify-between px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
               id="btn-nav-session-requests-dash"
@@ -324,7 +331,7 @@ export const DashboardPage = ({
                 await logOut();
                 onShowToast('Successfully logged out.');
                 onNavigateScreen('login');
-              } catch (e) {
+              } catch {
                 onShowToast('Logged out.');
                 onNavigateScreen('login');
               }
@@ -380,6 +387,13 @@ export const DashboardPage = ({
               >
                 My Sessions
               </button>
+              <button
+                onClick={() => onNavigateScreen('leaderboard')}
+                className="text-white/80 font-medium hover:text-white transition-colors text-sm cursor-pointer"
+                id="dash-nav-leaderboard"
+              >
+                Leaderboard
+              </button>
             </div>
           </div>
 
@@ -401,13 +415,6 @@ export const DashboardPage = ({
                 title="Notifications"
               >
                 <span className="material-symbols-outlined text-[22px]">notifications</span>
-              </button>
-              <button
-                onClick={() => onShowToast('Scholar Messages: No unread chats')}
-                className="p-2 text-white/80 hover:text-white transition-colors cursor-pointer"
-                title="Messages"
-              >
-                <span className="material-symbols-outlined text-[22px]">chat_bubble</span>
               </button>
             </div>
             <div
@@ -457,7 +464,7 @@ export const DashboardPage = ({
                   Welcome back, {firstName}!
                 </h1>
                 <p className="text-xs sm:text-sm text-white/80 max-w-md leading-relaxed">
-                  You have <span className="font-bold text-[#efdbfd]">{upcomingSessionCount} upcoming session{upcomingSessionCount === 1 ? '' : 's'}</span> scheduled this week. Your time credit balance is ready for new exchanges.
+                  You have <span className="font-bold text-[#efdbfd]">{upcomingSessionCount} upcoming session{upcomingSessionCount === 1 ? '' : 's'}</span> on your schedule. Your time credit balance is ready for new exchanges.
                 </p>
                 <div className="pt-3 flex flex-wrap gap-3">
                   <button

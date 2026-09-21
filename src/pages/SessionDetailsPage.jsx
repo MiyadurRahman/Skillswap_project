@@ -1,21 +1,26 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
-import { resolveSessionTimes } from '../services/realtime';
+import { ReviewModal } from '../component/ReviewModal';
+import {
+  resolveSessionTimes,
+  submitReview,
+  subscribeReviewStatus,
+} from '../services/realtime';
+import { openExternalUrl } from '../utils/urlUtils';
 
 export const SessionDetailsPage = ({
   session: activeSessionProp,
   allSessions = [],
   onSelectSession,
   onNavigateScreen,
-  onOpenMeetingModal,
-  onOpenWalletModal,
   onShowToast,
   onSelectPeerProfile,
   onUpdateSession,
   onAddSessionNote,
   realtime = false,
   onMessageMentor,
+  onSettleSession,
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
   const userRole = authProfile?.academicLevel || 'PhD Candidate';
@@ -88,6 +93,105 @@ export const SessionDetailsPage = ({
   );
   const [rescheduleTime, setRescheduleTime] = useState(session?.time || 'Morning (09:00 - 12:00)');
   const [showSessionsDropdown, setShowSessionsDropdown] = useState(false);
+
+  // Review flow: opened after settling a session, saved to Firestore on submit.
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isSettling, setIsSettling] = useState(false);
+
+  // Is the current user the requester (based on the session's participant ids)?
+  const currentUid = currentUser?.uid;
+  const partnerUid = session.partner?.id || session.partner?.uid;
+  const mySideSettled = Boolean(session.settledBy && session.settledBy[currentUid]);
+  const reviewStatusKey = realtime && session?.id && currentUid
+    ? `${session.id}__${currentUid}`
+    : null;
+  const [reviewStatus, setReviewStatus] = useState({ key: null, submitted: false });
+  const reviewStatusReady = Boolean(reviewStatusKey && reviewStatus.key === reviewStatusKey);
+  const alreadyReviewed = reviewStatusReady && reviewStatus.submitted;
+
+  useEffect(() => {
+    if (!reviewStatusKey) return undefined;
+    return subscribeReviewStatus(session.id, currentUid, (submitted) => {
+      setReviewStatus({ key: reviewStatusKey, submitted });
+    });
+  }, [reviewStatusKey, session.id, currentUid]);
+
+  const handleCompleteSession = async () => {
+    if (session.status === 'Completed') {
+      onShowToast?.('This session is already completed.');
+      return;
+    }
+    if (isSettling) return;
+
+    // REALTIME: persist this participant's settlement. Firestore only permits
+    // reviews after both participants have settled and the session is Completed.
+    if (realtime && onSettleSession && session?.id) {
+      setIsSettling(true);
+      try {
+        const result = await onSettleSession(session);
+        if (result?.allSettled) {
+          onShowToast?.('✅ Session settled! Time credits transferred.');
+          if (partnerUid && !alreadyReviewed) {
+            setIsReviewModalOpen(true);
+          }
+        } else {
+          onShowToast?.(
+            'Your side is settled. You can review after your partner completes settlement.'
+          );
+        }
+      } catch (err) {
+        console.warn('Settle failed:', err);
+        onShowToast?.(err?.message || 'Could not settle this session.');
+      } finally {
+        setIsSettling(false);
+      }
+      return;
+    }
+
+    // DEMO: cosmetic completion (existing behavior).
+    const updatedSession = {
+      ...session,
+      status: 'Completed',
+    };
+    if (onUpdateSession) {
+      onUpdateSession(updatedSession);
+    }
+    onShowToast?.('Session marked complete in demo mode. No credits were transferred.');
+  };
+
+  const handleSubmitReview = async ({ sessionId, targetUid, rating, comment }) => {
+    try {
+      await submitReview({
+        sessionId,
+        authorUid: currentUser?.uid,
+        authorName: authProfile?.name || 'You',
+        authorAvatar: authProfile?.avatarUrl,
+        targetUid,
+        rating,
+        comment,
+      });
+      if (reviewStatusKey) {
+        setReviewStatus({ key: reviewStatusKey, submitted: true });
+      }
+      onShowToast?.('⭐ Review submitted — thanks for the feedback!');
+    } catch (err) {
+      console.warn('Review failed:', err);
+      if (err?.message?.includes('already reviewed')) {
+        if (reviewStatusKey) {
+          setReviewStatus({ key: reviewStatusKey, submitted: true });
+        }
+        onShowToast?.('You already reviewed this session.');
+        return;
+      }
+      const permissionDenied = String(err?.code || '').includes('permission-denied');
+      onShowToast?.(
+        permissionDenied
+          ? 'Reviews unlock after both participants settle and the session is completed.'
+          : err?.message || 'Could not post review.'
+      );
+      throw err;
+    }
+  };
 
   // REALTIME: no sessions yet — show an honest empty state instead of demo data.
   if (realtime && !activeSessionProp) {
@@ -198,22 +302,6 @@ export const SessionDetailsPage = ({
     } else {
       onShowToast?.('Session has been cancelled.');
     }
-  };
-
-  // Complete Handler
-  const handleCompleteSession = () => {
-    if (session.status === 'Completed') {
-      onShowToast?.('This session is already completed.');
-      return;
-    }
-    const updatedSession = {
-      ...session,
-      status: 'Completed',
-    };
-    if (onUpdateSession) {
-      onUpdateSession(updatedSession);
-    }
-    onShowToast?.('✅ Session completed! Academic credits have been released.');
   };
 
   // Add to Calendar .ics exporter
@@ -919,7 +1007,11 @@ export const SessionDetailsPage = ({
                 {/* Join Live Meeting (real Meet/Zoom link shared on accept) */}
                 {session.meetingLink && (
                   <button
-                    onClick={() => window.open(session.meetingLink, '_blank', 'noopener,noreferrer')}
+                    onClick={() => {
+                      if (!openExternalUrl(session.meetingLink)) {
+                        onShowToast?.('This meeting link is invalid. Ask the session host to update it.');
+                      }
+                    }}
                     className="w-full bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl px-4 py-3 text-xs font-bold flex items-center justify-between transition-colors shadow-sm cursor-pointer"
                     id="btn-join-meeting"
                   >
@@ -933,17 +1025,49 @@ export const SessionDetailsPage = ({
                 {/* Complete Session Button */}
                 <button
                   onClick={handleCompleteSession}
-                  disabled={session.status === 'Completed' || session.status === 'Cancelled'}
+                  disabled={
+                    session.status === 'Completed' ||
+                    session.status === 'Cancelled' ||
+                    mySideSettled ||
+                    isSettling
+                  }
                   className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-[#dfe8e2] disabled:text-[#8a9a90] disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-xs font-bold flex items-center justify-between transition-colors shadow-sm cursor-pointer"
                   id="btn-complete-session"
                 >
                   <span>
-                    {session.status === 'Completed' ? 'Session Completed' : 'Mark Session Complete'}
+                    {session.status === 'Completed'
+                      ? 'Session Completed'
+                      : mySideSettled
+                        ? 'Awaiting Partner'
+                        : isSettling
+                          ? 'Settling Credits…'
+                          : 'Settle Session'}
                   </span>
                   <span className="material-symbols-outlined text-[18px]">
                     {session.status === 'Completed' ? 'check_circle' : 'check'}
                   </span>
                 </button>
+
+                {realtime &&
+                  session.status === 'Completed' &&
+                  partnerUid &&
+                  reviewStatusReady &&
+                  (alreadyReviewed ? (
+                    <div className="w-full bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-xs font-bold flex items-center justify-between">
+                      <span>Review Submitted</span>
+                      <span className="material-symbols-outlined text-[18px]">star</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsReviewModalOpen(true)}
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-white rounded-xl px-4 py-3 text-xs font-bold flex items-center justify-between transition-colors shadow-sm cursor-pointer"
+                      id="btn-review-partner"
+                    >
+                      <span>Review Partner</span>
+                      <span className="material-symbols-outlined text-[18px]">rate_review</span>
+                    </button>
+                  ))}
 
                 {/* Reschedule Button */}
                 <button
@@ -1041,6 +1165,18 @@ export const SessionDetailsPage = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Review Modal (after settling a session) */}
+      {isReviewModalOpen && (
+        <ReviewModal
+          session={session}
+          authorName={authProfile?.name || 'You'}
+          authorAvatar={authProfile?.avatarUrl}
+          targetUid={partnerUid}
+          onSubmitReview={handleSubmitReview}
+          onClose={() => setIsReviewModalOpen(false)}
+        />
       )}
     </div>
   );

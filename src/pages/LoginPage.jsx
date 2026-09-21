@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { AUTH_CONFIG } from '../config/authConfig';
 
 export const LoginPage = ({
   onLoginSuccess,
   onNavigateToSignUp,
   onNavigateToGetStarted,
-  onOpenSSO,
   onShowToast,
 }) => {
   const { signIn, signInWithGoogleOAuth, resetPassword, loginAsDemo } = useAuth();
@@ -21,7 +20,7 @@ export const LoginPage = ({
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
 
-  const handleQuickDemoLogin = async (demoType = 'uiu') => {
+  const handleQuickDemoLogin = async () => {
     setErrorMessage('');
     const demoEmail = 'unknown@bscse.uiu.ac.bd';
     const demoPassword = 'password123';

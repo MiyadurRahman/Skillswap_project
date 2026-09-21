@@ -58,8 +58,9 @@ real production flow you need **two real Firebase accounts**:
 6. Both users now see the session on **Dashboard** and **My Sessions** with a
    **Join Live Meeting** button. Pre-session notes sync in real time.
 
-> Product note: the Academic Credits wallet is still a cosmetic ledger persisted
-> to the user profile. Real escrow/payments require a backend and are out of scope.
+> Product note: academic time credits settle only when a participant completes a
+> session. Firestore records the immutable ledger entry and updates the user's
+> balance transactionally; this is an in-app time bank, not a fiat payment system.
 
 ## Deploy to Firebase Hosting
 
@@ -85,4 +86,6 @@ firebase deploy --only hosting
 | `npm run dev`     | Vite dev server on port 3000        |
 | `npm run build`   | Production build to `dist/`         |
 | `npm run preview` | Preview the production build        |
-| `npm run lint`    | TypeScript check (`tsc --noEmit`)   |
+| `npm run lint`    | ESLint checks for the React source  |
+| `npm run typecheck` | TypeScript/JSDoc consistency check |
+| `npm run check`   | Lint, typecheck, and production build |
