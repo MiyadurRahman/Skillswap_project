@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { academicAssets } from '../assets';
 import { useDialogBehavior } from '../hooks/useDialogBehavior';
+import { useAuth } from '../context/auth';
+import { adjustUserCredits } from '../services/realtime';
+
+const signedAmount = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : 0;
+};
 
 export const Modals = ({
   activeModal,
   onClose,
-  selectedSession,
   selectedMentor,
   onShowToast,
   onProposeSwap,
@@ -13,393 +18,92 @@ export const Modals = ({
   userProfile,
   creditTransactions = [],
 }) => {
-  // Meeting states
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
-    'Dr. Rafiqul Islam: Welcome Tanvir! Let us inspect the dataset regression curve.',
-    'System: Session credit counter active (1.0 Hr swap).',
-  ]);
-  const [chatInput, setChatInput] = useState('');
-
-  // Wallet states
+  const { isAdmin } = useAuth();
   const [filterType, setFilterType] = useState('all');
+  const [adjustment, setAdjustment] = useState({ targetUid: '', amount: '', reason: '' });
+  const [adjusting, setAdjusting] = useState(false);
   useDialogBehavior(Boolean(activeModal), onClose);
-
-  // Live ledger from Firestore; falls back to the demo rows in demo mode.
-  const demoTransactions = [
-    {
-      id: 'demo-tx-1',
-      sessionId: 'demo-1',
-      title: 'Peer Tutoring: Dynamic Programming',
-      type: 'earned',
-      amount: 2.5,
-      date: 'Today, 11:20 AM',
-      partner: 'Shakib Chowdhury',
-    },
-    {
-      id: 'demo-tx-2',
-      sessionId: 'demo-2',
-      title: 'Workshop: Graph Algorithms',
-      type: 'spent',
-      amount: -1.0,
-      date: 'Yesterday',
-      partner: 'Dr. Rafiqul Islam',
-    },
-    {
-      id: 'demo-tx-3',
-      sessionId: 'demo-3',
-      title: 'Mentoring: LaTeX Paper Drafting',
-      type: 'earned',
-      amount: 2.0,
-      date: 'Aug 28, 2026',
-      partner: 'Abrar Zahin',
-    },
-    {
-      id: 'demo-tx-4',
-      sessionId: 'demo-4',
-      title: 'Review: Neural Architecture',
-      type: 'spent',
-      amount: -1.5,
-      date: 'Aug 25, 2026',
-      partner: 'Mahir Faisal',
-    },
-  ];
-
-  const transactions = creditTransactions.length > 0 ? creditTransactions : demoTransactions;
-
-  // A spent row stores a negative amount; earned rows are positive. Sum by
-  // their signed values so nothing is ever counted on the wrong side.
-  const signedOf = (raw) => {
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return 0;
-    return n;
-  };
-
-  // Chips are derived from the ledger itself (never double-counted).
-  const byType = (type) =>
-    transactions
-      .filter((tx) => tx.type === type)
-      .reduce((sum, tx) => sum + signedOf(tx.amount), 0);
-  const earnedTotal = Math.max(0, byType('earned'));
-  const spentTotal = Math.min(0, byType('spent'));
-  const settleRows = transactions.filter((tx) => /settl|transfer/.test(String(tx.date || '')));
-
-  const availableBalance =
-    userProfile?.timeCredits !== undefined
-      ? Number(userProfile.timeCredits)
-      : Number((earnedTotal + spentTotal).toFixed(2));
 
   if (!activeModal) return null;
 
+  const transactions = creditTransactions;
+  const visibleTransactions = transactions.filter(
+    (entry) => filterType === 'all' || entry.type === filterType
+  );
+  const earned = transactions
+    .filter((entry) => entry.type === 'earned')
+    .reduce((total, entry) => total + signedAmount(entry.amount), 0);
+  const spent = transactions
+    .filter((entry) => entry.type === 'spent')
+    .reduce((total, entry) => total + Math.abs(signedAmount(entry.amount)), 0);
+  const balance = Number(userProfile?.timeCredits || 0);
+
+  const submitAdjustment = async (event) => {
+    event.preventDefault();
+    if (adjusting) return;
+    setAdjusting(true);
+    try {
+      const result = await adjustUserCredits(adjustment);
+      onShowToast?.(`Balance adjusted to ${Number(result.balanceAfter).toFixed(1)} credits.`);
+      setAdjustment({ targetUid: '', amount: '', reason: '' });
+    } catch (error) {
+      onShowToast?.(error?.message || 'Credit adjustment failed.');
+    } finally {
+      setAdjusting(false);
+    }
+  };
+
   return (
     <div
-      id="modal-backdrop"
-      className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+      onClick={(event) => event.target === event.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
-      aria-label={
-        activeModal === 'meeting'
-          ? 'Live meeting room'
-          : activeModal === 'wallet'
-            ? 'Academic credit ledger'
-            : activeModal === 'mentor'
-              ? 'Scholar profile'
-              : 'Dialog'
-      }
+      aria-label={activeModal === 'wallet' ? 'Academic credit ledger' : 'Scholar profile'}
     >
-      {/* 1. Live Meeting Call Modal */}
-      {activeModal === 'meeting' && (
-        <div
-          id="modal-meeting-room"
-          className="bg-[#201a1b] text-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl border border-white/20 flex flex-col max-h-[90vh]"
-        >
-          {/* Header */}
-          <div className="bg-[#352f2f] px-6 py-4 flex items-center justify-between border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
-              <div>
-                <h3 className="text-base font-semibold text-[#efdbfd]">
-                  {selectedSession?.title || 'Data Structures & Dynamic Programming'}
-                </h3>
-                <p className="text-xs text-white/70">
-                  Host: {selectedSession?.mentorName || 'Dr. Rafiqul Islam'} • SkillSwap Verified Room
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs px-3 py-1 bg-[#675975] text-[#efdbfd] rounded-full font-medium">
-                Time Swap: 00:42:15
-              </span>
-              <button
-                onClick={onClose}
-                aria-label="Close meeting room"
-                className="p-1.5 rounded-full hover:bg-white/10 text-white/70 hover:text-white"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Main Video stage & Chat */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 flex-grow overflow-hidden min-h-[400px]">
-            {/* Video Canvas */}
-            <div className="md:col-span-2 bg-[#171314] p-4 flex flex-col justify-between relative">
-              <div className="grid grid-cols-2 gap-3 h-full">
-                {/* Host Feed */}
-                <div className="relative bg-[#2c2425] rounded-2xl overflow-hidden flex items-center justify-center border border-white/10">
-                  <img
-                    src={academicAssets.avatars.rafiqulIslam}
-                    alt="Host video feed"
-                    className="w-full h-full object-cover opacity-90"
-                  />
-                  <div className="absolute bottom-3 left-3 bg-black/60 px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-sm flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-xs text-green-400">mic</span>
-                    {selectedSession?.mentorName || 'Dr. Rafiqul Islam'}
-                  </div>
-                </div>
-
-                {/* Participant Feed (Tanvir) */}
-                <div className="relative bg-[#2c2425] rounded-2xl overflow-hidden flex items-center justify-center border border-white/10">
-                  {isVideoOff ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-16 h-16 rounded-full bg-[#675975] flex items-center justify-center text-xl font-bold text-white">
-                        TA
-                      </div>
-                      <span className="text-xs text-white/60">Camera Off</span>
-                    </div>
-                  ) : (
-                    <img
-                      src={academicAssets.avatars.tanvirAhmed}
-                      alt="Tanvir Ahmed video"
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                  <div className="absolute bottom-3 left-3 bg-black/60 px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-sm flex items-center gap-1.5">
-                    <span
-                      className={`material-symbols-outlined text-xs ${
-                        isMuted ? 'text-red-400' : 'text-green-400'
-                      }`}
-                    >
-                      {isMuted ? 'mic_off' : 'mic'}
-                    </span>
-                    Tanvir Ahmed (You)
-                  </div>
-                </div>
-              </div>
-
-              {/* Shared Jupyter / Latex Notebook Banner */}
-              <div className="mt-3 bg-[#241e20] p-2.5 rounded-xl flex items-center justify-between border border-white/5">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-amber-300 text-[18px]">
-                    code
-                  </span>
-                  <span className="text-xs text-white/90 font-mono">
-                    dsa_dynamic_programming_tree_dp.cpp
-                  </span>
-                </div>
-                <button
-                  onClick={() => onShowToast('Synced local C++ / Python sandbox with peer!')}
-                  className="px-2.5 py-1 bg-[#675975] text-[#efdbfd] rounded-lg text-xs hover:bg-[#52445f] transition-colors font-medium"
-                >
-                  Sync Workspace
-                </button>
-              </div>
-            </div>
-
-            {/* In-Call Side Chat */}
-            <div className="bg-[#201a1b] p-4 flex flex-col justify-between border-t md:border-t-0 md:border-l border-white/10">
-              <div>
-                <h4 className="text-xs font-bold text-white/70 uppercase tracking-wider mb-3">
-                  Live Peer Chat
-                </h4>
-                <div className="space-y-2.5 overflow-y-auto max-h-[260px] pr-1">
-                  {chatMessages.map((msg, i) => (
-                    <div
-                      key={i}
-                      className="text-xs bg-white/5 p-2.5 rounded-xl border border-white/5 text-white/90 leading-relaxed"
-                    >
-                      {msg}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (chatInput.trim()) {
-                    setChatMessages([...chatMessages, `Tanvir Ahmed: ${chatInput.trim()}`]);
-                    setChatInput('');
-                  }
-                }}
-                className="mt-3 flex gap-2"
-              >
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Ask a question..."
-                  className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-xl text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#c5b3d3]"
-                />
-                <button
-                  type="submit"
-                  aria-label="Send chat message"
-                  className="p-2 bg-[#c5b3d3] text-[#22162e] rounded-xl hover:bg-[#a992bb] transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[16px]">send</span>
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Bottom Call Controls */}
-          <div className="bg-[#352f2f] px-6 py-3.5 flex items-center justify-center gap-4 border-t border-white/10">
-            <button
-              onClick={() => {
-                setIsMuted(!isMuted);
-                onShowToast(isMuted ? 'Microphone unmuted' : 'Microphone muted');
-              }}
-              className={`p-3 rounded-full transition-colors ${
-                isMuted ? 'bg-red-500/80 text-white' : 'bg-white/10 hover:bg-white/20 text-white'
-              }`}
-              title={isMuted ? 'Unmute' : 'Mute'}
-            >
-              <span className="material-symbols-outlined text-[20px]">
-                {isMuted ? 'mic_off' : 'mic'}
-              </span>
-            </button>
-            <button
-              onClick={() => {
-                setIsVideoOff(!isVideoOff);
-                onShowToast(isVideoOff ? 'Camera turned on' : 'Camera turned off');
-              }}
-              className={`p-3 rounded-full transition-colors ${
-                isVideoOff ? 'bg-red-500/80 text-white' : 'bg-white/10 hover:bg-white/20 text-white'
-              }`}
-              title={isVideoOff ? 'Turn Video On' : 'Turn Video Off'}
-            >
-              <span className="material-symbols-outlined text-[20px]">
-                {isVideoOff ? 'videocam_off' : 'videocam'}
-              </span>
-            </button>
-            <button
-              onClick={() => onShowToast('Shared interactive screen with peer')}
-              className="p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-              title="Share Screen"
-            >
-              <span className="material-symbols-outlined text-[20px]">screen_share</span>
-            </button>
-            <button
-              onClick={() => onShowToast('Opened shared whiteboard canvas')}
-              className="p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-              title="Whiteboard"
-            >
-              <span className="material-symbols-outlined text-[20px]">draw</span>
-            </button>
-            <button
-              onClick={() => {
-                onShowToast('Session ended. 1.0 Time Credit transferred successfully!');
-                onClose();
-              }}
-              className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-bold transition-colors flex items-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[18px]">call_end</span>
-              End Session
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Time Credit Ledger Drawer Modal */}
       {activeModal === 'wallet' && (
-        <div
-          id="modal-wallet-drawer"
-          className="bg-white text-[#201a1b] w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
-        >
+        <section className="relative w-full max-w-2xl rounded-3xl border border-[#d9cdd5] bg-white p-6 text-[#201a1b] shadow-2xl sm:p-8">
           <button
             onClick={onClose}
             aria-label="Close credit ledger"
-            className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
+            className="absolute right-5 top-5 rounded-full p-2 text-[#7b757d] hover:bg-[#f7ebeb]"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
 
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-[#efdbfd] flex items-center justify-center text-[#52445f]">
-              <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eadff0] text-[#57445f]">
+              <span className="material-symbols-outlined">account_balance_wallet</span>
             </div>
             <div>
-              <h3 className="text-xl font-bold text-[#201a1b]">Academic Credit Ledger</h3>
-              <p className="text-xs text-[#4a454c]">
-                Verified 1:1 time credit balances and transaction proofs
-              </p>
+              <h3 className="text-xl font-bold">Academic Credit Ledger</h3>
+              <p className="text-xs text-[#705e69]">Live balance and immutable transaction history</p>
             </div>
           </div>
 
-          {/* Balance Spotlight */}
-          <div className="bg-[#fdf1f1] border border-[#ccc4cd]/40 rounded-2xl p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#7b757d]">
-                Available Balance
-              </span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-4xl font-extrabold text-[#675975]">
-                  {availableBalance.toFixed(1)}
-                </span>
-                <span className="text-sm font-semibold text-[#4a454c]">Academic Hours</span>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              ['Balance', balance, 'account_balance'],
+              ['Earned', earned, 'arrow_downward'],
+              ['Spent', spent, 'arrow_upward'],
+            ].map(([label, value, icon]) => (
+              <div key={label} className="rounded-2xl border border-[#e5d9df] bg-[#fcf8fa] p-4">
+                <span className="material-symbols-outlined text-lg text-[#675975]">{icon}</span>
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-[#7b6d78]">{label}</p>
+                <p className="text-xl font-bold">{Number(value).toFixed(1)}</p>
               </div>
-              <p className="text-xs text-[#4a454c]/80 mt-1">
-                Verified peer mentoring sessions — updated live from your ledger
-              </p>
-            </div>
-
-            {/* Earned / Spent / Settles chips (derived from the ledger) */}
-            <div className="flex items-center gap-2.5">
-              <div className="bg-emerald-50 border border-emerald-200/70 rounded-xl px-3.5 py-2 text-center min-w-[86px]">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700/70">
-                  Earned
-                </span>
-                <span className="block text-lg font-extrabold text-emerald-700">
-                  +{earnedTotal.toFixed(1)}
-                </span>
-              </div>
-              <div className="bg-rose-50 border border-rose-200/70 rounded-xl px-3.5 py-2 text-center min-w-[86px]">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-rose-700/70">
-                  Spent
-                </span>
-                <span className="block text-lg font-extrabold text-rose-700">
-                  {spentTotal.toFixed(1)}
-                </span>
-              </div>
-              <div className="bg-[#f3ecf2] border border-[#e0d2de] rounded-xl px-3.5 py-2 text-center min-w-[86px]">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#7b6a84]/70">
-                  Settles
-                </span>
-                <span className="block text-lg font-extrabold text-[#52445f]">
-                  {settleRows.length}
-                </span>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Filters */}
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-xs font-bold text-[#4a454c] uppercase tracking-wider">
-              Recent Transactions
-            </h4>
-            <div className="flex items-center gap-1 bg-[#f7ebeb] p-1 rounded-xl text-xs">
-              {['all', 'earned', 'spent'].map((type) => (
+          <div className="mb-3 mt-6 flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#4a454c]">Transactions</h4>
+            <div className="flex rounded-xl bg-[#f7ebeb] p-1">
+              {['all', 'earned', 'spent', 'adjustment'].map((type) => (
                 <button
                   key={type}
                   onClick={() => setFilterType(type)}
-                  className={`px-3 py-1 rounded-lg capitalize font-medium transition-colors ${
-                    filterType === type
-                      ? 'bg-white text-[#675975] font-bold shadow-xs'
-                      : 'text-[#7b757d] hover:text-[#201a1b]'
+                  className={`rounded-lg px-3 py-1 text-xs font-medium capitalize ${
+                    filterType === type ? 'bg-white text-[#473b4b] shadow-sm' : 'text-[#7b6d78]'
                   }`}
                 >
                   {type}
@@ -408,294 +112,101 @@ export const Modals = ({
             </div>
           </div>
 
-          {/* List */}
-          <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-            {transactions
-              .filter((tx) => (filterType === 'all' ? true : tx.type === filterType))
-              .map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between p-3.5 bg-white border border-[#ccc4cd]/40 rounded-xl hover:border-[#c5b3d3] transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                        tx.type === 'earned'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-rose-100 text-rose-700'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[18px]">
-                        {tx.type === 'earned' ? 'arrow_downward' : 'arrow_upward'}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-[#201a1b]">{tx.title}</p>
-                      <p className="text-[11px] text-[#7b757d]">
-                        {tx.partner} • {tx.date}
+          <div className="max-h-64 space-y-2.5 overflow-y-auto pr-1">
+            {visibleTransactions.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[#d8ccd2] bg-[#fcf8f8] p-6 text-center">
+                <span className="material-symbols-outlined text-2xl text-[#786571]">receipt_long</span>
+                <p className="mt-1 text-xs font-semibold">No wallet transactions yet</p>
+              </div>
+            ) : (
+              visibleTransactions.map((entry) => {
+                const amount = signedAmount(entry.amount);
+                return (
+                  <div key={entry.id} className="flex items-center justify-between rounded-xl border border-[#e5d9df] p-3.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold">{entry.title || 'Credit transaction'}</p>
+                      <p className="mt-0.5 truncate text-[11px] text-[#7b757d]">
+                        {entry.reason || entry.partner || 'SkillSwap ledger'} · {entry.date || 'Recently'}
                       </p>
                     </div>
+                    <span className={`ml-3 text-sm font-bold ${amount >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {amount > 0 ? '+' : ''}{amount.toFixed(1)}
+                    </span>
                   </div>
-                  <span
-                    className={`text-xs font-bold ${
-                      tx.type === 'earned' ? 'text-emerald-700' : 'text-rose-700'
-                    }`}
-                  >
-                    {tx.type === 'earned' ? '+' : ''}
-                    {signedOf(tx.amount).toFixed(1)} hrs
-                  </span>
-                </div>
-              ))}
+                );
+              })
+            )}
           </div>
 
-          <div className="mt-6 pt-4 border-t border-[#ccc4cd]/30 flex justify-between items-center text-xs text-[#7b757d]">
-            <span>SkillSwap Time Bank Contract: 0x93F...A2E</span>
-            <button
-              onClick={() => onShowToast('Exporting academic credit ledger PDF...')}
-              className="text-[#675975] font-bold hover:underline"
-            >
-              Export Statement (PDF)
-            </button>
-          </div>
-        </div>
+          {isAdmin && (
+            <form onSubmit={submitAdjustment} className="mt-5 space-y-3 rounded-2xl border border-[#d9c9df] bg-[#faf5fc] p-4">
+              <div>
+                <h4 className="text-xs font-bold">Administrator credit adjustment</h4>
+                <p className="text-[11px] text-[#7b6d78]">Every correction creates an immutable audit entry.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px]">
+                <input
+                  value={adjustment.targetUid}
+                  onChange={(event) => setAdjustment((state) => ({ ...state, targetUid: event.target.value.trim() }))}
+                  placeholder="Target Firebase UID"
+                  required
+                  className="rounded-xl border border-[#d9c9df] bg-white px-3 py-2 text-xs outline-none focus:border-[#675975]"
+                />
+                <input
+                  type="number"
+                  step="0.1"
+                  value={adjustment.amount}
+                  onChange={(event) => setAdjustment((state) => ({ ...state, amount: event.target.value }))}
+                  placeholder="+ / - amount"
+                  required
+                  className="rounded-xl border border-[#d9c9df] bg-white px-3 py-2 text-xs outline-none focus:border-[#675975]"
+                />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={adjustment.reason}
+                  onChange={(event) => setAdjustment((state) => ({ ...state, reason: event.target.value }))}
+                  placeholder="Reason for adjustment"
+                  minLength={5}
+                  required
+                  className="min-w-0 flex-1 rounded-xl border border-[#d9c9df] bg-white px-3 py-2 text-xs outline-none focus:border-[#675975]"
+                />
+                <button disabled={adjusting} className="rounded-xl bg-[#675975] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+                  {adjusting ? 'Saving…' : 'Apply'}
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
       )}
 
-      {/* 3. Mentor Profile Modal */}
       {activeModal === 'mentor' && selectedMentor && (
-        <div
-          id="modal-mentor-detail"
-          className="bg-white text-[#201a1b] w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
-        >
-          <button
-            onClick={onClose}
-            aria-label="Close scholar profile"
-            className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
-          >
+        <section className="relative w-full max-w-lg rounded-3xl border border-[#d9cdd5] bg-white p-6 text-[#201a1b] shadow-2xl sm:p-8">
+          <button onClick={onClose} aria-label="Close scholar details" className="absolute right-5 top-5 rounded-full p-2 text-[#7b757d] hover:bg-[#f7ebeb]">
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
-
-          <div className="flex flex-col items-center text-center">
-            <div className="relative mb-3">
-              <img
-                src={selectedMentor.avatarUrl}
-                alt={selectedMentor.name}
-                className="w-20 h-20 rounded-full object-cover border-4 border-[#efdbfd] shadow-md"
-              />
-              {selectedMentor.isOnline && (
-                <span className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></span>
-              )}
-            </div>
-
-            <h3 className="text-lg font-bold text-[#201a1b] flex items-center gap-1.5">
-              {selectedMentor.name}
-              <span className="material-symbols-outlined text-[18px] text-[#675975]">
-                verified
-              </span>
-            </h3>
-            <p className="text-xs text-[#675975] font-semibold">{selectedMentor.institution}</p>
-            <p className="text-xs text-[#4a454c] mt-1">{selectedMentor.field}</p>
-
-            <div className="flex items-center gap-4 my-4 bg-[#fdf1f1] px-5 py-2.5 rounded-2xl border border-[#ccc4cd]/30">
-              <div className="text-center">
-                <span className="text-xs text-[#7b757d] block">Rating</span>
-                <span className="text-sm font-bold text-amber-600 flex items-center justify-center gap-0.5">
-                  <span className="material-symbols-outlined text-xs fill text-amber-500">star</span>
-                  {selectedMentor.rating}
-                </span>
-              </div>
-              <div className="h-6 w-px bg-[#ccc4cd]/40"></div>
-              <div className="text-center">
-                <span className="text-xs text-[#7b757d] block">Exchanges</span>
-                <span className="text-sm font-bold text-[#201a1b]">
-                  {selectedMentor.reviewsCount}
-                </span>
-              </div>
-              <div className="h-6 w-px bg-[#ccc4cd]/40"></div>
-              <div className="text-center">
-                <span className="text-xs text-[#7b757d] block">Cost</span>
-                <span className="text-sm font-bold text-[#675975]">
-                  {selectedMentor.hourlyRateCredits} credit/hr
-                </span>
-              </div>
-            </div>
-
-            {/* Badges */}
-            <div className="w-full text-left mb-5">
-              <span className="text-xs font-bold text-[#4a454c] uppercase tracking-wider block mb-2">
-                Specialized Topics
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {selectedMentor.badges.map((b, i) => (
-                  <span
-                    key={i}
-                    className="text-xs bg-[#eeddf2] text-[#6c6071] px-3 py-1 rounded-full font-medium"
-                  >
-                    {b}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="w-full grid grid-cols-2 gap-3">
-              <button
-                onClick={() => {
-                  if (onProposeSwap) {
-                    onProposeSwap(selectedMentor);
-                  } else {
-                    onShowToast(`Proposal sent to ${selectedMentor.name}! Waiting for confirmation.`);
-                    onClose();
-                  }
-                }}
-                className="w-full py-3 bg-[#c5b3d3] hover:bg-[#a992bb] text-[#52445f] font-bold text-xs rounded-full transition-colors shadow-sm"
-              >
-                Propose 1 Hr Swap
-              </button>
-              <button
-                onClick={() => {
-                  if (onDirectMessage) {
-                    onDirectMessage(selectedMentor);
-                  } else {
-                    onShowToast(`Opened instant chat with ${selectedMentor.name}`);
-                    onClose();
-                  }
-                }}
-                className="w-full py-3 border border-[#ccc4cd] hover:bg-[#ebe0e0] text-[#201a1b] font-semibold text-xs rounded-full transition-colors"
-              >
-                Direct Message
-              </button>
+          <div className="flex items-center gap-4 pr-8">
+            <img src={selectedMentor.avatarUrl} alt={selectedMentor.name} className="h-16 w-16 rounded-full border-2 border-[#eadff0] object-cover" />
+            <div className="min-w-0">
+              <h3 className="truncate text-lg font-bold">{selectedMentor.name}</h3>
+              <p className="truncate text-xs text-[#675975]">{selectedMentor.title || selectedMentor.field || 'Peer Scholar'}</p>
+              <p className="truncate text-[11px] text-[#7b757d]">{selectedMentor.university || selectedMentor.institution || 'Institution not provided'}</p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* 4. Strategic Analytical Report Modal */}
-      {activeModal === 'report' && (
-        <div
-          id="modal-admin-report"
-          className="bg-white text-[#201a1b] w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
-        >
-          <button
-            onClick={onClose}
-            aria-label="Close report"
-            className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
-          >
-            <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
-
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-[#c5b3d3] flex items-center justify-center text-[#52445f]">
-              <span className="material-symbols-outlined text-xl">insights</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-[#201a1b]">Campus Intelligence Report</h3>
-              <p className="text-xs text-[#7b757d]">Generated Q3 Academic Skill Analytics</p>
-            </div>
-          </div>
-
-          <div className="space-y-3.5 text-xs text-[#4a454c] leading-relaxed mb-6">
-            <div className="bg-[#fdf1f1] p-4 rounded-xl border border-[#ccc4cd]/30">
-              <h4 className="font-bold text-[#675975] mb-1">
-                Highest Demand Inter-Faculty Swaps
-              </h4>
-              <p>
-                Computer Science & Biology cross-registrations increased by <strong>42%</strong>.
-                Researchers are actively trading Deep Learning coaching for Molecular Biology CRISPR
-                lab protocols.
-              </p>
-            </div>
-
-            <div className="bg-[#fdf1f1] p-4 rounded-xl border border-[#ccc4cd]/30">
-              <h4 className="font-bold text-[#675975] mb-1">Time Credit Liquidity Index</h4>
-              <p>
-                Platform circulation velocity is optimal at <strong>1.4 swaps/credit/month</strong>.
-                No inflation or deflation detected across the 12 participating research universities.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-[#ccc4cd] rounded-full text-xs font-semibold hover:bg-[#ebe0e0]"
-            >
-              Close
-            </button>
-            <button
-              onClick={() => {
-                onShowToast('Exported Full Institutional PDF (42 pages)');
-                onClose();
-              }}
-              className="px-5 py-2 bg-[#675975] text-white rounded-full text-xs font-bold hover:bg-[#52445f]"
-            >
-              Download Full PDF
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 5. SSO Provider Modal */}
-      {activeModal === 'sso' && (
-        <div
-          id="modal-sso-login"
-          className="bg-white text-[#201a1b] w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-[#ccc4cd]/40 p-6 sm:p-8 relative"
-        >
-          <button
-            onClick={onClose}
-            aria-label="Close sign-in dialog"
-            className="absolute top-5 right-5 p-2 rounded-full hover:bg-[#f7ebeb] text-[#7b757d]"
-          >
-            <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
-
-          <div className="text-center mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-[#efdbfd] text-[#52445f] mx-auto flex items-center justify-center mb-3">
-              <span className="material-symbols-outlined text-2xl">account_balance</span>
-            </div>
-            <h3 className="text-lg font-bold text-[#201a1b]">Federated University SSO</h3>
-            <p className="text-xs text-[#4a454c] mt-1">
-              Select your academic institution to authenticate securely via Shibboleth or InCommon
-            </p>
-          </div>
-
-          <div className="space-y-2.5 mb-6">
-            {[
-              { name: 'United International University (UIU)', domain: 'uiu.ac.bd' },
-              { name: 'Stanford University', domain: 'stanford.edu' },
-              { name: 'Massachusetts Institute of Tech', domain: 'mit.edu' },
-              { name: 'Harvard University', domain: 'harvard.edu' },
-              { name: 'University of California, Berkeley', domain: 'berkeley.edu' },
-              { name: 'Oxford University (EduID)', domain: 'ox.ac.uk' },
-            ].map((inst, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  onShowToast(`Authenticated via ${inst.name} SSO!`);
-                  onClose();
-                }}
-                className="w-full flex items-center justify-between p-3 border border-[#ccc4cd]/40 rounded-xl hover:bg-[#fdf1f1] hover:border-[#675975] transition-all text-left group"
-              >
-                <div>
-                  <p className="text-xs font-bold text-[#201a1b] group-hover:text-[#675975]">
-                    {inst.name}
-                  </p>
-                  <p className="text-[11px] text-[#7b757d]">{inst.domain}</p>
-                </div>
-                <span className="material-symbols-outlined text-[18px] text-[#7b757d] group-hover:translate-x-1 transition-transform">
-                  chevron_right
-                </span>
-              </button>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {(selectedMentor.badges || []).map((badge) => (
+              <span key={badge} className="rounded-full bg-[#eeddf2] px-3 py-1 text-xs font-medium text-[#5c4c62]">{badge}</span>
             ))}
           </div>
-
-          <div className="text-center">
-            <button
-              onClick={() => onShowToast('Contact institutional IT coordinator')}
-              className="text-xs text-[#675975] font-semibold hover:underline"
-            >
-              Don't see your university? Request node federated access
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button onClick={() => onProposeSwap?.(selectedMentor)} className="rounded-full bg-[#675975] py-3 text-xs font-bold text-white hover:bg-[#52445f]">
+              Propose Swap
+            </button>
+            <button onClick={() => onDirectMessage?.(selectedMentor)} className="rounded-full border border-[#d4c8d0] py-3 text-xs font-bold hover:bg-[#f7f1f5]">
+              Direct Message
             </button>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

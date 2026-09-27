@@ -28,58 +28,7 @@ export const SessionDetailsPage = ({
     authProfile?.avatarUrl ||
     'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
 
-  // Fallback default session if none is passed (matching exact screenshot)
-  const defaultSession = {
-    id: 'session-sem-1',
-    title: 'Advanced Quantitative Research Methods',
-    status: 'Accepted',
-    description:
-      'This session focuses on the application of structural equation modeling (SEM) in social science research. We will review the core assumptions of SEM and work through a practical example using R.',
-    learningGoals: [
-      'Master data preparation for SEM',
-      'Analyze model fit indices',
-      'Interpret latent variable paths',
-    ],
-    duration: '90 Minutes',
-    method: 'Video Call',
-    platform: 'SkillSwap Connect',
-    date: 'Wednesday, Oct 24',
-    time: '02:30 PM — 04:00 PM',
-    partner: {
-      id: 'peer-aris-thorne',
-      name: 'Dr. Aris Thorne',
-      title: 'Senior Researcher, Data Science',
-      avatarUrl:
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-      isOnline: true,
-      badges: ['Statistics', 'R-Programming'],
-      skillsTeach: [
-        'Advanced Quantitative Methods',
-        'Structural Equation Modeling (SEM)',
-        'R-Programming',
-        'Multivariate Statistics',
-      ],
-      skillsWant: ['Deep Learning in PyTorch', 'Qualitative Interview Design'],
-      rating: 4.9,
-      reviewsCount: 88,
-      credentials: ['PhD in Computational Statistics', 'Verified Senior Researcher'],
-      responseSpeed: 'Usually responds in 1h',
-      availability: 'Available: Wed, Oct 24 (02:30 PM)',
-      preferredMode: 'Preferred: SkillSwap Connect Video Call',
-    },
-    notes: [
-      {
-        id: 'note-1',
-        authorName: 'Dr. Aris Thorne',
-        authorAvatar:
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-        timestamp: '2 hours ago',
-        text: "I've uploaded the preliminary dataset we'll be using. Please take a look at the variable definitions before our meeting on Wednesday.",
-      },
-    ],
-  };
-
-  const session = activeSessionProp || defaultSession;
+  const session = activeSessionProp || { partner: {}, notes: [] };
 
   // Local interactive states
   const [isAddingNote, setIsAddingNote] = useState(false);
@@ -123,9 +72,7 @@ export const SessionDetailsPage = ({
     }
     if (isSettling) return;
 
-    // REALTIME: persist this participant's settlement. Firestore only permits
-    // reviews after both participants have settled and the session is Completed.
-    if (realtime && onSettleSession && session?.id) {
+    if (onSettleSession && session?.id) {
       setIsSettling(true);
       try {
         const result = await onSettleSession(session);
@@ -147,16 +94,7 @@ export const SessionDetailsPage = ({
       }
       return;
     }
-
-    // DEMO: cosmetic completion (existing behavior).
-    const updatedSession = {
-      ...session,
-      status: 'Completed',
-    };
-    if (onUpdateSession) {
-      onUpdateSession(updatedSession);
-    }
-    onShowToast?.('Session marked complete in demo mode. No credits were transferred.');
+    onShowToast?.('This session cannot be settled because it has not synced yet.');
   };
 
   const handleSubmitReview = async ({ sessionId, targetUid, rating, comment }) => {
@@ -193,8 +131,7 @@ export const SessionDetailsPage = ({
     }
   };
 
-  // REALTIME: no sessions yet — show an honest empty state instead of demo data.
-  if (realtime && !activeSessionProp) {
+  if (!activeSessionProp) {
     return (
       <div
         id="screen-session-details"

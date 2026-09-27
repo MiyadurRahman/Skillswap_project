@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/auth';
-import { AUTH_CONFIG } from '../config/authConfig';
 
 export const LoginPage = ({
   onLoginSuccess,
@@ -8,7 +7,7 @@ export const LoginPage = ({
   onNavigateToGetStarted,
   onShowToast,
 }) => {
-  const { signIn, signInWithGoogleOAuth, resetPassword, loginAsDemo } = useAuth();
+  const { signIn, signInWithGoogleOAuth, resetPassword } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,39 +18,6 @@ export const LoginPage = ({
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-
-  const handleQuickDemoLogin = async () => {
-    setErrorMessage('');
-    const demoEmail = 'unknown@bscse.uiu.ac.bd';
-    const demoPassword = 'password123';
-    
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setLoading(true);
-
-    try {
-      const result = await (loginAsDemo ? loginAsDemo(demoEmail) : signIn(demoEmail, demoPassword));
-      onShowToast(`Welcome, ${result.profile?.name || 'Unknown'}!`);
-      if (onLoginSuccess) onLoginSuccess();
-    } catch (err) {
-      setErrorMessage(err.message || 'Failed to authenticate demo account.');
-      onShowToast(err.message || 'Demo login failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFillDemo = (demoType) => {
-    if (demoType === 'uiu') {
-      setEmail('unknown@bscse.uiu.ac.bd');
-      setPassword('password123');
-      onShowToast('Loaded UIU credentials. Click "Instant Sign In" to enter!');
-    } else {
-      setEmail('');
-      setPassword('');
-      onShowToast('Cleared form fields.');
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -310,56 +276,6 @@ export const LoginPage = ({
             </button>
           </div>
 
-          {/* Quick Demo Login Section (Toggled by AUTH_CONFIG.SHOW_DEMO_LOGIN) */}
-          {(AUTH_CONFIG.SHOW_DEMO_LOGIN ?? AUTH_CONFIG.ENABLE_INSTANT_SIGN_IN) && (
-            <div className="mt-5 pt-4 border-t border-[#ccc4cd]/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold text-[#675975] flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[15px]">bolt</span>
-                  Demo Quick Login:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleFillDemo('clear')}
-                  className="text-[10px] text-[#7b757d] hover:text-[#201a1b] underline cursor-pointer"
-                >
-                  Clear Fields
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  id="demo-login-uiu"
-                  type="button"
-                  onClick={() => handleFillDemo('uiu')}
-                  title="Fill input fields"
-                  className={`flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors flex items-center justify-between cursor-pointer ${
-                    email === AUTH_CONFIG.DEMO_ACCOUNT.email
-                      ? 'bg-[#675975] text-white border-[#675975] shadow-sm'
-                      : 'bg-[#f7effa] hover:bg-[#ebd9f8] text-[#52445f] border-[#d2c0e0]'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[15px]">school</span>
-                    <span>{AUTH_CONFIG.DEMO_ACCOUNT.label}</span>
-                  </div>
-                  <span className="text-[10px] opacity-75 font-mono">
-                    {AUTH_CONFIG.DEMO_ACCOUNT.email}
-                  </span>
-                </button>
-
-                <button
-                  id="btn-instant-demo-login"
-                  type="button"
-                  disabled={loading}
-                  onClick={() => handleQuickDemoLogin('uiu')}
-                  className="px-3.5 py-2 bg-[#675975] hover:bg-[#52445f] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined text-[14px]">login</span>
-                  <span>Instant Sign In</span>
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer Meta */}

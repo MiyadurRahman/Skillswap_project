@@ -1,91 +1,80 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# SkillSwap Academic
 
-# SkillSwap Academic — Realtime Edition
+A Firebase-backed peer skill exchange. Authentication, scholar profiles,
+requests, sessions, chat, reviews, achievements, leaderboard statistics, skill
+wishlists, presence, and the time-credit ledger all use live Firestore data.
 
-Academic peer-to-peer skill exchange platform where **two real users** request,
-accept, and join sessions with **real-time sync via Firebase (Cloud Firestore)**.
-
-## Features
-
-- Firebase Authentication (email/password + Google)
-- Real-time session requests: User A sends a request → User B sees it instantly
-- Accept / Decline / Propose Alternate responses flow back to the requester live
-- Accepting a request atomically creates a confirmed `session` visible to both users
-- Accepted sessions carry a Google Meet / Zoom link; both users click **Join Live Meeting**
-- Shared pre-session notes sync between both participants
-- Discover page shows **Live Scholars** (real users) you can request sessions from
-- Demo mode (without signing in) uses seeded local data for exploring the UI
-
-## Run Locally
-
-**Prerequisites:** Node.js
-
-1. Install dependencies:
-   `npm install`
-2. (Optional) Set `GEMINI_API_KEY` in `.env.local` for Gemini features.
-3. Run the app:
-   `npm run dev`
-
-## Firebase setup (one-time)
-
-1. In the [Firebase console](https://console.firebase.google.com) select the
-   project `skillswap-45be2` (or your own project).
-2. Enable **Cloud Firestore** and **Authentication** (Email/Password + Google).
-3. Deploy the security rules so two-user requests/sessions can be shared safely:
-
-   ```bash
-   npm install -g firebase-tools
-   firebase login
-   firebase deploy --only firestore
-   ```
-
-4. The Firebase config in `src/firebase.js` already points at the project. If you
-   use your own project, replace the `firebaseConfig` values there.
-
-## Testing the realtime two-user flow
-
-The demo login (`Explore as Demo`) still uses local seed data. To exercise the
-real production flow you need **two real Firebase accounts**:
-
-1. In your normal browser window: **Sign up** (email/password or Google) as User A.
-2. Open an **incognito/private window** and **Sign up** as a different User B.
-3. Confirm both profiles appear under **Discover → Live Scholars**.
-4. As User A: open a Live Scholar's card → **Request Session** → fill the form → Send.
-5. As User B (mentor): your **Requests → Incoming** list updates instantly →
-   **Accept Session** → paste your Google Meet link → Confirm.
-6. Both users now see the session on **Dashboard** and **My Sessions** with a
-   **Join Live Meeting** button. Pre-session notes sync in real time.
-
-> Product note: academic time credits settle only when a participant completes a
-> session. Firestore records the immutable ledger entry and updates the user's
-> balance transactionally; this is an in-app time bank, not a fiat payment system.
-
-## Deploy to Firebase Hosting
+## Local development
 
 ```bash
-npm run build
-firebase login
-firebase deploy --only hosting
+npm install
+npm run dev
 ```
 
-## Project layout
+Run the full verification suite with:
 
-- `src/services/realtime.js` — Firestore data model, live subscriptions, and
-  request/session mutations (the realtime core)
-- `src/firebase.js` — Firebase app, Auth, Firestore, Storage
-- `src/context/AuthContext.jsx` — auth + Firestore profile sync
-- `firestore.rules` — security rules (participants-only access)
-- `firebase.json` / `.firebaserc` — hosting + Firestore config
+```bash
+npm run check
+```
 
-## Scripts
+## Firebase setup
 
-| Script            | Description                         |
-| ----------------- | ----------------------------------- |
-| `npm run dev`     | Vite dev server on port 3000        |
-| `npm run build`   | Production build to `dist/`         |
-| `npm run preview` | Preview the production build        |
-| `npm run lint`    | ESLint checks for the React source  |
-| `npm run typecheck` | TypeScript/JSDoc consistency check |
-| `npm run check`   | Lint, typecheck, and production build |
+The checked-in Firebase configuration targets `skillswap-45be2`. Enable Email /
+Password and Google authentication in Firebase Authentication, then deploy the
+rules and indexes:
+
+```bash
+firebase login
+npm run deploy:rules
+```
+
+The real-time workflow works on Firebase's Spark plan. Credit settlement and
+review aggregation use atomic Firestore transactions and are validated by
+`firestore.rules`; clients cannot directly forge balances, swap totals, or
+didratings.
+
+## Manual wallet administration
+
+Wallet corrections are only visible to accounts with the Firebase custom claim
+`admin: true`. To grant that claim, create a Firebase service-account key,
+provide it to Application Default Credentials, and run:
+
+```powershell
+$env:GOOGLE_APPLICATION_CREDENTIALS="C:\secure\skillswap-service-account.json"
+npm run set-admin -- FIREBASE_USER_UID true
+```
+
+The administrator must sign out and back in after the claim changes. The wallet
+then shows a manual adjustment form. Every correction requires a reason and
+creates an immutable ledger entry. Revoke access with:
+
+```powershell
+npm run set-admin -- FIREBASE_USER_UID false
+```
+
+Keep the service-account file outside this repository and never commit it.
+
+## Test the two-user flow
+
+1. Sign in as User A in a normal browser window.
+2. Sign in as User B in a private window.
+3. Complete both profiles and add skills to teach and learn.
+4. User A opens User B from Discover and sends a request.
+5. User B accepts it and supplies a real meeting link.
+6. After the session, both users confirm completion. The second confirmation
+   transfers credits and updates both swap totals atomically.
+7. Each participant can submit one review. Ratings, badges, profiles, wallet
+   history, and leaderboard results update from Firestore snapshots.
+
+## Useful commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start Vite on port 3000 |
+| `npm run check` | Lint, type-check, and production-build |
+| `npm run deploy:rules` | Deploy Firestore rules and indexes |
+| `npm run set-admin -- <uid> true` | Grant wallet-admin access |
+| `npm run build` | Build `dist/` |
+
+The main data contract is in `src/services/realtime.js`; authorization and
+cross-document invariants are in `firestore.rules`.

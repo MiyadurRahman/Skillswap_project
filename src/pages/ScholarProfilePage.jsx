@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 import { useReviews } from '../hooks/useReviews';
 import { formatAcademicDate, toDateInput } from '../utils/dateUtils';
+import { getAchievementBadges, subscribeUserProfile } from '../services/realtime';
+import { resolveAvatarForName } from '../assets';
 
 const PROFILE_SLOTS = [
   { value: `${toDateInput(2)}|03:00 PM`, label: `${formatAcademicDate(2, false)} · 3:00 PM – 4:00 PM` },
@@ -16,8 +18,8 @@ export const PublicProfilePage = ({
   onShowToast,
   userProfile: currentLoggedProfile,
   profileData: customProfile,
-  onCreateSession,
   onMessageMentor,
+  onRequestRealtime,
 }) => {
   const { userProfile: authProfile } = useAuth();
   const activeUser = authProfile || currentLoggedProfile || {};
@@ -25,97 +27,67 @@ export const PublicProfilePage = ({
   // Message Dialog state (real chat is opened via the global drawer)
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(PROFILE_SLOTS[0].value);
-  const [offeredSkill, setOfferedSkill] = useState('Python Data Science');
-  const [sessionTopic, setSessionTopic] = useState('Introduction to Behavioral Economics and Market Heuristics');
+  const [offeredSkill, setOfferedSkill] = useState('');
+  const [sessionTopic, setSessionTopic] = useState('');
 
   // Reviews expansion state
   const [showAllReviews, setShowAllReviews] = useState(false);
-  const [requestSeed] = useState(Date.now);
+  const profileUid = customProfile?.uid || customProfile?.id || null;
+  const [liveProfile, setLiveProfile] = useState(customProfile || null);
 
-  // Profile data defaults to Dr. Elena Vance matching exact uploaded screenshot
-  const defaultElenaProfile = {
-    id: 'elena-vance',
-    name: 'Dr. Elena Vance',
-    title: 'Senior Fellow in Behavioral Economics',
-    rating: 4.9,
-    reviewsCount: 124,
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&auto=format&fit=crop&q=80',
-    isOnline: true,
-    bio: 'With over 15 years in academic research and cross-disciplinary studies, I specialize in the intersection of cognitive psychology and market dynamics. My goal is to bridge the gap between theoretical frameworks and practical application through collaborative peer-to-peer exchange.',
-    credentials: ['PhD from Oxford', 'Verified Scholar'],
-    responseSpeed: 'Usually responds in 2h',
-    skillsTeach: [
-      'Behavioral Modeling',
-      'Statistical Analysis (R)',
-      'Game Theory',
-      'Cognitive Bias Research',
-      'Academic Writing',
-    ],
-    skillsWant: [
-      'Advanced Python',
-      'Machine Learning Basics',
-      'Data Visualization',
-      'Public Speaking',
-    ],
-    availability: 'Available: Tue, Thu, Sat',
-    preferredMode: 'Preferred: Virtual / Zoom',
-    swapsCount: 48,
-    learnersCount: '2.1k',
-    reviews: [
-      {
-        id: 'rev-1',
-        name: 'Marcus Thorne',
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
-        rating: 5,
-        quote: "Elena's session on Game Theory was transformative. She has a way of making complex mathematical concepts feel intuitive. Looking forward to our next swap!",
-        meta: 'Oct 14, 2024 • Swapped for Python Intro',
-      },
-      {
-        id: 'rev-2',
-        name: 'Dr. Sarah L.',
-        avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=240&auto=format&fit=crop&q=80',
-        rating: 5,
-        quote: "Fantastic collaboration. Her statistical analysis skills are top-notch. She really helped me refine my research paper methodology.",
-        meta: 'Sep 28, 2024 • Swapped for Data Viz',
-      },
-      {
-        id: 'rev-3',
-        name: 'Prof. Julian V.',
-        avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80',
-        rating: 5,
-        quote: 'Insightful exploration of stochastic choice theory. Highly recommended peer mentor for researchers preparing manuscript publications.',
-        meta: 'Sep 12, 2024 • Swapped for Statistical Modeling',
-      },
-    ],
+  useEffect(() => {
+    if (!profileUid) return undefined;
+    return subscribeUserProfile(profileUid, setLiveProfile);
+  }, [profileUid]);
+
+  const emptyProfile = {
+    id: null,
+    name: 'Scholar',
+    title: 'Peer Scholar',
+    rating: 0,
+    reviewsCount: 0,
+    avatarUrl: resolveAvatarForName('Scholar'),
+    isOnline: false,
+    bio: 'This scholar has not added a biography yet.',
+    credentials: [],
+    responseSpeed: 'Not enough response data',
+    skillsTeach: [],
+    skillsWant: [],
+    availability: 'Availability not provided',
+    preferredMode: 'Preferred mode not provided',
+    swapsCount: 0,
+    learnersCount: 0,
+    reviews: [],
   };
-
-  const profile = !customProfile
-    ? defaultElenaProfile
+  const profileSource = liveProfile || customProfile;
+  const ratingCount = Number(profileSource?.ratingCount ?? profileSource?.reviewsCount ?? 0);
+  const ratingSum = Number(profileSource?.ratingSum ?? 0);
+  const profile = !profileSource
+    ? emptyProfile
     : {
-      id: customProfile.id || defaultElenaProfile.id,
-      name: customProfile.name || defaultElenaProfile.name,
-      title: customProfile.title || defaultElenaProfile.title,
-      rating: customProfile.rating || defaultElenaProfile.rating,
-      reviewsCount: customProfile.reviewsCount || defaultElenaProfile.reviewsCount,
-      avatarUrl: customProfile.avatarUrl || defaultElenaProfile.avatarUrl,
-      isOnline: customProfile.isOnline !== undefined ? customProfile.isOnline : true,
-      bio: customProfile.bio || defaultElenaProfile.bio,
-      credentials: customProfile.credentials && customProfile.credentials.length > 0 ? customProfile.credentials : defaultElenaProfile.credentials,
-      responseSpeed: customProfile.responseSpeed || defaultElenaProfile.responseSpeed,
-      skillsTeach: customProfile.skillsTeach && customProfile.skillsTeach.length > 0 ? customProfile.skillsTeach : defaultElenaProfile.skillsTeach,
-      skillsWant: customProfile.skillsWant && customProfile.skillsWant.length > 0 ? customProfile.skillsWant : defaultElenaProfile.skillsWant,
-      availability: customProfile.availability || defaultElenaProfile.availability,
-      preferredMode: customProfile.preferredMode || defaultElenaProfile.preferredMode,
-      swapsCount: customProfile.swapsCount || defaultElenaProfile.swapsCount,
-      learnersCount: customProfile.learnersCount || defaultElenaProfile.learnersCount,
-      reviews: customProfile.reviews && customProfile.reviews.length > 0 ? customProfile.reviews : defaultElenaProfile.reviews,
+      ...emptyProfile,
+      ...profileSource,
+      id: profileUid,
+      uid: profileUid,
+      name: profileSource.name || 'Scholar',
+      title: profileSource.title || profileSource.academicLevel || 'Peer Scholar',
+      rating: ratingCount > 0
+        ? Number(profileSource.ratingAverage ?? ratingSum / ratingCount)
+        : 0,
+      reviewsCount: ratingCount,
+      avatarUrl: profileSource.avatarUrl || resolveAvatarForName(profileSource.name || 'Scholar'),
+      skillsTeach: profileSource.skillsTeach || profileSource.expertiseAreas || [],
+      skillsWant: profileSource.skillsWant || profileSource.learningGoals || [],
+      swapsCount: Number(profileSource.completedSwaps ?? profileSource.swapsCount ?? 0),
+      learnersCount: Number(profileSource.uniquePartners ?? 0),
+      credentials: profileSource.credentials || [],
+      achievementBadges: getAchievementBadges(profileSource),
+      reviews: [],
       };
 
   const displayedReviews = showAllReviews ? profile.reviews : profile.reviews.slice(0, 2);
 
-  // Live reviews for realtime Firestore profiles; demo profiles keep the
-  // seeded review list.
-  const reviewTargetUid = customProfile?.uid || customProfile?.id || null;
+  const reviewTargetUid = profileUid;
   const {
     reviews: liveReviews,
     count: liveCount,
@@ -143,55 +115,25 @@ export const PublicProfilePage = ({
       : 'New'
     : profile.rating.toFixed(1);
   const shownReviewCount = isLiveProfile ? (hasReviews ? liveCount : 0) : profile.reviewsCount;
+  const displayedBadges = [...(profile.achievementBadges || []), ...(profile.credentials || [])];
 
   const handleSendSessionRequest = (e) => {
     e.preventDefault();
     setIsRequestModalOpen(false);
 
-    const newSession = {
-      id: `session-${requestSeed}`,
-      title: sessionTopic || (profile.skillsTeach && profile.skillsTeach[0]) || 'Academic Peer Exchange',
-      status: 'Accepted',
-      description: `In-depth collaborative academic session on ${sessionTopic || (profile.skillsTeach && profile.skillsTeach[0]) || 'academic peer tutoring'}. Exchange focused on practical modeling and theoretical foundations.`,
-      learningGoals: (profile.skillsTeach || ['Methodological Rigor', 'Statistical Modeling']).slice(0, 3).map((s) => `Master core foundations of ${s}`),
-      duration: '90 Minutes',
-      method: 'Video Call',
-      platform: 'SkillSwap Connect',
-      date: selectedSlot.split('|')[0],
-      time: selectedSlot.split('|')[1] || '02:30 PM',
-      partner: {
-        id: profile.id,
-        name: profile.name,
-        title: profile.title,
-        avatarUrl: profile.avatarUrl,
-        isOnline: profile.isOnline,
-        badges: (profile.skillsTeach || ['Peer Scholar']).slice(0, 2),
-        skillsTeach: profile.skillsTeach || [],
-        skillsWant: profile.skillsWant || [],
-        rating: profile.rating,
-        reviewsCount: profile.reviewsCount,
-        credentials: profile.credentials || ['Verified Scholar'],
-        responseSpeed: profile.responseSpeed || 'Usually responds in 2h',
-        availability: profile.availability || 'Available on request',
-        preferredMode: profile.preferredMode || 'SkillSwap Connect Video Call',
-      },
-      notes: [
-        {
-          id: `note-${requestSeed}`,
-          authorName: profile.name,
-          authorAvatar: profile.avatarUrl,
-          timestamp: 'Just now',
-          text: `Looking forward to our session! I'll share the preliminary reading materials and references for ${sessionTopic || profile.skillsTeach?.[0] || 'our discussion'} shortly.`,
-        },
-      ],
-    };
-
-    if (onCreateSession) {
-      onCreateSession(newSession);
-    } else {
-      onShowToast(`✨ Session scheduled with ${profile.name}!`);
-      onNavigateScreen('session-details');
+    if (!onRequestRealtime || !profileUid) {
+      onShowToast?.('This scholar is not available for a session request.');
+      return;
     }
+
+    onRequestRealtime({
+      ...profile,
+      requestDraft: {
+        topic: sessionTopic,
+        offeredSkill,
+        slot: selectedSlot,
+      },
+    });
   };
 
   const userAvatar =
@@ -389,7 +331,7 @@ export const PublicProfilePage = ({
 
                   {/* Credentials / Badges Row */}
                   <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                    {profile.credentials?.map((badge, idx) => (
+                    {displayedBadges.map((badge, idx) => (
                       <span
                         key={idx}
                         className="inline-flex items-center gap-1.5 bg-white border border-[#e6d3cf] text-[#4a3b47] px-3.5 py-1.5 rounded-full text-xs font-medium shadow-2xs"
@@ -771,7 +713,7 @@ export const PublicProfilePage = ({
         </div>
       )}
 
-      {/* DIRECT MESSAGE opens the real global chat drawer (no fake modal) */}
+      {/* Direct Message opens the global Firestore-backed chat drawer. */}
 
     </div>
   );

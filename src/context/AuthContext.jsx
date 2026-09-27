@@ -10,63 +10,48 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
+  getIdTokenResult,
 } from 'firebase/auth';
-import { upsertUserProfile, ensureUserProfile, subscribeUserProfile } from '../services/realtime';
+import {
+  upsertUserProfile,
+  ensureUserProfile,
+  subscribeUserProfile,
+  updateUserPresence,
+} from '../services/realtime';
 
-const DEMO_SESSION_KEY = 'skillswap_demo_session';
-
-const buildDemoAccount = (email = 'demo@skillswap.edu') => ({
-  user: {
-    uid: 'demo-uiu-scholar',
-    email,
-    displayName: 'Alex Rivera',
-    photoURL: null,
-    isDemo: true,
-  },
-  profile: {
-    name: 'Alex Rivera',
-    email,
-    avatarUrl: academicAssets.avatars.alexRivera,
-    university: 'Stanford University',
-    academicLevel: 'PhD Candidate',
-    title: 'PhD Scholar',
-    bio: 'Doctoral candidate focusing on high-energy mathematical physics and stochastic modeling.',
-    timeCredits: 24.5,
-    expertiseAreas: ['Applied Math', 'LaTeX', 'Python', 'Fourier Analysis'],
-    learningGoals: ['Game Theory', 'R-Studio', 'CRISPR Data Analysis'],
-  },
-});
-
-const loadDemoAccount = () => {
-  try {
-    const email = localStorage.getItem(DEMO_SESSION_KEY);
-    if (!email) return null;
-    const account = buildDemoAccount(email);
-    const cachedProfile = JSON.parse(
-      localStorage.getItem('skillswap_profile_demo-uiu-scholar') || 'null'
-    );
-    return cachedProfile
-      ? { ...account, profile: { ...account.profile, ...cachedProfile } }
-      : account;
-  } catch {
-    return null;
-  }
-};
-
-const clearDemoSession = () => {
-  try {
-    localStorage.removeItem(DEMO_SESSION_KEY);
-  } catch {
-    // Storage can be unavailable in privacy-restricted browsers.
-  }
+const newProfile = (user, overrides = {}) => {
+  const name = overrides.name || user.displayName || user.email?.split('@')[0] || 'Scholar';
+  return {
+    name,
+    avatarUrl:
+      overrides.avatarUrl ||
+      user.photoURL ||
+      resolveAvatarForName(name, academicAssets.avatars.defaultMaleScholar),
+    university: overrides.university || '',
+    academicLevel: '',
+    title: '',
+    bio: '',
+    skillsTeach: [],
+    skillsWant: [],
+    expertiseAreas: [],
+    learningGoals: [],
+    timeCredits: 0,
+    creditsEarned: 0,
+    creditsSpent: 0,
+    completedSwaps: 0,
+    ratingCount: 0,
+    ratingSum: 0,
+    ratingAverage: 0,
+    achievementBadges: [],
+    ...overrides,
+  };
 };
 
 export const AuthProvider = ({ children }) => {
-  const [restoredDemo] = useState(loadDemoAccount);
-  const [currentUser, setCurrentUser] = useState(restoredDemo?.user || null);
-  const [userProfile, setUserProfile] = useState(restoredDemo?.profile || null);
-  const [loading, setLoading] = useState(!restoredDemo);
-  const demoModeRef = useRef(Boolean(restoredDemo));
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
   const profileUnsubRef = useRef(null);
 
   const stopProfileSubscription = () => {
@@ -74,100 +59,30 @@ export const AuthProvider = ({ children }) => {
     profileUnsubRef.current = null;
   };
 
-  // Helper to sync profile with localStorage
-  const saveProfileLocally = (uid, profileData) => {
-    try {
-      localStorage.setItem(`skillswap_profile_${uid}`, JSON.stringify(profileData));
-    } catch {
-      console.warn('Could not cache profile locally');
-    }
-  };
-
-  const loadProfileLocally = (uid) => {
-    try {
-      const cached = localStorage.getItem(`skillswap_profile_${uid}`);
-      return cached ? JSON.parse(cached) : null;
-    } catch {
-      return null;
-    }
-  };
-
   // Sign up with Email, Password, Name, University
   const signUp = async (email, password, fullName, university) => {
-    demoModeRef.current = false;
-    clearDemoSession();
     const res = await createUserWithEmailAndPassword(auth, email, password);
     if (fullName) {
       await updateProfile(res.user, { displayName: fullName });
     }
 
-    const initialProfile = {
+    const initialProfile = newProfile(res.user, {
       name: fullName || res.user.displayName || 'Scholar',
-      email: res.user.email,
-      avatarUrl: resolveAvatarForName(fullName || res.user.displayName || 'Scholar', academicAssets.avatars.defaultMaleScholar),
-      university: university || 'United International University (UIU)',
-      academicLevel: 'BSc in Computer Science & Engineering',
-      bio: 'Undergraduate scholar passionate about peer knowledge exchange.',
-      timeCredits: 24.5,
-      expertiseAreas: ['Data Structures', 'Algorithms', 'C++', 'Python'],
-      learningGoals: ['Machine Learning', 'Artificial Intelligence', 'Cloud Systems'],
-    };
-
-    saveProfileLocally(res.user.uid, initialProfile);
-    upsertUserProfile(res.user.uid, initialProfile).catch((e) => {
-      console.warn('Could not sync profile to Firestore:', e);
+      university: university || '',
     });
+    await upsertUserProfile(res.user.uid, initialProfile);
     setUserProfile(initialProfile);
     return { user: res.user, profile: initialProfile };
   };
 
-  // Demo Scholar Account Sign In
-  const loginAsDemo = async (demoEmail = 'demo@skillswap.edu') => {
-    demoModeRef.current = true;
-    const { user: demoUser, profile: demoProfile } = buildDemoAccount(demoEmail);
-    try {
-      localStorage.setItem(DEMO_SESSION_KEY, demoEmail);
-    } catch {
-      // The in-memory demo still works when persistent storage is unavailable.
-    }
-    saveProfileLocally('demo-uiu-scholar', demoProfile);
-    setCurrentUser(demoUser);
-    setUserProfile(demoProfile);
-    return { user: demoUser, profile: demoProfile };
-  };
-
   // Sign in with Email & Password
   const signIn = async (email, password) => {
-    // Instant bypass for demo account
-    if (
-      email.toLowerCase() === 'unknown@bscse.uiu.ac.bd' ||
-      email.toLowerCase() === 'demo@skillswap.edu' ||
-      email.toLowerCase().includes('demo')
-    ) {
-      return loginAsDemo(email);
-    }
-
-    demoModeRef.current = false;
-    clearDemoSession();
     const res = await signInWithEmailAndPassword(auth, email, password);
-    const existing = loadProfileLocally(res.user.uid);
-    const profile = existing || {
-      name: res.user.displayName || email.split('@')[0],
-      email: res.user.email,
-      avatarUrl: resolveAvatarForName(res.user.displayName || email.split('@')[0], academicAssets.avatars.defaultMaleScholar),
-      university: 'United International University (UIU)',
-      timeCredits: 24.5,
-    };
+    const profile = newProfile(res.user);
     setUserProfile(profile);
-    // Prefer the Firestore profile as source of truth; never overwrite newer
-    // server data with a stale local cache (ensureUserProfile only creates if
-    // the document doesn't exist yet).
     ensureUserProfile(res.user.uid, profile)
       .then((dbProfile) => {
-        if (dbProfile) {
-          setUserProfile(dbProfile);
-          saveProfileLocally(res.user.uid, dbProfile);
-        }
+        if (dbProfile) setUserProfile(dbProfile);
       })
       .catch((e) => {
         console.warn('Could not sync profile to Firestore:', e);
@@ -177,27 +92,14 @@ export const AuthProvider = ({ children }) => {
 
   // Google OAuth Sign In
   const signInWithGoogleOAuth = async () => {
-    demoModeRef.current = false;
-    clearDemoSession();
     const res = await signInWithPopup(auth, googleProvider);
-    const existing = loadProfileLocally(res.user.uid);
-    const profile = existing || {
-      name: res.user.displayName || 'Scholar',
-      email: res.user.email,
-      avatarUrl: res.user.photoURL || resolveAvatarForName(res.user.displayName || 'Scholar', academicAssets.avatars.defaultMaleScholar),
-      university: 'United International University (UIU)',
-      academicLevel: 'BSc in Computer Science & Engineering',
-      timeCredits: 24.5,
-      expertiseAreas: ['Data Structures', 'Algorithms'],
-      learningGoals: ['Machine Learning'],
-    };
+    const profile = newProfile(res.user);
     let resolvedProfile = profile;
     try {
       resolvedProfile = (await ensureUserProfile(res.user.uid, profile)) || profile;
     } catch (error) {
       console.warn('Could not sync profile to Firestore:', error);
     }
-    saveProfileLocally(res.user.uid, resolvedProfile);
     setUserProfile(resolvedProfile);
     return { user: res.user, profile: resolvedProfile };
   };
@@ -212,29 +114,24 @@ export const AuthProvider = ({ children }) => {
     const merged = { ...userProfile, ...updatedData };
     setUserProfile(merged);
     if (currentUser?.uid) {
-      saveProfileLocally(currentUser.uid, merged);
-      if (!currentUser?.isDemo) {
-        await upsertUserProfile(currentUser.uid, merged);
-      }
+      await upsertUserProfile(currentUser.uid, merged);
     }
     return merged;
   };
 
   // Log Out
   const logOut = async () => {
-    demoModeRef.current = false;
-    clearDemoSession();
     // Firestore rules require authentication to read profiles. Stop the live
     // listener before revoking Firebase Auth so it cannot emit a harmless
     // permission-denied error during logout.
     stopProfileSubscription();
+    if (currentUser?.uid) {
+      await updateUserPresence(currentUser.uid, false).catch(() => {});
+    }
     setUserProfile(null);
     setCurrentUser(null);
-    try {
-      await signOut(auth);
-    } catch {
-      // ignore if demo user
-    }
+    setIsAdmin(false);
+    await signOut(auth);
   };
 
   // Watch Auth State + sync real profiles to Firestore
@@ -248,34 +145,21 @@ export const AuthProvider = ({ children }) => {
       auth,
       (user) => {
         clearTimeout(timer);
-        // Firebase still reports an anonymous user while the local demo is
-        // active. Never let that delayed callback wipe the demo session.
-        if (demoModeRef.current) {
-          setLoading(false);
-          return;
-        }
-
         // Authentication may move directly from one account to another.
         // Never leave the previous account's profile listener running.
         stopProfileSubscription();
         setCurrentUser(user);
         if (user) {
-          const fallbackName = user.displayName || user.email?.split('@')[0] || 'Scholar';
-          const fallbackProfile = {
-            name: fallbackName,
-            email: user.email,
-            avatarUrl: user.photoURL || resolveAvatarForName(fallbackName, academicAssets.avatars.defaultMaleScholar),
-            university: 'United International University (UIU)',
-            academicLevel: 'BSc in Computer Science & Engineering',
-            timeCredits: 24.5,
-          };
-          const cached = loadProfileLocally(user.uid);
-          const local = cached || fallbackProfile;
-          setUserProfile(local);
+          const fallbackProfile = newProfile(user);
+          setUserProfile(fallbackProfile);
+          getIdTokenResult(user)
+            .then((token) => setIsAdmin(token.claims.admin === true))
+            .catch(() => setIsAdmin(false));
 
           // Create the Firestore doc if it doesn't exist (never overwrites).
-          ensureUserProfile(user.uid, local).then((dbProfile) => {
+          ensureUserProfile(user.uid, fallbackProfile).then((dbProfile) => {
             if (dbProfile) setUserProfile(dbProfile);
+            return updateUserPresence(user.uid, true);
           }).catch((e) => console.warn('Profile ensure/sync:', e));
 
           // Live-sync profile from Firestore.
@@ -284,6 +168,7 @@ export const AuthProvider = ({ children }) => {
           });
         } else {
           setUserProfile(null);
+          setIsAdmin(false);
         }
         setLoading(false);
       },
@@ -304,13 +189,12 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     userProfile,
+    isAdmin,
     loading,
     // Method names expected by user's components
     signIn,
     signUp,
     signInWithGoogleOAuth,
-    loginAsDemo,
-    signInAsDemo: loginAsDemo,
     logOut,
     resetPassword,
     updateProfileData,

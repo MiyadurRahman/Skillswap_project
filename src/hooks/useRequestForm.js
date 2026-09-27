@@ -1,98 +1,68 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { formatAcademicDate, toDateInput } from '../utils/dateUtils';
 
-// State + submit handler for the "Request a Learning Session" form.
 export function useRequestForm({
-  realtime,
   selectedMentorForRequest,
   fallbackMentor,
   onSendRequest,
   onShowToast,
   setActiveTab,
-  updateOutgoing,
-  outgoingList,
   userProfile,
 }) {
-  const [currentMentor, setCurrentMentor] = useState(
-    selectedMentorForRequest || fallbackMentor
+  const currentMentor = selectedMentorForRequest || fallbackMentor;
+  const skills = useMemo(() => currentMentor?.skills || [], [currentMentor]);
+  const draft = currentMentor?.requestDraft || {};
+  const draftSkill = skills.find((skill) => skill.name === draft.topic);
+  const [selectedSkillId, setSelectedSkillId] = useState(draftSkill?.id || skills[0]?.id || '');
+  const [draftDate, draftTime] = String(draft.slot || '').split('|');
+  const [preferredDate, setPreferredDate] = useState(draftDate || toDateInput(2));
+  const [preferredTimeSlot, setPreferredTimeSlot] = useState(
+    draftTime || 'Morning (09:00 - 12:00)'
   );
-  const [selectedSkillId, setSelectedSkillId] = useState('qm');
-  const [preferredDate, setPreferredDate] = useState(() => toDateInput(2));
-  const [preferredTimeSlot, setPreferredTimeSlot] = useState('Morning (09:00 - 12:00)');
-  const [sessionGoals, setSessionGoals] = useState('');
+  const [sessionGoals, setSessionGoals] = useState(draft.note || '');
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
-  const handleSendLearningRequest = async (e) => {
-    e.preventDefault();
-    setIsSubmittingRequest(true);
-
-    const chosenSkill =
-      currentMentor.skills.find((s) => s.id === selectedSkillId) || currentMentor.skills[0];
-    const formattedPreferredDate = formatAcademicDate(`${preferredDate}T12:00:00`);
-
-    // REALTIME: push the request to Firestore so the mentor sees it instantly.
-    if (realtime) {
-      try {
-        if (!currentMentor?.uid) {
-          onShowToast('In production mode, request a Live Scholar from the Discover page.');
-          setIsSubmittingRequest(false);
-          return;
-        }
-        await onSendRequest({
-          mentor: currentMentor,
-          requestedSkill: chosenSkill?.name || currentMentor.name,
-          skillLevel: chosenSkill?.level || 'Advanced Level • 60 min',
-          offeredExchange: `${currentMentor.cost || 250} Academic Credits`,
-          offeredSkill: userProfile?.expertiseAreas?.[0] || 'Peer Expertise',
-          cost: currentMentor.cost || 250,
-          creditsOffered: currentMentor.cost || 250,
-          preferredDate: preferredDate,
-          formattedDate: formattedPreferredDate,
-          preferredTimeSlot: preferredTimeSlot,
-          goals: sessionGoals || 'Learning fundamentals and advanced application.',
-        });
-        onShowToast(`✨ Learning session requested from ${currentMentor.name}!`);
-        setIsSubmittingRequest(false);
-        setActiveTab('outgoing');
-      } catch (err) {
-        console.warn('Send request failed:', err);
-        setIsSubmittingRequest(false);
-        const permissionDenied =
-          typeof err?.code === 'string' && err.code.includes('permission-denied');
-        onShowToast(
-          permissionDenied
-            ? 'Request blocked by Firestore security rules. Make sure they are deployed (firebase deploy --only firestore).'
-            : 'Could not send request. Check your connection and try again.'
-        );
-      }
+  const handleSendLearningRequest = async (event) => {
+    event.preventDefault();
+    if (!currentMentor?.uid || !onSendRequest) {
+      onShowToast?.('Select a scholar from Discover before sending a request.');
       return;
     }
 
-    const newOutReq = {
-      id: `req-out-${Date.now()}`,
-      mentor: currentMentor,
-      requestedSkill: chosenSkill.name,
-      skillLevel: chosenSkill.level,
-      cost: currentMentor.cost || 250,
-      preferredDate: preferredDate,
-      formattedDate: formattedPreferredDate,
-      preferredTimeSlot: preferredTimeSlot,
-      goals: sessionGoals || 'Learning fundamentals and advanced application.',
-      status: 'pending',
-      submittedAt: 'Just now',
-    };
+    const chosenSkill = skills.find((skill) => skill.id === selectedSkillId) || skills[0];
+    if (!chosenSkill) {
+      onShowToast?.('This scholar has not listed a teachable skill yet.');
+      return;
+    }
 
-    setTimeout(() => {
-      updateOutgoing([newOutReq, ...outgoingList]);
-      setIsSubmittingRequest(false);
-      onShowToast(`✨ Learning session requested from ${currentMentor.name}!`);
+    setIsSubmittingRequest(true);
+    try {
+      const cost = Number(currentMentor.cost || 2.5);
+      await onSendRequest({
+        mentor: currentMentor,
+        requestedSkill: chosenSkill.name,
+        skillLevel: chosenSkill.level || '60 minutes',
+        offeredExchange: `${cost} Academic Credits`,
+        offeredSkill: userProfile?.skillsTeach?.[0] || userProfile?.expertiseAreas?.[0] || '',
+        cost,
+        creditsOffered: cost,
+        preferredDate,
+        formattedDate: formatAcademicDate(`${preferredDate}T12:00:00`),
+        preferredTimeSlot,
+        goals: sessionGoals.trim(),
+      });
+      onShowToast?.(`Learning session requested from ${currentMentor.name}.`);
       setActiveTab('outgoing');
-    }, 400);
+    } catch (error) {
+      console.warn('Send request failed:', error);
+      onShowToast?.(error?.message || 'Could not send the request.');
+    } finally {
+      setIsSubmittingRequest(false);
+    }
   };
 
   return {
     currentMentor,
-    setCurrentMentor,
     selectedSkillId,
     setSelectedSkillId,
     preferredDate,

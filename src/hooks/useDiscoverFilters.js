@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { allPeers } from '../data/peersData';
 import { matchesFilters } from '../utils/peerFilters';
 
 const DEFAULT_FIELDS = {
@@ -9,20 +8,10 @@ const DEFAULT_FIELDS = {
   'Microeconomics': false,
 };
 
-export const TRENDING_TAGS = [
-  'Quantum Mechanics',
-  'Digraphities',
-  'Bioinformatics',
-  'Machine Learning',
-  'Academic Writing',
-];
-
-// Search + filter state and derived results for the Discover catalog. Both demo
-// peers and realtime scholars run through the same matchesFilters matcher.
 export function useDiscoverFilters(liveScholars, onShowToast) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFields, setSelectedFields] = useState(DEFAULT_FIELDS);
-  const [minRating, setMinRating] = useState(4.0);
+  const [minRating, setMinRating] = useState(0);
   const [availability, setAvailability] = useState('Anytime');
   const [academicLevel, setAcademicLevel] = useState('Any Level');
   const [activeTrendingTag, setActiveTrendingTag] = useState('');
@@ -38,7 +27,7 @@ export function useDiscoverFilters(liveScholars, onShowToast) {
   const resetFilters = () => {
     setSearchQuery('');
     setSelectedFields(DEFAULT_FIELDS);
-    setMinRating(4.0);
+    setMinRating(0);
     setAvailability('Anytime');
     setAcademicLevel('Any Level');
     setActiveTrendingTag('');
@@ -56,14 +45,6 @@ export function useDiscoverFilters(liveScholars, onShowToast) {
     }
   };
 
-  const filteredPeers = useMemo(
-    () =>
-      allPeers.filter((peer) =>
-        matchesFilters(peer, { searchQuery, selectedFields, minRating, availability, academicLevel })
-      ),
-    [searchQuery, selectedFields, minRating, availability, academicLevel]
-  );
-
   const filteredLive = useMemo(
     () =>
       liveScholars.filter((person) =>
@@ -78,17 +59,31 @@ export function useDiscoverFilters(liveScholars, onShowToast) {
     [liveScholars, searchQuery, selectedFields, minRating, availability, academicLevel]
   );
 
+  const trendingTags = useMemo(() => {
+    const counts = new Map();
+    liveScholars.forEach((person) => {
+      (person.skillsTeach || []).forEach((skill) => {
+        const label = String(skill || '').trim();
+        if (label) counts.set(label, (counts.get(label) || 0) + 1);
+      });
+    });
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 5)
+      .map(([skill]) => skill);
+  }, [liveScholars]);
+
   // Paginated peers (4 per page to match exact 2x2 grid layout from screenshot)
   const itemsPerPage = 4;
-  const totalPages = Math.ceil(filteredPeers.length / itemsPerPage) || 1;
+  const totalPages = Math.ceil(filteredLive.length / itemsPerPage) || 1;
   const effectivePage = Math.min(currentPage, totalPages);
-  const paginatedPeers = filteredPeers.slice(
+  const paginatedPeers = filteredLive.slice(
     (effectivePage - 1) * itemsPerPage,
     effectivePage * itemsPerPage
   );
 
   return {
-    trendingTags: TRENDING_TAGS,
+    trendingTags,
     searchQuery,
     setSearchQuery,
     selectedFields,
@@ -104,7 +99,7 @@ export function useDiscoverFilters(liveScholars, onShowToast) {
     handleTagClick,
     currentPage,
     setCurrentPage,
-    filteredPeers,
+    filteredPeers: filteredLive,
     filteredLive,
     totalPages,
     effectivePage,

@@ -21,13 +21,10 @@ export const AppRoutes = ({
   currentScreen,
   setCurrentScreen,
   userProfile,
-  setUserProfile,
   onOpenMeeting,
   onOpenWallet,
   onOpenMentor,
-  onOpenSSO,
   onShowToast,
-  onExploreDemo,
   selectedProfile,
   setSelectedProfile,
   sessions = [],
@@ -145,6 +142,7 @@ export const AppRoutes = ({
           onShowToast={onShowToast}
           onCreateSession={onCreateSession}
           onMessageMentor={onMessageMentor}
+          onRequestRealtime={onRequestRealtime}
         />
       );
       break;
@@ -154,9 +152,7 @@ export const AppRoutes = ({
         <GetStartedPage
           onNavigateToSignUp={() => setCurrentScreen('signup')}
           onNavigateToLogin={() => setCurrentScreen('login')}
-          onExploreDemo={onExploreDemo}
           onShowToast={onShowToast}
-          onOpenSSO={onOpenSSO}
           realtime={realtime}
           realtimeUsers={realtimeUsers}
         />
@@ -184,6 +180,7 @@ export const AppRoutes = ({
           onOpenWalletModal={onOpenWallet}
           onShowToast={onShowToast}
           onSaveProfileSkills={onSaveProfileSkills}
+          realtimeUsers={realtimeUsers}
         />
       );
       break;
@@ -230,10 +227,7 @@ export const AppRoutes = ({
     case 'signup':
       screen = (
         <SignUpPage
-          onSignUpSuccess={({ name, email }) => {
-            setUserProfile((prev) => ({ ...prev, name, email }));
-            setCurrentScreen('profile-setup');
-          }}
+          onSignUpSuccess={() => setCurrentScreen('profile-setup')}
           onNavigateToLogin={() => setCurrentScreen('login')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
           onShowToast={onShowToast}
@@ -245,7 +239,7 @@ export const AppRoutes = ({
       screen = (
         <ProfileSetupPage
           userProfile={userProfile}
-          onUpdateProfile={(updated) => setUserProfile((prev) => ({ ...prev, ...updated }))}
+          onUpdateProfile={() => {}}
           onNavigateScreen={(screen) => setCurrentScreen(screen)}
           onShowToast={onShowToast}
         />

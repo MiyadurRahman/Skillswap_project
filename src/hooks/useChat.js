@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { demoChatPeers, initialMessages } from '../data/chatData';
 import {
   ensureConversation,
   getConversationId,
@@ -17,7 +16,6 @@ export function useChat({
   myProfile,
   realtimeUsers,
   conversations,
-  setConversations,
   setChatMessages,
   showToast,
 }) {
@@ -74,34 +72,16 @@ export function useChat({
     });
   }, [conversations, realtimeUsers, myUid]);
 
-  // Peers selectable for a new chat.
-  const chatPeers = useMemo(() => {
-    return isRealtime
-      ? realtimeUsers.filter((u) => u.uid && u.uid !== myUid)
-      : demoChatPeers;
-  }, [isRealtime, realtimeUsers, myUid]);
+  const chatPeers = useMemo(
+    () => realtimeUsers.filter((u) => u.uid && u.uid !== myUid),
+    [realtimeUsers, myUid]
+  );
 
   const openChatSeed = useCallback(
     (convo, peer) => {
       setActiveChat({ conversation: convo, peer });
-      if (!isRealtime) {
-        setChatMessages((prev) => {
-          const convId = convo.id;
-          const seeded =
-            (() => {
-              try {
-                return JSON.parse(
-                  localStorage.getItem('skillswap_chat_messages') || '{}'
-                )[convId];
-              } catch {
-                return undefined;
-              }
-            })() || initialMessages[convId] || [];
-          return { ...prev, [convId]: prev[convId] || seeded };
-        });
-      }
     },
-    [isRealtime, setChatMessages]
+    []
   );
 
   const handleOpenChat = useCallback(
@@ -132,23 +112,19 @@ export function useChat({
         unread: { [myUid]: 0, [peer.uid]: 0 },
         updatedAt: Date.now(),
       };
-      if (isRealtime) {
-        ensureConversation(myUid, peer.uid)
-          .then((persistedConversation) => {
-            openChatSeed(
-              { ...convo, ...persistedConversation, peer: convo.peer },
-              convo.peer
-            );
-          })
-          .catch((error) => {
-            console.warn('Could not create conversation:', error);
-            showToast('Could not start this conversation. Please try again.');
-          });
-        return;
-      }
-      openChatSeed(convo, convo.peer);
+      ensureConversation(myUid, peer.uid)
+        .then((persistedConversation) => {
+          openChatSeed(
+            { ...convo, ...persistedConversation, peer: convo.peer },
+            convo.peer
+          );
+        })
+        .catch((error) => {
+          console.warn('Could not create conversation:', error);
+          showToast('Could not start this conversation. Please try again.');
+        });
     },
-    [isRealtime, myUid, openChatSeed, showToast]
+    [myUid, openChatSeed, showToast]
   );
 
   const handleSendChatMessage = useCallback(
@@ -161,83 +137,35 @@ export function useChat({
         peer?.uid || conversation.participantIds?.find((id) => id !== myUid);
       if (!peerUid || !myUid) return;
 
-      if (isRealtime) {
-        try {
-          await sendMessage({
-            conversationId: convId,
-            participantIds: conversation.participantIds,
-            fromUid: myUid,
-            toUid: peerUid,
-            fromName: myProfile?.name || 'Scholar',
-            text,
-          });
-        } catch (e) {
-          console.warn(
-            '[chat] send failed:',
-            { convId, fromUid: myUid, toUid: peerUid },
-            e
-          );
-          showToast('Could not send message. Please try again.');
-        }
-        return;
+      try {
+        await sendMessage({
+          conversationId: convId,
+          participantIds: conversation.participantIds,
+          fromUid: myUid,
+          toUid: peerUid,
+          fromName: myProfile?.name || 'Scholar',
+          text,
+        });
+      } catch (e) {
+        console.warn('[chat] send failed:', { convId, fromUid: myUid, toUid: peerUid }, e);
+        showToast('Could not send message. Please try again.');
       }
-
-      const msg = {
-        id: `msg-${Date.now()}`,
-        conversationId: convId,
-        participantIds: [myUid, peerUid],
-        fromUid: myUid,
-        toUid: peerUid,
-        text,
-        createdAt: Date.now(),
-        read: false,
-      };
-      setChatMessages((prev) => ({
-        ...prev,
-        [convId]: [...(prev[convId] || []), msg],
-      }));
-      const updatedConv = {
-        ...conversation,
-        lastText: text,
-        lastFrom: myUid,
-        lastFromName: myProfile?.name || 'You',
-        updatedAt: msg.createdAt,
-        unread: {
-          ...(conversation.unread || {}),
-          [peerUid]: (conversation.unread?.[peerUid] || 0) + 1,
-        },
-      };
-      setConversations((prev) => [
-        updatedConv,
-        ...prev.filter((c) => c.id !== convId),
-      ]);
     },
     [
       activeChat,
-      isRealtime,
       myUid,
       myProfile,
       showToast,
-      setChatMessages,
-      setConversations,
     ]
   );
 
   const handleMarkChatRead = useCallback(
     (convId, uid) => {
-      if (isRealtime) {
-        markConversationRead(convId, uid).catch((e) =>
-          console.warn('Mark conversation read failed:', e)
-        );
-        return;
-      }
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === convId ? { ...c, unread: { ...(c.unread || {}), [uid]: 0 } } : c
-        )
+      markConversationRead(convId, uid).catch((e) =>
+        console.warn('Mark conversation read failed:', e)
       );
     },
-    [isRealtime, setConversations]
+    []
   );
 
   const handleCloseChat = useCallback(() => {

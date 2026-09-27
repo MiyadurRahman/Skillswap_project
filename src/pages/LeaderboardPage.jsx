@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 import { resolveAvatarForName } from '../assets';
-import { allPeers } from '../data/peersData';
 
 const FALLBACK_AVATAR =
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
@@ -45,7 +44,7 @@ export const LeaderboardPage = ({
       raw: p,
     });
 
-    const source = realtime && realtimeUsers.length > 0 ? realtimeUsers : allPeers;
+    const source = realtime ? realtimeUsers : [];
     return source
       .map(mapPeer)
       .filter((p) => p.name && p.name.toLowerCase() !== 'scholar');
@@ -53,7 +52,13 @@ export const LeaderboardPage = ({
 
   const ranked = useMemo(() => {
     const value = (p) =>
-      activeTab === 'swaps' ? p.swapsCount : activeTab === 'earned' ? p.creditsEarned : p.rating;
+      activeTab === 'swaps'
+        ? p.swapsCount
+        : activeTab === 'earned'
+          ? p.creditsEarned
+          : p.reviewsCount >= 3
+            ? p.rating
+            : -1;
     return [...roster].sort((a, b) => value(b) - value(a)).map((p, i) => ({ ...p, rank: i + 1 }));
   }, [roster, activeTab]);
 
@@ -74,33 +79,7 @@ export const LeaderboardPage = ({
   const openProfile = (peer) => {
     const p = peer.raw || peer;
     if (onSelectPeerProfile) {
-      onSelectPeerProfile({
-        id: peer.id,
-        uid: peer.uid,
-        name: peer.name,
-        title: peer.title,
-        rating: peer.rating || 4.8,
-        reviewsCount: peer.reviewsCount || 0,
-        avatarUrl: peer.avatarUrl,
-        isOnline: peer.isOnline,
-        bio: peer.bio,
-        credentials: p.credentials || ['Verified Scholar'],
-        responseSpeed: p.responseSpeed || 'Usually responds in 2h',
-        skillsTeach:
-          peer.skillsTeach.length > 0
-            ? peer.skillsTeach
-            : Array.isArray(p.skills)
-              ? p.skills.map((s) => String(s).toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()))
-              : ['Peer Tutoring', 'Academic Research'],
-        skillsWant:
-          peer.skillsWant.length > 0
-            ? peer.skillsWant
-            : ['Advanced Python', 'Machine Learning', 'Data Visualization'],
-        availability: p.availability || 'Available: Tue, Thu, Sat',
-        preferredMode: p.preferredMode || 'Preferred: Virtual / Zoom',
-        swapsCount: peer.swapsCount,
-        learnersCount: p.learnersCount || '1.2k',
-      });
+      onSelectPeerProfile({ ...p, uid: peer.uid, id: peer.id });
     }
     onNavigateScreen('public-profile');
   };
@@ -327,9 +306,7 @@ export const LeaderboardPage = ({
         </div>
 
         <p className="text-[11px] text-[#8c7b86] text-center pt-2">
-          {realtime
-            ? 'Updated live from peer exchange data across your university network.'
-            : 'Demo leaderboard from the campus scholar directory.'}
+          Updated live from peer exchange data across your university network.
         </p>
       </main>
     </div>

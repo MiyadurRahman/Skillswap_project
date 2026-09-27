@@ -1,6 +1,4 @@
-// Unified search/filter matcher for BOTH demo peers (allPeers) and realtime
-// users (mapped by subscribeAllUsers). The two shapes don't share a schema, so
-// each peer is normalized into lowercase searchable strings.
+// Search/filter matcher for normalized Firestore scholar profiles.
 
 export const ACADEMIC_KEYWORDS = {
   'PhD Candidate': ['phd', 'ph.d', 'doctoral candidate', 'doctorate'],

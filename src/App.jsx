@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import './App.css';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/auth';
@@ -6,15 +6,7 @@ import { AppRoutes } from './routes/AppRoutes';
 import { Modals } from './component/Modals';
 import { NotificationBell } from './component/NotificationBell';
 import { ChatPanel } from './component/ChatPanel';
-import { academicAssets, createInitialAvatar } from './assets';
-import { initialSessions } from './data/sessionsData';
-import { initialConversations } from './data/chatData';
-import {
-  initialIncomingRequests,
-  initialOutgoingRequests,
-  drJulianVance,
-} from './data/requestsData';
-import { usePersistentState } from './hooks/usePersistentState';
+import { createInitialAvatar } from './assets';
 import {
   useFirestoreSubscriptions,
   REQUIRED_SNAPSHOTS,
@@ -30,65 +22,26 @@ function AppContent() {
   const {
     currentUser,
     userProfile: authProfile,
-    signIn,
     loading,
     updateProfileData,
   } = useAuth();
   const [currentScreen, setCurrentScreen] = useState('get-started');
   const [activeModal, setActiveModal] = useState(null);
 
-  // Production path = real Firebase Auth user; Demo path = local seed data.
-  const isRealtime = Boolean(currentUser && !currentUser.isDemo && currentUser.uid);
+  const isRealtime = Boolean(currentUser?.uid);
   const myUid = currentUser?.uid;
 
-  const [localProfile, setLocalProfile] = useState({
-    name: 'Alex Rivera',
-    email: 'scholar@university.edu',
-    title: 'PhD Scholar',
-    academicLevel: 'PhD Candidate',
-    university: 'Stanford University',
-    avatarUrl: academicAssets.avatars.alexRivera,
-    timeCredits: 24.5,
-    expertiseAreas: ['Applied Math', 'LaTeX', 'Python', 'Fourier Analysis'],
-    learningGoals: ['Game Theory', 'R-Studio', 'CRISPR Data Analysis'],
-    bio: 'Doctoral candidate focusing on high-energy mathematical physics and stochastic modeling.',
-  });
-
-  const myProfile = authProfile || localProfile;
-
-  // Sessions + requests live in Firestore in realtime mode; otherwise they are
-  // seeded/demo data persisted to localStorage.
-  const [sessions, setSessions] = usePersistentState(
-    'skillswap_sessions',
-    initialSessions,
-    !isRealtime
-  );
-  const [incomingRequests, setIncomingRequests] = usePersistentState(
-    'skillswap_incoming_requests',
-    initialIncomingRequests,
-    !isRealtime
-  );
-  const [outgoingRequests, setOutgoingRequests] = usePersistentState(
-    'skillswap_outgoing_requests',
-    initialOutgoingRequests,
-    !isRealtime
-  );
-
-  // Chat: conversations + message cache are persisted locally so the UI isn't
-  // blank while Firestore subscriptions connect.
-  const [conversations, setConversations] = usePersistentState(
-    'skillswap_conversations',
-    initialConversations
-  );
-  const [chatMessages, setChatMessages] = usePersistentState(
-    'skillswap_chat_messages',
-    {}
-  );
+  const myProfile = authProfile || {};
+  const [sessions, setSessions] = useState([]);
+  const [incomingRequests, setIncomingRequests] = useState([]);
+  const [outgoingRequests, setOutgoingRequests] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [chatMessages, setChatMessages] = useState({});
 
   const [realtimeUsers, setRealtimeUsers] = useState([]);
   const [creditTransactions, setCreditTransactions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
-  const [selectedMentorForRequest, setSelectedMentorForRequest] = useState(drJulianVance);
+  const [selectedMentorForRequest, setSelectedMentorForRequest] = useState(null);
   const [selectedMentor, setSelectedMentor] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
 
@@ -133,7 +86,6 @@ function AppContent() {
     myProfile,
     realtimeUsers,
     conversations,
-    setConversations,
     chatMessages,
     setChatMessages,
     showToast,
@@ -146,8 +98,6 @@ function AppContent() {
     handleAddSessionNote,
     handleSettleSession,
   } = useSessionHandlers({
-    isRealtime,
-    setSessions,
     setSelectedSessionId,
     setCurrentScreen,
     showToast,
@@ -163,39 +113,6 @@ function AppContent() {
     handleCancelOutgoing,
   } = useRequestHandlers({ myUid, myProfile, setSelectedSessionId });
 
-  // When leaving realtime mode, fall back to the local demo dataset.
-  useEffect(() => {
-    if (isRealtime) return;
-    const restore = () => {
-      try {
-        const cachedSessions = JSON.parse(localStorage.getItem('skillswap_sessions'));
-        setSessions(Array.isArray(cachedSessions) ? cachedSessions : initialSessions);
-        const cachedIncoming = JSON.parse(localStorage.getItem('skillswap_incoming_requests'));
-        setIncomingRequests(Array.isArray(cachedIncoming) ? cachedIncoming : initialIncomingRequests);
-        const cachedOutgoing = JSON.parse(localStorage.getItem('skillswap_outgoing_requests'));
-        setOutgoingRequests(Array.isArray(cachedOutgoing) ? cachedOutgoing : initialOutgoingRequests);
-        const cachedConvs = JSON.parse(localStorage.getItem('skillswap_conversations'));
-        setConversations(Array.isArray(cachedConvs) ? cachedConvs : initialConversations);
-        handleCloseChat();
-        setSelectedSessionId(null);
-      } catch {
-        setSessions(initialSessions);
-        setIncomingRequests(initialIncomingRequests);
-        setOutgoingRequests(initialOutgoingRequests);
-        setConversations(initialConversations);
-      }
-    };
-    restore();
-  }, [
-    isRealtime,
-    setSessions,
-    setIncomingRequests,
-    setOutgoingRequests,
-    setConversations,
-    handleCloseChat,
-    setSelectedSessionId,
-  ]);
-
   const handleRequestRealtime = useCallback((peer) => {
     const model = toMentorModel(peer);
     setSelectedMentorForRequest(model);
@@ -204,14 +121,13 @@ function AppContent() {
 
   const handleSaveProfileSkills = async ({ skillsTeach, skillsWant }) => {
     const updates = {
+      skillsTeach,
+      skillsWant,
       expertiseAreas: skillsTeach,
       learningGoals: skillsWant,
     };
-    if (currentUser) {
-      await updateProfileData(updates);
-    } else {
-      setLocalProfile((previous) => ({ ...previous, ...updates }));
-    }
+    if (!currentUser) throw new Error('Sign in to update your skill profile.');
+    await updateProfileData(updates);
   };
 
   const isPublicAuthScreen = ['login', 'signup', 'get-started'].includes(currentScreen);
@@ -227,7 +143,7 @@ function AppContent() {
       return;
     }
     setSelectedSessionId(session?.id || null);
-    setActiveModal('meeting');
+    showToast('No meeting link has been added to this session yet.');
   };
 
   const handleOpenMentor = (mentor) => {
@@ -269,19 +185,8 @@ function AppContent() {
     [handleMessageMentor]
   );
 
-  const handleExploreDemo = async () => {
-    try {
-      const res = await signIn('demo@skillswap.edu', 'password123');
-      showToast(`Logged in as ${res.profile?.fullName || 'UIU'}!`);
-      setCurrentScreen('dashboard');
-    } catch {
-      showToast('Exploring dashboard...');
-      setCurrentScreen('dashboard');
-    }
-  };
-
   // Wait for the first Firestore snapshots so the page never paints in a
-  // half-empty state on refresh (demo mode paints instantly).
+  // half-empty state on refresh.
   if (!dataReady && !loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fff8f7]">
@@ -337,13 +242,10 @@ function AppContent() {
         currentScreen={routedScreen}
         setCurrentScreen={setCurrentScreen}
         userProfile={myProfile}
-        setUserProfile={setLocalProfile}
         onOpenMeeting={handleOpenMeeting}
         onOpenWallet={() => setActiveModal('wallet')}
         onOpenMentor={handleOpenMentor}
-        onOpenSSO={() => setActiveModal('sso')}
         onShowToast={showToast}
-        onExploreDemo={handleExploreDemo}
         selectedProfile={selectedProfile}
         setSelectedProfile={setSelectedProfile}
         sessions={sessions}

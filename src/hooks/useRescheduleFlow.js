@@ -1,14 +1,7 @@
 import { useState } from 'react';
 import { toDateInput } from '../utils/dateUtils';
 
-// Reschedule an incoming request (propose an alternate time) and respond to a
-// mentor's proposed alternate time on outgoing requests.
 export function useRescheduleFlow({
-  realtime,
-  incomingList,
-  updateIncoming,
-  outgoingList,
-  updateOutgoing,
   onRescheduleRequest,
   onConfirmRescheduleRequest,
   onCancelOutgoingRequest,
@@ -19,104 +12,53 @@ export function useRescheduleFlow({
   const [newProposedSlot, setNewProposedSlot] = useState('Afternoon (14:00 - 15:30)');
   const [rescheduleNote, setRescheduleNote] = useState('');
 
-  const handleOpenRescheduleModal = (req) => {
-    setReschedulingReq(req);
-    setNewProposedDate(req.preferredDate || toDateInput(3));
-    setNewProposedSlot('Afternoon (14:00 - 15:30)');
-    setRescheduleNote(
-      'I have a lab conflict at your requested time, but I am available at this alternate slot.'
-    );
+  const handleOpenRescheduleModal = (request) => {
+    setReschedulingReq(request);
+    setNewProposedDate(request.preferredDate || toDateInput(3));
+    setNewProposedSlot(request.preferredTimeSlot || 'Afternoon (14:00 - 15:30)');
+    setRescheduleNote('');
   };
 
   const handleConfirmReschedule = async () => {
-    if (!reschedulingReq) return;
-
-    if (realtime) {
-      try {
-        await onRescheduleRequest(reschedulingReq.id, {
-          date: newProposedDate,
-          slot: newProposedSlot,
-          note: rescheduleNote,
-        });
-        onShowToast(
-          `Alternate time proposal sent to ${reschedulingReq.requester.name}. Awaiting scholar confirmation.`
-        );
-        setReschedulingReq(null);
-      } catch (e) {
-        console.warn('Reschedule failed:', e);
-        onShowToast('Could not send proposal. Please try again.');
-      }
-      return;
+    if (!reschedulingReq || !onRescheduleRequest) return;
+    try {
+      await onRescheduleRequest(reschedulingReq.id, {
+        date: newProposedDate,
+        slot: newProposedSlot,
+        note: rescheduleNote.trim(),
+      });
+      onShowToast?.(`Alternate time sent to ${reschedulingReq.requester.name}.`);
+      setReschedulingReq(null);
+    } catch (error) {
+      console.warn('Reschedule failed:', error);
+      onShowToast?.(error?.message || 'Could not send the alternate time.');
     }
-
-    const updated = incomingList.map((r) =>
-      r.id === reschedulingReq.id
-        ? {
-            ...r,
-            status: 'rescheduled',
-            rescheduledDate: newProposedDate,
-            rescheduledSlot: newProposedSlot,
-            rescheduleNote: rescheduleNote,
-          }
-        : r
-    );
-    updateIncoming(updated);
-
-    onShowToast(
-      `Alternate time proposal sent to ${reschedulingReq.requester.name}. Awaiting scholar confirmation.`
-    );
-    setReschedulingReq(null);
   };
 
-  // Outgoing request — respond to a mentor's proposed alternate time.
-  const handleConfirmRescheduleResponse = async (req) => {
-    if (realtime) {
-      try {
-        await onConfirmRescheduleRequest(
-          req.id,
-          req.rescheduledDate || req.preferredDate,
-          req.rescheduledSlot || req.preferredTimeSlot
-        );
-        onShowToast(`New time confirmed with ${req.mentor.name}. Mentor will be notified.`);
-      } catch (e) {
-        console.warn('Confirm reschedule failed:', e);
-        onShowToast('Could not confirm new time. Please try again.');
-      }
-      return;
+  const handleConfirmRescheduleResponse = async (request) => {
+    if (!onConfirmRescheduleRequest) return;
+    try {
+      await onConfirmRescheduleRequest(
+        request.id,
+        request.rescheduledDate || request.preferredDate,
+        request.rescheduledSlot || request.preferredTimeSlot
+      );
+      onShowToast?.(`New time confirmed with ${request.mentor.name}.`);
+    } catch (error) {
+      console.warn('Confirm reschedule failed:', error);
+      onShowToast?.(error?.message || 'Could not confirm the new time.');
     }
-
-    const updated = outgoingList.map((r) =>
-      r.id === req.id
-        ? {
-            ...r,
-            status: 'pending',
-            preferredDate: r.rescheduledDate || r.preferredDate,
-            formattedDate: r.rescheduledDate || r.formattedDate,
-            preferredTimeSlot: r.rescheduledSlot || r.preferredTimeSlot,
-            rescheduledDate: undefined,
-            rescheduledSlot: undefined,
-            rescheduleNote: undefined,
-          }
-        : r
-    );
-    updateOutgoing(updated);
-    onShowToast('Alternate time accepted. Request is pending mentor confirmation.');
   };
 
-  const handleDeclineReschedule = async (req) => {
-    if (realtime) {
-      try {
-        await onCancelOutgoingRequest(req.id);
-        onShowToast('Reschedule declined. Request has been withdrawn.');
-      } catch (e) {
-        console.warn('Decline reschedule failed:', e);
-        onShowToast('Could not withdraw request. Please try again.');
-      }
-      return;
+  const handleDeclineReschedule = async (request) => {
+    if (!onCancelOutgoingRequest) return;
+    try {
+      await onCancelOutgoingRequest(request.id);
+      onShowToast?.('Reschedule declined. The request was withdrawn.');
+    } catch (error) {
+      console.warn('Decline reschedule failed:', error);
+      onShowToast?.(error?.message || 'Could not withdraw the request.');
     }
-
-    updateOutgoing(outgoingList.filter((r) => r.id !== req.id));
-    onShowToast('Reschedule declined. Request has been withdrawn.');
   };
 
   return {

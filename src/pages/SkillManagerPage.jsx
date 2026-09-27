@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { academicAssets, resolveAvatarForName } from '../assets';
+import React, { useMemo, useState } from 'react';
+import { resolveAvatarForName } from '../assets';
 import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 
@@ -9,73 +9,78 @@ export const SkillManagerPage = ({
   onShowToast,
   userProfile: propProfile,
   onSaveProfileSkills,
+  realtimeUsers = [],
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
 
   // Skills I Teach state
   const [skillsTeach, setSkillsTeach] = useState(() =>
-    userProfile.expertiseAreas?.length
-      ? [...userProfile.expertiseAreas]
-      : ['Python Data Science', 'Academic Writing', 'Statistical Analysis']
+    [...(userProfile.skillsTeach || userProfile.expertiseAreas || [])]
   );
   const [teachInput, setTeachInput] = useState('');
 
   // Skills I Want state
   const [skillsWant, setSkillsWant] = useState(() =>
-    userProfile.learningGoals?.length
-      ? [...userProfile.learningGoals]
-      : ['UI/UX Design', 'Spanish B2']
+    [...(userProfile.skillsWant || userProfile.learningGoals || [])]
   );
   const [wantInput, setWantInput] = useState('');
 
-  // Suggested for Your Profile
-  const suggestedSkills = [
-    'Research Methodology',
-    'R Programming',
-    'Latex Formatting',
-    'Deep Learning',
-    'Econometrics',
-  ];
+  const skillFrequency = useMemo(() => {
+    const counts = new Map();
+    realtimeUsers.forEach((peer) => {
+      (peer.skillsTeach || []).forEach((skill) => {
+        const label = String(skill || '').trim();
+        if (label) counts.set(label, (counts.get(label) || 0) + 1);
+      });
+    });
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [realtimeUsers]);
 
-  // Popular Exchanges
-  const popularExchanges = [
-    'Machine Learning',
-    'Public Speaking',
-    'Financial Modeling',
-    'Cloud Architecture',
-    'Bioinformatics',
-  ];
+  const suggestedSkills = useMemo(() => {
+    const existing = new Set([...skillsTeach, ...skillsWant].map((skill) => skill.toLowerCase()));
+    return skillFrequency.filter(([skill]) => !existing.has(skill.toLowerCase())).slice(0, 5).map(([skill]) => skill);
+  }, [skillFrequency, skillsTeach, skillsWant]);
 
-  // Matches Activity dataset
-  const recentMatches = [
-    {
-      id: 'match-1',
-      name: 'Prof. Julian V.',
-      title: 'PhD Scholar & Language Tutor',
-      avatarUrl: academicAssets.avatars.julianSterling,
-      matchesSkill: 'Spanish B2',
-      quote: 'I can help you master academic Spanish while you help me with my Python data pipeline.',
-      compatibility: 98,
-      isOnline: true,
-      institution: 'Stanford Language Center',
-      hourlyCredits: 1.0,
-      skills: ['SPANISH B2', 'CRITICAL THEORY', 'EDITING'],
-    },
-    {
-      id: 'match-2',
-      name: 'Sarah Chen',
-      title: 'Senior UI/UX Researcher',
-      avatarUrl: academicAssets.avatars.sarahKhan,
-      matchesSkill: 'UI/UX',
-      quote: 'Looking to transition from Psychology to Design. I can teach Figma & UX research methodologies.',
-      compatibility: 95,
-      isOnline: true,
-      institution: 'HCI Institute',
-      hourlyCredits: 1.0,
-      skills: ['USER RESEARCH', 'FIGMA', 'UI/UX DESIGN'],
-    },
-  ];
+  const popularExchanges = useMemo(
+    () => skillFrequency.slice(0, 5).map(([skill]) => skill),
+    [skillFrequency]
+  );
+
+  const recentMatches = useMemo(() => {
+    const teachSet = new Set(skillsTeach.map((skill) => skill.toLowerCase()));
+    const wantSet = new Set(skillsWant.map((skill) => skill.toLowerCase()));
+    return realtimeUsers
+      .filter((peer) => peer.uid && peer.uid !== currentUser?.uid)
+      .map((peer) => {
+        const peerTeach = peer.skillsTeach || [];
+        const peerWant = peer.skillsWant || [];
+        const theyTeach = peerTeach.filter((skill) => wantSet.has(String(skill).toLowerCase()));
+        const theyWant = peerWant.filter((skill) => teachSet.has(String(skill).toLowerCase()));
+        const matchPoints = theyTeach.length * 2 + theyWant.length;
+        return {
+          id: peer.uid,
+          uid: peer.uid,
+          name: peer.name,
+          title: peer.title,
+          avatarUrl: peer.avatarUrl,
+          matchesSkill: theyTeach[0] || peerTeach[0] || 'Academic exchange',
+          quote: peer.bio || 'Open to a peer learning exchange.',
+          compatibility: Math.min(100, 50 + matchPoints * 10),
+          isOnline: peer.isOnline,
+          institution: peer.university,
+          hourlyCredits: peer.hourlyCredits || 1,
+          skills: peerTeach,
+          rating: peer.rating || 0,
+          reviewsCount: peer.reviewsCount || 0,
+          rawUser: peer,
+          matchPoints,
+        };
+      })
+      .filter((match) => match.matchPoints > 0)
+      .sort((a, b) => b.matchPoints - a.matchPoints || b.rating - a.rating)
+      .slice(0, 6);
+  }, [realtimeUsers, currentUser?.uid, skillsTeach, skillsWant]);
 
   // Add / Remove Handlers for "Skills I Teach"
   const handleAddTeachSkill = (skillToAdd) => {
@@ -118,14 +123,18 @@ export const SkillManagerPage = ({
   // Discard Changes
   const handleDiscard = () => {
     setSkillsTeach(
-      userProfile.expertiseAreas?.length
-        ? [...userProfile.expertiseAreas]
-        : ['Python Data Science', 'Academic Writing', 'Statistical Analysis']
+      userProfile.skillsTeach?.length
+        ? [...userProfile.skillsTeach]
+        : userProfile.expertiseAreas?.length
+          ? [...userProfile.expertiseAreas]
+        : []
     );
     setSkillsWant(
-      userProfile.learningGoals?.length
-        ? [...userProfile.learningGoals]
-        : ['UI/UX Design', 'Spanish B2']
+      userProfile.skillsWant?.length
+        ? [...userProfile.skillsWant]
+        : userProfile.learningGoals?.length
+          ? [...userProfile.learningGoals]
+        : []
     );
     onShowToast('Changes discarded.');
   };
@@ -149,13 +158,14 @@ export const SkillManagerPage = ({
         title: match.title,
         field: match.matchesSkill,
         institution: match.institution,
-        rating: 4.9,
-        reviewsCount: 42,
+        rating: match.rating,
+        reviewsCount: match.reviewsCount,
         avatarUrl: match.avatarUrl,
         isOnline: match.isOnline,
         badges: match.skills,
         hourlyRateCredits: match.hourlyCredits,
         bio: match.quote,
+        rawUser: match.rawUser,
       });
     } else {
       onShowToast(`Initiating swap proposal with ${match.name}`);
@@ -264,9 +274,11 @@ export const SkillManagerPage = ({
             <div className="pt-2">
               <button
                 onClick={() => {
-                  onShowToast('Creating a new intellectual exchange proposal...');
                   if (onOpenMentorModal && recentMatches[0]) {
                     handleProposeSwap(recentMatches[0]);
+                  } else {
+                    onShowToast('Add learning goals to find compatible scholars.');
+                    onNavigateScreen('discover');
                   }
                 }}
                 className="w-full py-3 px-4 bg-[#574654] hover:bg-[#433541] text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center text-center leading-normal active:scale-[0.98]"
@@ -583,6 +595,11 @@ export const SkillManagerPage = ({
             </div>
 
             {/* 3-COLUMN MATCHES CARDS ROW */}
+            {recentMatches.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-[#d8c6cd] bg-white p-6 text-center text-xs text-[#786571]">
+                Add skills you teach and want to learn. Compatible live scholars will appear here automatically.
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               
               {/* MATCH CARD 1: Prof. Julian V. */}

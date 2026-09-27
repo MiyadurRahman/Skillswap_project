@@ -123,6 +123,8 @@ export const ProfileSetupPage = ({
         avatarUrl: avatarPreview,
         expertiseAreas: expertise,
         learningGoals,
+        skillsTeach: expertise,
+        skillsWant: learningGoals,
       };
 
       try {
@@ -134,10 +136,9 @@ export const ProfileSetupPage = ({
         }
         onShowToast('Academic profile updated & saved successfully!');
         onNavigateScreen('dashboard');
-      } catch {
-        onShowToast('Profile saved locally.');
-        if (onUpdateProfile) onUpdateProfile(payload);
-        onNavigateScreen('dashboard');
+      } catch (error) {
+        console.warn('Profile save failed:', error);
+        onShowToast(error?.message || 'Could not save your profile. Please try again.');
       } finally {
         setSaving(false);
       }

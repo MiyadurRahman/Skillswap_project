@@ -24,6 +24,8 @@ export const db = getFirestore(app);
 // Initialize Storage (for uploads/photos)
 export const storage = getStorage(app);
 
+// Callable backend operations (wallet settlement, reviews, admin adjustments).
+
 // Initialize Google Provider and force account selection
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({

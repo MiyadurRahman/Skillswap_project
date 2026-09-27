@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
-import { allPeers } from '../data/peersData';
 import { useDiscoverFilters } from '../hooks/useDiscoverFilters';
 import { useDiscoverRequests } from '../hooks/useDiscoverRequests';
 import { RequestPeerModal } from '../component/discover/RequestPeerModal';
+import { resolveAvatarForName } from '../assets';
 
 export const DiscoverPage = ({
   onNavigateScreen,
@@ -12,17 +12,14 @@ export const DiscoverPage = ({
   onShowToast,
   userProfile: propProfile,
   onSelectPeerProfile,
-  onCreateSession,
-  realtime = false,
+  realtime = true,
   realtimeUsers = [],
   onRequestRealtime,
   onMessageMentor,
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
-  const userAvatar =
-    userProfile?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
+  const userAvatar = userProfile.avatarUrl || resolveAvatarForName(userProfile.name || 'Scholar');
 
   // Real scholars who exist in Firestore (exclude the current viewer).
   const liveScholars = useMemo(
@@ -70,61 +67,17 @@ export const DiscoverPage = ({
     handleOpenRequestModal,
     handleConfirmDiscoverSession,
   } = useDiscoverRequests({
-    realtime,
     onRequestRealtime,
     onShowToast,
-    onCreateSession,
-    onNavigateScreen,
-    userProfile,
-    userAvatar,
   });
 
   const handleOpenPeer = (peer) => {
-    if (onSelectPeerProfile) {
-      onSelectPeerProfile({
-        id: peer.id,
-        name: peer.name,
-        title: peer.title,
-        rating: peer.rating,
-        reviewsCount: peer.reviewsCount || 48,
-        avatarUrl: peer.avatarUrl,
-        isOnline: peer.isOnline,
-        bio: peer.bio,
-        credentials: peer.credentials || ['Verified Scholar', peer.academicLevel || 'PhD Researcher'],
-        responseSpeed: peer.responseSpeed || 'Usually responds in 2h',
-        skillsTeach: peer.skillsTeach || (peer.skills ? peer.skills.map(s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())) : ['Peer Tutoring', 'Academic Research']),
-        skillsWant: peer.skillsWant || ['Advanced Python', 'Machine Learning Basics', 'Data Visualization', 'Public Speaking'],
-        availability: peer.availability || (peer.nextAvailable ? `Available: ${peer.nextAvailable}` : 'Available: Tue, Thu, Sat'),
-        preferredMode: peer.preferredMode || 'Preferred: Virtual / Zoom',
-        swapsCount: peer.swapsCount || (peer.reviewsCount ? Math.floor(peer.reviewsCount * 0.4) : 48),
-        learnersCount: peer.learnersCount || '1.8k',
-        reviews: peer.reviews || [
-          {
-            id: 'rev-1',
-            name: 'Marcus Thorne',
-            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
-            rating: 5,
-            quote: `Outstanding collaboration session with ${peer.name}. Deep academic rigor and clear explanations.`,
-            meta: 'Recent • Swapped for Peer Exchange',
-          },
-          {
-            id: 'rev-2',
-            name: 'Dr. Sarah L.',
-            avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=240&auto=format&fit=crop&q=80',
-            rating: 5,
-            quote: `High quality academic feedback and methodology review. Helped strengthen our paper analysis.`,
-            meta: '2 weeks ago • Swapped for Research Consulting',
-          },
-        ],
-      });
-    }
+    onSelectPeerProfile?.(peer);
     onNavigateScreen('public-profile');
   };
 
   const handleFindPeerCTA = () => {
-    const count = realtime ? filteredLive.length : filteredPeers.length;
-    const kind = realtime ? 'live' : 'verified';
-    onShowToast(`Found ${count} ${kind} academic peers matching your criteria.`);
+    onShowToast(`Found ${filteredLive.length} live academic peers matching your criteria.`);
   };
 
   return (
@@ -510,7 +463,14 @@ export const DiscoverPage = ({
                           </span>
                         ))}
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => handleOpenPeer(person)}
+                        className="w-full py-2 bg-white hover:bg-[#f7f1f8] border border-[#d9c4d6] text-[#473b4b] rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">person</span>
+                        <span>Profile</span>
+                      </button>
                       <button
                         onClick={() => onRequestRealtime && onRequestRealtime(person)}
                         className="w-full py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
@@ -598,7 +558,7 @@ export const DiscoverPage = ({
                           star
                         </span>
                         <span className="text-xs font-bold text-[#201a1b]">
-                          {peer.rating.toFixed(1)}
+                          {peer.rating > 0 ? peer.rating.toFixed(1) : 'New'}
                         </span>
                       </div>
                     </div>
@@ -664,7 +624,7 @@ export const DiscoverPage = ({
                 </div>
                 <h3 className="text-base font-bold text-[#201a1b]">No knowledge peers found</h3>
                 <p className="text-xs text-[#705f69] max-w-md mx-auto">
-                  Try adjusting your search terms or unchecking some filter fields to explore more verified scholars.
+                  Try adjusting your search terms or unchecking filters to explore more scholar profiles.
                 </p>
                 <button
                   onClick={resetFilters}
@@ -760,11 +720,9 @@ export const DiscoverPage = ({
         {/* Floating Action Button (FAB) at bottom-right */}
         <div className="fixed bottom-6 right-6 z-30">
           <button
-            onClick={() => {
-              handleOpenRequestModal(allPeers[0]);
-            }}
+            onClick={() => onNavigateScreen('requests')}
             className="w-12 h-12 rounded-2xl bg-[#c5b3d3] hover:bg-[#b39dc3] text-[#2c1d30] shadow-lg flex items-center justify-center text-2xl font-bold transition-transform active:scale-95 border border-white/40"
-            title="Create / Request a Skill Swap"
+            title="Open swap requests"
             id="fab-create-swap"
           >
             <span className="material-symbols-outlined text-[24px]">add</span>

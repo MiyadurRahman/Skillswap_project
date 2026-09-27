@@ -4,11 +4,6 @@ import { MobileNav } from '../component/MobileNav';
 import { AcceptModal } from '../component/requests/AcceptModal';
 import { DeclineModal } from '../component/requests/DeclineModal';
 import { RescheduleModal } from '../component/requests/RescheduleModal';
-import {
-  drJulianVance,
-  initialIncomingRequests,
-  initialOutgoingRequests,
-} from '../data/requestsData';
 import { useRequestLists } from '../hooks/useRequestLists';
 import { useRequestFilters } from '../hooks/useRequestFilters';
 import { useAcceptFlow } from '../hooks/useAcceptFlow';
@@ -16,22 +11,30 @@ import { useDeclineFlow } from '../hooks/useDeclineFlow';
 import { useRescheduleFlow } from '../hooks/useRescheduleFlow';
 import { useRequestForm } from '../hooks/useRequestForm';
 
+const EMPTY_MENTOR = {
+  uid: '',
+  name: 'Select a scholar from Discover',
+  title: 'No scholar selected',
+  avatarUrl: '',
+  isOnline: false,
+  badge1: '',
+  badge2: '',
+  skills: [],
+  cost: 0,
+};
+
 export const RequestsPage = ({
   userProfile: propProfile,
   onNavigateScreen,
   onOpenWalletModal,
   onShowToast,
-  incomingRequests = initialIncomingRequests,
-  onUpdateIncomingRequests,
-  outgoingRequests = initialOutgoingRequests,
-  onUpdateOutgoingRequests,
-  onCreateSession,
+  incomingRequests = [],
+  outgoingRequests = [],
   onSelectSession,
   allSessions = [],
   onSelectPeerProfile,
   initialTab = 'incoming',
-  selectedMentorForRequest = drJulianVance,
-  realtime = false,
+  selectedMentorForRequest = null,
   onAcceptRequest,
   onDeclineRequest,
   onRescheduleRequest,
@@ -49,12 +52,9 @@ export const RequestsPage = ({
   // Active top tab: 'incoming' | 'outgoing' | 'request-form'
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  const { incomingList, outgoingList, updateIncoming, updateOutgoing } = useRequestLists({
-    realtime,
+  const { incomingList, outgoingList } = useRequestLists({
     incomingRequests,
-    onUpdateIncomingRequests,
     outgoingRequests,
-    onUpdateOutgoingRequests,
   });
 
   const {
@@ -78,14 +78,8 @@ export const RequestsPage = ({
     handleOpenAcceptModal,
     handleConfirmAccept,
   } = useAcceptFlow({
-    realtime,
-    incomingList,
-    updateIncoming,
     onAcceptRequest,
-    onCreateSession,
     onSelectSession,
-    userProfile,
-    userAvatar,
     onShowToast,
   });
 
@@ -99,9 +93,6 @@ export const RequestsPage = ({
     handleOpenDeclineModal,
     handleConfirmDecline,
   } = useDeclineFlow({
-    realtime,
-    incomingList,
-    updateIncoming,
     onDeclineRequest,
     onShowToast,
   });
@@ -120,11 +111,6 @@ export const RequestsPage = ({
     handleConfirmRescheduleResponse,
     handleDeclineReschedule,
   } = useRescheduleFlow({
-    realtime,
-    incomingList,
-    updateIncoming,
-    outgoingList,
-    updateOutgoing,
     onRescheduleRequest,
     onConfirmRescheduleRequest,
     onCancelOutgoingRequest,
@@ -145,14 +131,11 @@ export const RequestsPage = ({
     isSubmittingRequest,
     handleSendLearningRequest,
   } = useRequestForm({
-    realtime,
     selectedMentorForRequest,
-    fallbackMentor: drJulianVance,
+    fallbackMentor: EMPTY_MENTOR,
     onSendRequest,
     onShowToast,
     setActiveTab,
-    updateOutgoing,
-    outgoingList,
     userProfile,
   });
 
@@ -786,7 +769,7 @@ export const RequestsPage = ({
                               {req.mentor.name}
                             </h3>
                             <span className="text-[11px] font-semibold text-[#6e586a] bg-[#f8eef7] px-2 py-0.5 rounded-full border border-[#edd5eb]">
-                              {req.mentor.badge1 || 'Verified Scholar'}
+                              {req.mentor.badge1 || 'No badge yet'}
                             </span>
                           </div>
                           <p className="text-xs text-[#705e69]">{req.mentor.title}</p>
@@ -902,19 +885,12 @@ export const RequestsPage = ({
                       {req.status === 'pending' && (
                         <button
                           onClick={() => {
-                            if (realtime) {
-                              onCancelOutgoingRequest(req.id)
-                                .then(() =>
-                                  onShowToast('Request withdrawn. Credits returned to your ledger.')
-                                )
-                                .catch((err) => {
-                                  console.warn('Cancel request failed:', err);
-                                  onShowToast('Could not withdraw request. Please try again.');
-                                });
-                            } else {
-                              onShowToast('Withdrawing request and returning credits to ledger.');
-                              updateOutgoing(outgoingList.filter((r) => r.id !== req.id));
-                            }
+                            onCancelOutgoingRequest(req.id)
+                              .then(() => onShowToast('Request withdrawn.'))
+                              .catch((error) => {
+                                console.warn('Cancel request failed:', error);
+                                onShowToast(error?.message || 'Could not withdraw request.');
+                              });
                           }}
                           className="text-xs font-semibold text-[#8c464e] hover:underline shrink-0"
                         >
@@ -969,14 +945,14 @@ export const RequestsPage = ({
                     <span className="material-symbols-outlined text-[18px] text-[#524156]">
                       workspace_premium
                     </span>
-                    <span>{currentMentor.badge1 || 'Top 1% Mentor 2023'}</span>
+                    <span>{currentMentor.badge1 || 'No achievement badge yet'}</span>
                   </div>
 
                   <div className="flex items-center justify-center gap-2 bg-[#f5eeec] text-[#4a3b48] py-2.5 px-4 rounded-xl text-xs font-semibold border border-[#eddcd8]/60">
                     <span className="material-symbols-outlined text-[18px] text-[#524156]">
                       history
                     </span>
-                    <span>{currentMentor.badge2 || '450+ Sessions Completed'}</span>
+                    <span>{currentMentor.badge2 || 'No completed swaps yet'}</span>
                   </div>
                 </div>
 
@@ -1158,7 +1134,7 @@ export const RequestsPage = ({
                       <span className="material-symbols-outlined text-[20px] text-[#524156]">
                         payments
                       </span>
-                      <span>Cost: {currentMentor.cost || 250} Academic Credits</span>
+                      <span>Cost: {currentMentor.cost || 2.5} Academic Credits</span>
                     </div>
 
                     {/* Actions */}

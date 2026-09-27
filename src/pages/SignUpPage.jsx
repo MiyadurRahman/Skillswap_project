@@ -158,28 +158,13 @@ export const SignUpPage = ({
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-52 h-52 bg-[#c5b3d3]/30 rounded-full blur-3xl -z-10"></div>
             </div>
 
-            {/* Avatar Stack & Community Stat */}
+            {/* Product value statement */}
             <div className="flex items-center space-x-3 pt-2">
-              <div className="flex -space-x-3">
-                <img
-                  src={academicAssets.avatars.alexRivera}
-                  alt="Scholar avatar"
-                  className="w-9 h-9 rounded-full border-2 border-white object-cover shadow-sm"
-                />
-                <img
-                  src={academicAssets.avatars.sarahKhan}
-                  alt="Scholar avatar"
-                  className="w-9 h-9 rounded-full border-2 border-white object-cover shadow-sm"
-                />
-                <img
-                  src={academicAssets.avatars.julianSterling}
-                  alt="Scholar avatar"
-                  className="w-9 h-9 rounded-full border-2 border-white object-cover shadow-sm"
-                />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#675975] text-white shadow-sm">
+                <span className="material-symbols-outlined text-lg">sync_alt</span>
               </div>
               <p className="text-xs text-[#4a454c]">
-                Join <span className="font-bold text-[#675975]">2,400+</span> verified scholars exchanging
-                skills this semester.
+                Build a live skill profile and exchange knowledge with real scholars.
               </p>
             </div>
           </div>

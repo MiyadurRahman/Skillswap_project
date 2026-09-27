@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
-import { academicAssets } from '../assets';
-import { AUTH_CONFIG } from '../config/authConfig';
 import { useAuth } from '../context/auth';
 
 export const GetStartedPage = ({
   onNavigateToSignUp,
   onNavigateToLogin,
   onShowToast,
-  onOpenSSO,
-  onExploreDemo,
   realtime = false,
   realtimeUsers = [],
 }) => {
@@ -55,10 +51,10 @@ export const GetStartedPage = ({
     mentorName: u.name,
     university: u.university || 'University Scholar',
     tags: (u.badges && u.badges.length ? u.badges : u.skillsTeach || []).slice(0, 3),
-    rating: u.rating ?? 4.8,
+    rating: u.rating ?? 0,
     reviewsCount: u.reviewsCount ?? u.completedSwaps ?? 0,
     avatarUrl: u.avatarUrl,
-    status: 'Live Now',
+    status: u.isOnline ? 'Online' : 'Offline',
   }));
 
   const categories = [
@@ -69,61 +65,10 @@ export const GetStartedPage = ({
     { id: 'eng', label: 'Engineering', icon: 'precision_manufacturing' },
   ];
 
-  const featuredSkills = [
-    {
-      id: 1,
-      category: 'cs',
-      title: 'Data Structures & Dynamic Programming',
-      mentorName: 'Tanvir Ahmed',
-      university: 'United International University (UIU)',
-      tags: ['C++', 'Dynamic Programming', 'Graph Theory'],
-      rating: 4.95,
-      reviewsCount: 128,
-      avatarUrl: academicAssets.avatars.tanvirAhmed,
-      status: 'Online Now',
-    },
-    {
-      id: 2,
-      category: 'math',
-      title: 'LaTeX Research Paper Drafting & Formatting',
-      mentorName: 'Abrar Zahin',
-      university: 'United International University (UIU)',
-      tags: ['LaTeX', 'Overleaf', 'Academic Writing'],
-      rating: 5.0,
-      reviewsCount: 94,
-      avatarUrl: academicAssets.avatars.abrarZahin,
-      status: 'Available Today',
-    },
-    {
-      id: 3,
-      category: 'bio',
-      title: 'Computational Genomics with Biopython',
-      mentorName: 'Sarah Khan',
-      university: 'University of Dhaka',
-      tags: ['Bioinformatics', 'Biopython', 'Genetics'],
-      rating: 4.88,
-      reviewsCount: 67,
-      avatarUrl: academicAssets.avatars.sarahKhan,
-      status: 'Online Now',
-    },
-    {
-      id: 4,
-      category: 'eng',
-      title: 'Embedded Robotics & Control Systems with ROS',
-      mentorName: 'Shakib Chowdhury',
-      university: 'BUET Robotics Lab',
-      tags: ['Robotics', 'C++', 'Control Systems'],
-      rating: 4.92,
-      reviewsCount: 110,
-      avatarUrl: academicAssets.avatars.shakibChowdhury,
-      status: 'Tomorrow, 10:00 AM',
-    },
-  ];
-
   const faqs = [
     {
       q: 'How does the Time Credit economy work?',
-      a: 'One hour of peer mentoring earns you 1.0 Time Credit in your local ledger. You can spend that credit anytime to learn any academic skill from another university peer. No monetary transactions required.',
+      a: 'The credits agreed in a request transfer only after both participants confirm the session is complete. You can spend earned credits on another peer session.',
     },
     {
       q: 'Do I have to be from a partner university to join?',
@@ -139,13 +84,11 @@ export const GetStartedPage = ({
     },
     {
       q: 'How do peer sessions take place?',
-      a: 'Sessions happen directly inside our built-in academic workspace equipped with a live timer, shared notes, code sharing, and automatic time-credit transfer upon completion.',
+      a: 'Accepted requests include the meeting link and shared session notes. Credits transfer only after both participants confirm completion.',
     },
   ];
 
-  // Grid shows live scholars when available, otherwise the static showcase.
-  const displayedCards =
-    realtime && liveSkillCards.length > 0 ? liveSkillCards : featuredSkills;
+  const displayedCards = realtime ? liveSkillCards : [];
 
   const filteredSkills =
     selectedCategory === 'all'
@@ -246,31 +189,21 @@ export const GetStartedPage = ({
                 <span>Sign In to Account</span>
               </button>
 
-              {onExploreDemo && AUTH_CONFIG.SHOW_DEMO_LOGIN && (
-                <button
-                  type="button"
-                  onClick={onExploreDemo}
-                  className="px-6 py-3.5 bg-[#f7effa] hover:bg-[#ebd9f8] text-[#52445f] font-semibold text-sm rounded-full border border-[#d2c0e0]/70 shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[18px] text-[#675975]">bolt</span>
-                  <span>Explore Live Demo</span>
-                </button>
-              )}
             </div>
 
             {/* Metrics Row */}
             <div className="pt-6 border-t border-[#ccc4cd]/40 grid grid-cols-3 gap-2 sm:gap-4 max-w-lg overflow-hidden">
               <div>
-                <div className="text-2xl sm:text-3xl font-extrabold text-[#675975]">2,400+</div>
-                <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Verified Scholars</div>
+                <div className="text-2xl sm:text-3xl font-extrabold text-[#675975]">Live</div>
+                <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Firestore Profiles</div>
               </div>
               <div className="border-l border-[#ccc4cd]/50 pl-2 sm:pl-4">
                 <div className="text-2xl sm:text-3xl font-extrabold text-[#675975]">1:1</div>
                 <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Time-Credit Swap</div>
               </div>
               <div className="border-l border-[#ccc4cd]/50 pl-2 sm:pl-4">
-                <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700">100%</div>
-                <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Zero Tuition Fees</div>
+                <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700">No cash</div>
+                <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Time-Credit Exchange</div>
               </div>
             </div>
           </div>
@@ -307,7 +240,6 @@ export const GetStartedPage = ({
                         <div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-bold text-[#201a1b]">{livePeerCards[0].name}</span>
-                            <span className="material-symbols-outlined text-[14px] text-[#675975]" title="Verified Scholar">verified</span>
                           </div>
                           <span className="text-[10px] text-[#675975] font-medium">{livePeerCards[0].university || 'University Scholar'}</span>
                         </div>
@@ -345,7 +277,6 @@ export const GetStartedPage = ({
                             <div>
                               <div className="flex items-center gap-1.5">
                                 <span className="text-xs font-bold text-[#201a1b]">{livePeerCards[1].name}</span>
-                                <span className="material-symbols-outlined text-[14px] text-[#675975]" title="Verified Scholar">verified</span>
                               </div>
                               <span className="text-[10px] text-[#675975] font-medium">{livePeerCards[1].university || 'University Scholar'}</span>
                             </div>
@@ -405,7 +336,7 @@ export const GetStartedPage = ({
             How Academic Swapping Works
           </h2>
           <p className="text-xs sm:text-sm text-[#4a454c]">
-            A fair, university-verified peer exchange system where everyone learns.
+            A transparent peer exchange system where everyone can teach and learn.
           </p>
         </div>
 
@@ -439,7 +370,7 @@ export const GetStartedPage = ({
             </div>
             <h3 className="text-base font-bold text-[#201a1b]">Mentor & Earn Credits</h3>
             <p className="text-xs text-[#4a454c] leading-relaxed">
-              Host structured 1-on-1 collaborative sessions. Every 60 minutes of verified mentoring transfers 1.0 Time Credit into your scholar ledger.
+              Host structured 1-on-1 collaborative sessions. The agreed credits transfer after both scholars confirm completion.
             </p>
             <div className="pt-2 flex items-center gap-2 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg w-fit">
               <span className="material-symbols-outlined text-[15px]">trending_up</span>
@@ -457,7 +388,7 @@ export const GetStartedPage = ({
             </div>
             <h3 className="text-base font-bold text-[#201a1b]">Learn Any Skill for Free</h3>
             <p className="text-xs text-[#4a454c] leading-relaxed">
-              Redeem your accumulated credits to receive 1-on-1 coaching from peers and research scholars across partner universities with zero fees.
+              Redeem accumulated credits to receive 1-on-1 coaching from other scholars without a cash payment.
             </p>
             <div className="pt-2 flex items-center gap-2 text-[11px] font-bold text-[#675975] bg-[#efdbfd] px-2.5 py-1 rounded-lg w-fit">
               <span className="material-symbols-outlined text-[15px]">verified_user</span>
@@ -486,7 +417,7 @@ export const GetStartedPage = ({
             onClick={onNavigateToSignUp}
             className="text-xs sm:text-sm font-bold text-[#675975] hover:text-[#3c2f47] flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
           >
-            <span>Browse All 240+ Topics</span>
+            <span>Browse Available Topics</span>
             <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
           </button>
         </div>
@@ -511,6 +442,13 @@ export const GetStartedPage = ({
         </div>
 
         {/* Skills Grid */}
+        {filteredSkills.length === 0 && (
+          <div className="mb-6 rounded-2xl border border-dashed border-[#cbbdca] bg-white px-6 py-10 text-center">
+            <span className="material-symbols-outlined text-3xl text-[#675975]">login</span>
+            <h3 className="mt-2 text-sm font-bold text-[#201a1b]">Real scholar profiles require sign-in</h3>
+            <p className="mt-1 text-xs text-[#706672]">Create an account to browse current skills, ratings, and availability.</p>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {filteredSkills.map((skill) => (
             <div
@@ -640,7 +578,7 @@ export const GetStartedPage = ({
             Ready to exchange academic skills?
           </h2>
           <p className="text-xs sm:text-sm text-white/80 leading-relaxed">
-            Join hundreds of scholars from UIU, BUET, and partner universities exchanging skills this semester with zero financial cost.
+            Create a real profile, list your skills, and connect with scholars who want to exchange knowledge.
           </p>
           <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
             <button
@@ -683,13 +621,6 @@ export const GetStartedPage = ({
               className="hover:text-[#675975] transition-colors cursor-pointer"
             >
               Institutional Terms
-            </button>
-            <button
-              type="button"
-              onClick={onOpenSSO}
-              className="hover:text-[#675975] transition-colors cursor-pointer"
-            >
-              University SSO
             </button>
           </div>
         </div>
