@@ -248,22 +248,44 @@ export const DashboardPage = ({
               <span className="material-symbols-outlined text-[18px]">person</span>
               Profile Settings
             </button>
-            <button
-              onClick={() => go('my-safety-reports')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[16px] leading-none">flag</span>
-              My Safety Reports
-            </button>
-            {isAdmin && (
+            <div className="mt-3 rounded-2xl border border-[#ebd8d4] bg-white/70 p-2">
+              <p className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-[#887580]">
+                Trust &amp; Safety
+              </p>
               <button
-                onClick={() => go('admin-reports')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+                onClick={() => go('my-safety-reports')}
+                className="group w-full flex items-center gap-2.5 rounded-xl px-2 py-2 text-left text-xs font-semibold text-[#4a454c] transition-colors hover:bg-[#f7ebeb] cursor-pointer"
               >
-                <span className="material-symbols-outlined flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[16px] leading-none">policy</span>
-                Safety Reports
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f7ebeb] text-[#675975] transition-colors group-hover:bg-white">
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-[18px] w-[18px]"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 21V4m0 1c5-4 9 4 14 0v10c-5 4-9-4-14 0" />
+                  </svg>
+                </span>
+                <span className="min-w-0 flex-1">My Safety Reports</span>
+                <span className="material-symbols-outlined text-[16px] text-[#a2949c] transition-transform group-hover:translate-x-0.5">chevron_right</span>
               </button>
-            )}
+              {isAdmin && (
+                <button
+                  onClick={() => go('admin-reports')}
+                  className="group w-full flex items-center gap-2.5 rounded-xl px-2 py-2 text-left text-xs font-semibold text-[#4a454c] transition-colors hover:bg-[#f7ebeb] cursor-pointer"
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f7ebeb] text-[#675975] transition-colors group-hover:bg-white">
+                    <span className="material-symbols-outlined text-[18px]">policy</span>
+                  </span>
+                  <span className="min-w-0 flex-1">Safety Reports</span>
+                  <span className="material-symbols-outlined text-[16px] text-[#a2949c] transition-transform group-hover:translate-x-0.5">chevron_right</span>
+                </button>
+              )}
+            </div>
           </nav>
         </div>
 
@@ -382,7 +404,7 @@ export const DashboardPage = ({
       {/* Main Content Layout */}
       <div className="pt-[72px] flex max-w-[1280px] mx-auto min-h-screen">
         {/* Left Side Navigation */}
-        <aside className="w-64 bg-[#fdf1f1] border-r border-[#ccc4cd]/30 p-6 hidden md:flex flex-col justify-between shrink-0">
+        <aside className="sticky top-[72px] h-[calc(100vh-72px)] w-64 overflow-y-auto scrollbar-none bg-[#fdf1f1] border-r border-[#ccc4cd]/30 p-6 hidden md:flex flex-col justify-between shrink-0">
           {renderSidebar()}
         </aside>
 

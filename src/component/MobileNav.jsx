@@ -76,7 +76,9 @@ export const MobileNav = ({ title = 'SkillSwap', accent = '#4e4353', items = [],
 
         <div className="h-[calc(100%-4rem)] overflow-y-auto scrollbar-none">
           {typeof children === 'function' ? (
-            children(() => setOpen(false))
+            <div className="min-h-full p-4 flex flex-col justify-between">
+              {children(() => setOpen(false))}
+            </div>
           ) : (
             <nav className="p-4 space-y-1">
               {items.map((item) => (

@@ -49,29 +49,45 @@ export const LeaderboardPage = ({
   }, [realtime, realtimeUsers, currentUser]);
 
   const ranked = useMemo(() => {
-    const value = (p) =>
-      activeTab === 'swaps'
-        ? p.swapsCount
-        : activeTab === 'earned'
-          ? p.creditsEarned
-          : p.reviewsCount >= 3
-            ? p.rating
-            : -1;
-    return [...roster].sort((a, b) => value(b) - value(a)).map((p, i) => ({ ...p, rank: i + 1 }));
+    if (activeTab === 'rated') {
+      const rated = roster
+        .filter((p) => p.rating > 0)
+        .sort((a, b) => {
+          const aQualified = a.reviewsCount >= 3;
+          const bQualified = b.reviewsCount >= 3;
+          if (aQualified !== bQualified) return aQualified ? -1 : 1;
+          return b.rating - a.rating;
+        });
+      const unrated = roster.filter((p) => p.rating <= 0);
+      return [
+        ...rated.map((p, i) => ({ ...p, rank: i + 1 })),
+        ...unrated.map((p) => ({ ...p, rank: null })),
+      ];
+    }
+
+    const value = (p) => activeTab === 'swaps' ? p.swapsCount : p.creditsEarned;
+    return [...roster]
+      .sort((a, b) => value(b) - value(a))
+      .map((p, i) => ({ ...p, rank: i + 1 }));
   }, [roster, activeTab]);
 
-  const podium = ranked.slice(0, 3);
-  const rest = ranked.slice(3);
+  const podium = activeTab === 'rated'
+    ? ranked.filter((p) => p.rating > 0).slice(0, 3)
+    : ranked.slice(0, 3);
+  const podiumIds = new Set(podium.map((p) => p.id));
+  const rest = activeTab === 'rated'
+    ? ranked.filter((p) => !podiumIds.has(p.id))
+    : ranked.slice(3);
 
   const stats = useMemo(() => {
-    const total = ranked.length;
-    const swaps = ranked.reduce((s, p) => s + p.swapsCount, 0);
-    const rated = ranked.filter((p) => p.rating > 0);
+    const total = roster.length;
+    const swaps = roster.reduce((s, p) => s + p.swapsCount, 0);
+    const rated = roster.filter((p) => p.rating > 0);
     const avg = rated.length
       ? Math.round((rated.reduce((s, p) => s + p.rating, 0) / rated.length) * 10) / 10
       : 0;
     return { total, swaps, avg };
-  }, [ranked]);
+  }, [roster]);
 
   // Navigate to the peer's full public profile (same shape Discover uses).
   const openProfile = (peer) => {
@@ -187,6 +203,12 @@ export const LeaderboardPage = ({
           ))}
         </div>
 
+        {activeTab === 'rated' && (
+          <p className="-mt-4 text-[11px] text-[#8c7b86]">
+            Scholars with 3 or more reviews rank first. Other rated scholars follow; unrated scholars remain listed below without a rank.
+          </p>
+        )}
+
         {/* PODIUM TOP 3 */}
         {podium.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -250,9 +272,17 @@ export const LeaderboardPage = ({
             <span className="text-right">Rating</span>
           </div>
 
+          {activeTab === 'rated' && podium.length === 0 && roster.length > 0 && (
+            <p className="px-4 pt-4 text-xs text-[#8c7b86]">
+              No scholars have peer ratings yet. All profiles are listed below.
+            </p>
+          )}
+
           {rest.length === 0 && podium.length === 0 && (
             <p className="p-6 text-xs text-[#8c7b86] italic">
-              No scholars ranked yet — the leaderboard fills as swaps are completed.
+              {activeTab === 'rated'
+                ? 'No scholars have peer ratings yet.'
+                : 'No scholars ranked yet — the leaderboard fills as swaps are completed.'}
             </p>
           )}
 
@@ -263,7 +293,9 @@ export const LeaderboardPage = ({
                 p.isMe ? 'bg-[#fdf1ff]' : ''
               }`}
             >
-              <span className="text-xs font-bold text-[#786571]">#{p.rank}</span>
+              <span className="text-xs font-bold text-[#786571]">
+                {p.rank ? `#${p.rank}` : '—'}
+              </span>
               <button
                 onClick={() => openProfile(p)}
                 className="flex items-center gap-3 min-w-0 text-left cursor-pointer"
