@@ -8,6 +8,8 @@ import {
   subscribeReviewStatus,
 } from '../services/realtime';
 import { openExternalUrl } from '../utils/urlUtils';
+import { getLocalTimeZone, toDateInput, toTimeInputValue } from '../utils/dateUtils';
+import { resolveAvatarForName } from '../assets';
 
 export const SessionDetailsPage = ({
   session: activeSessionProp,
@@ -23,85 +25,60 @@ export const SessionDetailsPage = ({
   onSettleSession,
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
-  const userRole = authProfile?.academicLevel || 'PhD Candidate';
+  const userRole = authProfile?.academicLevel || 'Academic level not provided';
   const userAvatar =
     authProfile?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
+    resolveAvatarForName(authProfile?.name || currentUser?.displayName || 'Scholar');
 
-  // Fallback default session if none is passed (matching exact screenshot)
-  const defaultSession = {
-    id: 'session-sem-1',
-    title: 'Advanced Quantitative Research Methods',
-    status: 'Accepted',
-    description:
-      'This session focuses on the application of structural equation modeling (SEM) in social science research. We will review the core assumptions of SEM and work through a practical example using R.',
-    learningGoals: [
-      'Master data preparation for SEM',
-      'Analyze model fit indices',
-      'Interpret latent variable paths',
-    ],
-    duration: '90 Minutes',
-    method: 'Video Call',
-    platform: 'SkillSwap Connect',
-    date: 'Wednesday, Oct 24',
-    time: '02:30 PM — 04:00 PM',
-    partner: {
-      id: 'peer-aris-thorne',
-      name: 'Dr. Aris Thorne',
-      title: 'Senior Researcher, Data Science',
-      avatarUrl:
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-      isOnline: true,
-      badges: ['Statistics', 'R-Programming'],
-      skillsTeach: [
-        'Advanced Quantitative Methods',
-        'Structural Equation Modeling (SEM)',
-        'R-Programming',
-        'Multivariate Statistics',
-      ],
-      skillsWant: ['Deep Learning in PyTorch', 'Qualitative Interview Design'],
-      rating: 4.9,
-      reviewsCount: 88,
-      credentials: ['PhD in Computational Statistics', 'Verified Senior Researcher'],
-      responseSpeed: 'Usually responds in 1h',
-      availability: 'Available: Wed, Oct 24 (02:30 PM)',
-      preferredMode: 'Preferred: SkillSwap Connect Video Call',
-    },
-    notes: [
-      {
-        id: 'note-1',
-        authorName: 'Dr. Aris Thorne',
-        authorAvatar:
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-        timestamp: '2 hours ago',
-        text: "I've uploaded the preliminary dataset we'll be using. Please take a look at the variable definitions before our meeting on Wednesday.",
-      },
-    ],
-  };
-
-  const session = activeSessionProp || defaultSession;
+  const session = activeSessionProp || { partner: {}, notes: [] };
+  const sessionDateLabel = session.startMs
+    ? new Intl.DateTimeFormat(undefined, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(new Date(session.startMs))
+    : session.date;
+  const sessionTimeLabel = session.startMs
+    ? new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short',
+      }).format(new Date(session.startMs))
+    : session.time;
 
   // Local interactive states
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
   const defaultStart = session?.startMs || resolveSessionTimes(session)?.startAt;
+  const defaultRescheduleTime = defaultStart
+    ? toTimeInputValue(
+        `${String(new Date(defaultStart).getHours()).padStart(2, '0')}:${String(new Date(defaultStart).getMinutes()).padStart(2, '0')}`
+      )
+    : '14:00';
   const [rescheduleDate, setRescheduleDate] = useState(
     defaultStart
       ? `${new Date(defaultStart).getFullYear()}-${String(new Date(defaultStart).getMonth() + 1).padStart(2, '0')}-${String(new Date(defaultStart).getDate()).padStart(2, '0')}`
       : ''
   );
-  const [rescheduleTime, setRescheduleTime] = useState(session?.time || 'Morning (09:00 - 12:00)');
+  const [rescheduleTime, setRescheduleTime] = useState(defaultRescheduleTime);
   const [showSessionsDropdown, setShowSessionsDropdown] = useState(false);
 
   // Review flow: opened after settling a session, saved to Firestore on submit.
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Is the current user the requester (based on the session's participant ids)?
   const currentUid = currentUser?.uid;
   const partnerUid = session.partner?.id || session.partner?.uid;
   const mySideSettled = Boolean(session.settledBy && session.settledBy[currentUid]);
+  const allSidesSettled = Boolean(
+    session.participantIds?.length === 2 &&
+    session.participantIds.every((uid) => session.settledBy?.[uid])
+  );
   const reviewStatusKey = realtime && session?.id && currentUid
     ? `${session.id}__${currentUid}`
     : null;
@@ -123,9 +100,7 @@ export const SessionDetailsPage = ({
     }
     if (isSettling) return;
 
-    // REALTIME: persist this participant's settlement. Firestore only permits
-    // reviews after both participants have settled and the session is Completed.
-    if (realtime && onSettleSession && session?.id) {
+    if (onSettleSession && session?.id) {
       setIsSettling(true);
       try {
         const result = await onSettleSession(session);
@@ -147,16 +122,7 @@ export const SessionDetailsPage = ({
       }
       return;
     }
-
-    // DEMO: cosmetic completion (existing behavior).
-    const updatedSession = {
-      ...session,
-      status: 'Completed',
-    };
-    if (onUpdateSession) {
-      onUpdateSession(updatedSession);
-    }
-    onShowToast?.('Session marked complete in demo mode. No credits were transferred.');
+    onShowToast?.('This session cannot be settled because it has not synced yet.');
   };
 
   const handleSubmitReview = async ({ sessionId, targetUid, rating, comment }) => {
@@ -193,8 +159,7 @@ export const SessionDetailsPage = ({
     }
   };
 
-  // REALTIME: no sessions yet — show an honest empty state instead of demo data.
-  if (realtime && !activeSessionProp) {
+  if (!activeSessionProp) {
     return (
       <div
         id="screen-session-details"
@@ -219,7 +184,7 @@ export const SessionDetailsPage = ({
     );
   }
 
-  // Partner first name for quick button text (e.g. "Message Aris")
+  // Partner name used on the message action.
   const partnerFirstName = session.partner?.name?.replace(/^(Dr\.|Prof\.|Mr\.|Ms\.|Mrs\.)\s+/, '').split(' ')[0] || 'Partner';
 
   // Add Note Handler
@@ -264,20 +229,30 @@ export const SessionDetailsPage = ({
   };
 
   // Reschedule Handler
-  const handleRescheduleSubmit = (e) => {
+  const handleRescheduleSubmit = async (e) => {
     e.preventDefault();
+    if (isRescheduling) return;
+    setIsRescheduling(true);
     const updatedSession = {
       ...session,
       date: rescheduleDate,
       time: rescheduleTime,
+      timeZone: getLocalTimeZone(),
+      startAt: null,
+      endAt: null,
     };
-    if (onUpdateSession) {
-      onUpdateSession(updatedSession);
+    try {
+      if (!onUpdateSession) return;
+      await onUpdateSession(updatedSession);
+    } catch {
+      return;
+    } finally {
+      setIsRescheduling(false);
     }
     setIsRescheduleOpen(false);
     const pretty =
       rescheduleDate && /^\d{4}-\d{2}-\d{2}$/.test(rescheduleDate)
-        ? new Date(`${rescheduleDate}T00:00:00`).toLocaleDateString('en-US', {
+      ? new Date(`${rescheduleDate}T00:00:00`).toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'long',
             day: 'numeric',
@@ -287,27 +262,28 @@ export const SessionDetailsPage = ({
   };
 
   // Cancel Handler
-  const handleCancelSession = () => {
-    const isAlreadyCancelled = session.status === 'Cancelled';
-    const newStatus = isAlreadyCancelled ? 'Accepted' : 'Cancelled';
-    const updatedSession = {
-      ...session,
-      status: newStatus,
-    };
-    if (onUpdateSession) {
-      onUpdateSession(updatedSession);
-    }
-    if (isAlreadyCancelled) {
-      onShowToast?.('Session restored to Accepted status.');
-    } else {
+  const handleCancelSession = async () => {
+    if (session.status !== 'Accepted' || isCancelling || !onUpdateSession) return;
+    setIsCancelling(true);
+    try {
+      await onUpdateSession({ ...session, status: 'Cancelled' });
       onShowToast?.('Session has been cancelled.');
+    } catch {
+      // The update handler reports the save failure.
+    } finally {
+      setIsCancelling(false);
     }
   };
 
   // Add to Calendar .ics exporter
   const handleAddToCalendar = () => {
-    const start = session.startMs || resolveSessionTimes(session)?.startAt || Date.now();
-    const end = session.endMs || start + 60 * 60 * 1000;
+    const resolvedTimes = resolveSessionTimes(session);
+    const start = session.startMs || resolvedTimes.startAt;
+    const end = session.endMs || resolvedTimes.endAt;
+    if (!start || !end) {
+      onShowToast?.('Add a valid date and time before downloading a calendar invite.');
+      return;
+    }
     const toICS = (ms) =>
       new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
     const icsData = [
@@ -320,8 +296,8 @@ export const SessionDetailsPage = ({
       `DTSTART:${toICS(start)}`,
       `DTEND:${toICS(end)}`,
       `SUMMARY:${session.title} with ${session.partner?.name || 'Peer'}`,
-      `DESCRIPTION:${session.description || 'Academic SkillSwap session'}`,
-      `LOCATION:${session.platform || 'SkillSwap Connect'}`,
+      `DESCRIPTION:${session.description || ''}`,
+      `LOCATION:${session.meetingLink || ''}`,
       `STATUS:CONFIRMED`,
       'END:VEVENT',
       'END:VCALENDAR',
@@ -337,7 +313,7 @@ export const SessionDetailsPage = ({
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
 
-    onShowToast?.('📅 Calendar invite (.ics) downloaded! Added to schedule.');
+    onShowToast?.('📅 Calendar invite downloaded.');
   };
 
   // View partner full profile
@@ -363,7 +339,7 @@ export const SessionDetailsPage = ({
               items={[
                 { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
                 { label: 'Search', icon: 'explore', onClick: () => onNavigateScreen('discover') },
-                { label: 'Requests', icon: 'inbox', badge: true, onClick: () => onNavigateScreen('requests') },
+                { label: 'Requests', icon: 'inbox', onClick: () => onNavigateScreen('requests') },
                 { label: 'Skill Manager', icon: 'school', onClick: () => onNavigateScreen('skill-manager') },
               ]}
             />
@@ -395,7 +371,6 @@ export const SessionDetailsPage = ({
                 id="nav-tab-requests"
               >
                 <span>REQUESTS</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-[#f0b2aa]"></span>
               </button>
             </nav>
           </div>
@@ -414,24 +389,6 @@ export const SessionDetailsPage = ({
                 id="input-top-search"
               />
             </div>
-
-            <button
-              onClick={() => onShowToast?.('Notifications: All academic swaps are up to date.')}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              title="Notifications"
-              id="btn-notifications"
-            >
-              <span className="material-symbols-outlined text-[20px]">notifications</span>
-            </button>
-
-            <button
-              onClick={() => onShowToast?.('Messages: Dr. Aris Thorne sent pre-session notes.')}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              title="Messages"
-              id="btn-messages"
-            >
-              <span className="material-symbols-outlined text-[20px]">mail</span>
-            </button>
 
             {/* Profile Avatar with Online Dot */}
             <div
@@ -506,12 +463,10 @@ export const SessionDetailsPage = ({
                   </span>
                   <span>Session Requests</span>
                 </div>
-                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
               </button>
 
-              {/* Active Session Details Item with Right Border Accent */}
+              {/* Current session details navigation item */}
               <button
-                onClick={() => onShowToast?.('Viewing active Session Details')}
                 className="w-full flex items-center justify-between px-3.5 py-2.5 bg-[#eeddf2] text-[#47364d] font-bold text-xs rounded-l-xl border-r-4 border-[#524056] shadow-2xs cursor-default"
                 id="btn-nav-session-active"
               >
@@ -519,12 +474,12 @@ export const SessionDetailsPage = ({
                   <span className="material-symbols-outlined text-[19px] text-[#47364d]">
                     video_camera_front
                   </span>
-                  <span>Active Session</span>
+                  <span>Session Details</span>
                 </div>
               </button>
 
               <button
-                onClick={() => onShowToast?.('Opening Session History')}
+                onClick={() => onNavigateScreen('schedule')}
                 className="w-full flex items-center gap-3 px-3.5 py-2.5 text-[#544450] hover:bg-[#f6eae7] rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                 id="btn-nav-history"
               >
@@ -536,7 +491,7 @@ export const SessionDetailsPage = ({
             </nav>
           </div>
 
-          {/* Bottom Sidebar: Settings, Support, Start New Swap */}
+          {/* Settings and swap navigation */}
           <div className="pt-6 border-t border-[#eddcd8] space-y-3 mt-6 md:mt-0">
             <button
               onClick={() => onNavigateScreen('profile-setup')}
@@ -547,17 +502,6 @@ export const SessionDetailsPage = ({
                 settings
               </span>
               <span>Settings</span>
-            </button>
-
-            <button
-              onClick={() => onShowToast?.('Need help? Contact academic support at support@skillswap.edu')}
-              className="w-full flex items-center gap-3 px-3.5 py-2 text-[#544450] hover:bg-[#f6eae7] rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-              id="btn-nav-support"
-            >
-              <span className="material-symbols-outlined text-[19px] text-[#705e69]">
-                help_outline
-              </span>
-              <span>Support</span>
             </button>
 
             <button
@@ -703,12 +647,9 @@ export const SessionDetailsPage = ({
                     <h3 className="text-xs font-bold text-[#201a1b] tracking-wide mb-3">
                       Key Learning Goals
                     </h3>
+                    {session.learningGoals?.length ? (
                     <ul className="space-y-2.5">
-                      {(session.learningGoals || [
-                        'Master data preparation for SEM',
-                        'Analyze model fit indices',
-                        'Interpret latent variable paths',
-                      ]).map((goal, idx) => (
+                      {session.learningGoals.map((goal, idx) => (
                         <li key={idx} className="flex items-start gap-2.5 text-xs text-[#443842]">
                           <span
                             className="material-symbols-outlined text-[17px] text-[#57445f] shrink-0 mt-0.5"
@@ -720,6 +661,9 @@ export const SessionDetailsPage = ({
                         </li>
                       ))}
                     </ul>
+                    ) : (
+                      <p className="text-xs text-[#705e69]">No learning goals were added to this request.</p>
+                    )}
                   </div>
 
                   {/* Right: Exchange Detail Card */}
@@ -878,7 +822,7 @@ export const SessionDetailsPage = ({
                         DATE
                       </p>
                       <p className="font-bold text-sm text-white">
-                        {session.date || 'Wednesday, Oct 24'}
+                        {sessionDateLabel || 'Date to be confirmed'}
                       </p>
                     </div>
                   </div>
@@ -895,7 +839,7 @@ export const SessionDetailsPage = ({
                         TIME
                       </p>
                       <p className="font-bold text-sm text-white">
-                        {session.time || '02:30 PM — 04:00 PM'}
+                        {sessionTimeLabel || 'Time to be confirmed'}
                       </p>
                     </div>
                   </div>
@@ -923,15 +867,12 @@ export const SessionDetailsPage = ({
                 {/* Partner Avatar with Online Indicator */}
                 <div className="relative mb-3">
                   <img
-                    src={
-                      session.partner?.avatarUrl ||
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
-                    }
+                    src={session.partner?.avatarUrl || resolveAvatarForName(session.partner?.name || 'Scholar')}
                     alt={session.partner?.name || 'Partner'}
                     referrerPolicy="no-referrer"
                     className="w-20 h-20 rounded-full object-cover border-2 border-[#ebd8d4] shadow-xs"
                   />
-                  {session.partner?.isOnline !== false && (
+                  {session.partner?.isOnline === true && (
                     <span
                       className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"
                       title="Partner is active now"
@@ -940,15 +881,15 @@ export const SessionDetailsPage = ({
                 </div>
 
                 <h3 className="text-base font-bold text-[#201a1b]">
-                  {session.partner?.name || 'Dr. Aris Thorne'}
+                  {session.partner?.name || 'Peer Scholar'}
                 </h3>
                 <p className="text-xs text-[#6e5d68] font-medium mt-0.5 mb-3 max-w-[220px]">
-                  {session.partner?.title || 'Senior Researcher, Data Science'}
+                  {session.partner?.title || 'Academic level not provided'}
                 </p>
 
                 {/* Partner Skill Badges */}
                 <div className="flex flex-wrap justify-center gap-1.5 mb-5">
-                  {(session.partner?.badges || ['Statistics', 'R-Programming']).map(
+                  {(session.partner?.badges || []).map(
                     (b, i) => (
                       <span
                         key={i}
@@ -973,7 +914,7 @@ export const SessionDetailsPage = ({
                           avatarUrl: partner.avatarUrl,
                         });
                       } else if (onShowToast) {
-                        onShowToast(`Opening chat with ${partner.name || 'partner'}...`);
+                        onShowToast('Messaging is unavailable for this scholar right now.');
                       }
                     }}
                     className="w-full py-2.5 px-4 text-[#201a1b] hover:bg-[#fbf4f2] border border-[#eddcd8] rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
@@ -1028,7 +969,7 @@ export const SessionDetailsPage = ({
                   disabled={
                     session.status === 'Completed' ||
                     session.status === 'Cancelled' ||
-                    mySideSettled ||
+                    (mySideSettled && !allSidesSettled) ||
                     isSettling
                   }
                   className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-[#dfe8e2] disabled:text-[#8a9a90] disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-xs font-bold flex items-center justify-between transition-colors shadow-sm cursor-pointer"
@@ -1037,7 +978,11 @@ export const SessionDetailsPage = ({
                   <span>
                     {session.status === 'Completed'
                       ? 'Session Completed'
-                      : mySideSettled
+                      : allSidesSettled
+                        ? isSettling
+                          ? 'Finalizing Credits…'
+                          : 'Finalize Settlement'
+                        : mySideSettled
                         ? 'Awaiting Partner'
                         : isSettling
                           ? 'Settling Credits…'
@@ -1072,6 +1017,7 @@ export const SessionDetailsPage = ({
                 {/* Reschedule Button */}
                 <button
                   onClick={() => setIsRescheduleOpen(true)}
+                  disabled={session.status !== 'Accepted'}
                   className="w-full bg-white hover:bg-[#faf4f3] border border-[#ebd8d4] rounded-xl px-4 py-3 text-xs font-bold text-[#201a1b] flex items-center justify-between transition-colors shadow-2xs cursor-pointer"
                   id="btn-reschedule-session"
                 >
@@ -1084,14 +1030,15 @@ export const SessionDetailsPage = ({
                 {/* Cancel Button */}
                 <button
                   onClick={handleCancelSession}
-                  className="w-full bg-white hover:bg-[#fdeded] border border-[#f3d3d3] rounded-xl px-4 py-3 text-xs font-bold text-rose-600 flex items-center justify-between transition-colors shadow-2xs cursor-pointer"
+                  className="w-full bg-white hover:bg-[#fdeded] border border-[#f3d3d3] rounded-xl px-4 py-3 text-xs font-bold text-rose-600 flex items-center justify-between transition-colors shadow-2xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   id="btn-cancel-session"
+                  disabled={session.status !== 'Accepted' || isCancelling}
                 >
                   <span>
-                    {session.status === 'Cancelled' ? 'Restore Session' : 'Cancel Session'}
+                    {isCancelling ? 'Cancelling…' : session.status === 'Cancelled' ? 'Session Cancelled' : 'Cancel Session'}
                   </span>
                   <span className="material-symbols-outlined text-[18px] text-rose-500">
-                    {session.status === 'Cancelled' ? 'replay' : 'close'}
+                    {session.status === 'Cancelled' ? 'event_busy' : 'close'}
                   </span>
                 </button>
               </div>
@@ -1125,26 +1072,24 @@ export const SessionDetailsPage = ({
                   type="date"
                   value={rescheduleDate}
                   onChange={(e) => setRescheduleDate(e.target.value)}
-                  min={new Date().toISOString().slice(0, 10)}
+                  min={toDateInput(0)}
                   className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f]"
                   required
                 />
               </div>
 
               <div>
+                <p className="mb-2 text-[11px] text-[#705e69]">New time uses your local zone: {getLocalTimeZone()}</p>
                 <label className="block font-bold text-[#201a1b] mb-1.5">
-                  Select New Time Slot:
+                  Select New Start Time:
                 </label>
-                <select
+                <input
+                  type="time"
                   value={rescheduleTime}
                   onChange={(e) => setRescheduleTime(e.target.value)}
                   className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3.5 py-2.5 text-[#201a1b] focus:outline-none focus:border-[#57445f] cursor-pointer"
                   required
-                >
-                  <option value="Morning (09:00 - 12:00)">Morning (09:00 - 12:00)</option>
-                  <option value="Afternoon (13:00 - 16:00)">Afternoon (13:00 - 16:00)</option>
-                  <option value="Evening (17:00 - 20:00)">Evening (17:00 - 20:00)</option>
-                </select>
+                />
               </div>
 
               <div className="pt-2 flex justify-end gap-2.5">
@@ -1157,9 +1102,10 @@ export const SessionDetailsPage = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#57445f] hover:bg-[#43334a] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
+                  disabled={isRescheduling}
+                  className="px-5 py-2 bg-[#57445f] hover:bg-[#43334a] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Confirm Reschedule
+                  {isRescheduling ? 'Saving…' : 'Confirm Reschedule'}
                 </button>
               </div>
             </form>

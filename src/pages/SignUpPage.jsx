@@ -6,15 +6,17 @@ export const SignUpPage = ({
   onSignUpSuccess,
   onNavigateToLogin,
   onNavigateToGetStarted,
+  onNavigateToPrivacy,
+  onNavigateToTerms,
   onShowToast,
 }) => {
   const { signUp, signInWithGoogleOAuth } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [university, setUniversity] = useState('United International University (UIU)');
+  const [university, setUniversity] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [confirmedProfileVisibility, setConfirmedProfileVisibility] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -23,9 +25,8 @@ export const SignUpPage = ({
     e.preventDefault();
     setErrorMessage('');
 
-    if (!agreedTerms) {
-      setErrorMessage('Please accept the institutional terms of service to proceed.');
-      onShowToast('Please accept the terms of service.');
+    if (!confirmedProfileVisibility) {
+      setErrorMessage('Accept the Terms and Privacy Policy to create an account.');
       return;
     }
 
@@ -60,6 +61,10 @@ export const SignUpPage = ({
 
   const handleGoogleSignUp = async () => {
     setErrorMessage('');
+    if (!confirmedProfileVisibility) {
+      setErrorMessage('Accept the Terms and Privacy Policy to create an account.');
+      return;
+    }
     setGoogleLoading(true);
     try {
       const result = await signInWithGoogleOAuth();
@@ -158,28 +163,13 @@ export const SignUpPage = ({
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-52 h-52 bg-[#c5b3d3]/30 rounded-full blur-3xl -z-10"></div>
             </div>
 
-            {/* Avatar Stack & Community Stat */}
+            {/* Product value statement */}
             <div className="flex items-center space-x-3 pt-2">
-              <div className="flex -space-x-3">
-                <img
-                  src={academicAssets.avatars.alexRivera}
-                  alt="Scholar avatar"
-                  className="w-9 h-9 rounded-full border-2 border-white object-cover shadow-sm"
-                />
-                <img
-                  src={academicAssets.avatars.sarahKhan}
-                  alt="Scholar avatar"
-                  className="w-9 h-9 rounded-full border-2 border-white object-cover shadow-sm"
-                />
-                <img
-                  src={academicAssets.avatars.julianSterling}
-                  alt="Scholar avatar"
-                  className="w-9 h-9 rounded-full border-2 border-white object-cover shadow-sm"
-                />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#675975] text-white shadow-sm">
+                <span className="material-symbols-outlined text-lg">sync_alt</span>
               </div>
               <p className="text-xs text-[#4a454c]">
-                Join <span className="font-bold text-[#675975]">2,400+</span> verified scholars exchanging
-                skills this semester.
+                Build a live skill profile and exchange knowledge with real scholars.
               </p>
             </div>
           </div>
@@ -246,7 +236,7 @@ export const SignUpPage = ({
                     type="text"
                     value={university}
                     onChange={(e) => setUniversity(e.target.value)}
-                    placeholder="United International University (UIU)"
+                    placeholder="Enter your university"
                     required
                     disabled={loading}
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-xs sm:text-sm focus:outline-none input-focus-glow transition-all"
@@ -284,7 +274,7 @@ export const SignUpPage = ({
                   htmlFor="signup-email"
                   className="text-xs font-semibold text-[#201a1b] block ml-1"
                 >
-                  University Email
+                  Email address
                 </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] text-[18px]">
@@ -295,7 +285,7 @@ export const SignUpPage = ({
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="scholar@university.edu"
+                    placeholder="you@example.com"
                     required
                     disabled={loading}
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-xs sm:text-sm focus:outline-none input-focus-glow transition-all"
@@ -338,36 +328,27 @@ export const SignUpPage = ({
                 </div>
               </div>
 
-              {/* Terms Checkbox */}
+              {/* Terms and profile visibility confirmation */}
               <div className="flex items-start space-x-2.5 pt-1">
                 <input
-                  id="signup-terms"
+                  id="signup-profile-visibility"
                   type="checkbox"
-                  checked={agreedTerms}
-                  onChange={(e) => setAgreedTerms(e.target.checked)}
+                  checked={confirmedProfileVisibility}
+                  onChange={(e) => setConfirmedProfileVisibility(e.target.checked)}
                   className="mt-1 w-4 h-4 rounded border-[#ccc4cd] text-[#675975] focus:ring-[#c5b3d3] cursor-pointer"
                 />
                 <label
-                  htmlFor="signup-terms"
+                  htmlFor="signup-profile-visibility"
                   className="text-[11px] text-[#4a454c] leading-tight cursor-pointer"
                 >
-                  I agree to the{' '}
-                  <button
-                    type="button"
-                    onClick={() => onShowToast('Terms of Service: Academic Knowledge Exchange')}
-                    className="text-[#675975] font-semibold hover:underline"
-                  >
-                    Terms of Service
+                  I understand that my basic profile is visible to signed-in scholars and agree to the{' '}
+                  <button type="button" onClick={onNavigateToTerms} className="font-bold text-[#675975] hover:underline">
+                    Terms
                   </button>{' '}
                   and{' '}
-                  <button
-                    type="button"
-                    onClick={() => onShowToast('Privacy Policy: FERPA compliant data handling')}
-                    className="text-[#675975] font-semibold hover:underline"
-                  >
+                  <button type="button" onClick={onNavigateToPrivacy} className="font-bold text-[#675975] hover:underline">
                     Privacy Policy
-                  </button>
-                  .
+                  </button>.
                 </label>
               </div>
 
@@ -456,34 +437,12 @@ export const SignUpPage = ({
           <div className="flex flex-col items-center md:items-start">
             <span className="font-bold text-[#675975]">SkillSwap</span>
             <p className="text-[11px] opacity-75">
-              © 2026 SkillSwap Academic. All rights reserved.
+              © {new Date().getFullYear()} SkillSwap Academic. All rights reserved.
             </p>
           </div>
-          <div className="flex flex-wrap justify-center gap-6">
-            <button
-              onClick={() => onShowToast('Privacy Policy')}
-              className="hover:text-[#675975] transition-colors"
-            >
-              Privacy Policy
-            </button>
-            <button
-              onClick={() => onShowToast('Terms of Service')}
-              className="hover:text-[#675975] transition-colors"
-            >
-              Terms of Service
-            </button>
-            <button
-              onClick={() => onShowToast('University Partners network')}
-              className="hover:text-[#675975] transition-colors"
-            >
-              University Partners
-            </button>
-            <button
-              onClick={() => onShowToast('Support Desk')}
-              className="hover:text-[#675975] transition-colors"
-            >
-              Contact Support
-            </button>
+          <div className="flex items-center gap-4 font-semibold text-[#675975]">
+            <button type="button" onClick={onNavigateToPrivacy} className="hover:underline">Privacy</button>
+            <button type="button" onClick={onNavigateToTerms} className="hover:underline">Terms</button>
           </div>
         </div>
       </footer>

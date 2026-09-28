@@ -10,41 +10,184 @@ service cloud.firestore {
     function isMentor(resData, auth) {
       return resData.mentor.uid == auth.uid;
     }
-    // True when a write ONLY bumps a profile's rating counters. Every key it
-    // touches must be numeric, use a positive increment, and be one of the
-    // two permitted variables.
-    function ratingBumpOnly(requestData, currentData) {
-      let keys = requestData.diff(currentData).affectedKeys();
-      let oldCount = currentData.get('ratingCount', 0);
-      let oldSum = currentData.get('ratingSum', 0);
-      let nextCount = requestData.get('ratingCount', oldCount);
-      let nextSum = requestData.get('ratingSum', oldSum);
-      return keys.hasOnly(['ratingCount', 'ratingSum']) &&
-        oldCount is number && oldSum is number &&
-        nextCount is number && nextSum is number &&
-        nextCount == oldCount + 1 &&
-        nextSum >= oldSum + 1 && nextSum <= oldSum + 5;
+    function profileFieldsOnly(requestData, currentData) {
+      return requestData.diff(currentData).affectedKeys().hasOnly([
+        'name', 'title', 'academicLevel', 'university', 'bio',
+        'avatarUrl', 'expertiseAreas', 'learningGoals', 'skillsTeach',
+        'skillsWant', 'availability', 'preferredMode', 'isOnline',
+        'lastActiveAt', 'updatedAt', 'uid'
+      ]);
+    }
+    function validInitialStats(data) {
+      return data.get('timeCredits', 5) == 5 &&
+        data.get('creditsEarned', 0) == 0 &&
+        data.get('creditsSpent', 0) == 0 &&
+        data.get('completedSwaps', 0) == 0 &&
+        data.get('ratingCount', 0) == 0 &&
+        data.get('ratingSum', 0) == 0 &&
+        data.get('ratingAverage', 0) == 0 &&
+        data.get('achievementBadges', []).size() == 0;
     }
     // Top-level keys that a write would add / change / delete.
     function changedKeys(requestData, currentData) {
       return requestData.diff(currentData).affectedKeys();
     }
+    function validPublicProfileKeys(data) {
+      return data.keys().hasOnly([
+        'name', 'title', 'academicLevel', 'university', 'bio', 'avatarUrl',
+        'expertiseAreas', 'learningGoals', 'skillsTeach', 'skillsWant',
+        'availability', 'preferredMode', 'isOnline', 'lastActiveAt',
+        'uid', 'updatedAt', 'timeCredits', 'creditsEarned', 'creditsSpent',
+        'completedSwaps', 'ratingCount', 'ratingSum', 'ratingAverage',
+        'achievementBadges'
+      ]);
+    }
+    function otherParticipant(participantIds) {
+      return participantIds[0] == request.auth.uid
+        ? participantIds[1]
+        : participantIds[0];
+    }
+    function validUnreadMap(data, participantIds) {
+      return data is map && data.keys().hasOnly(participantIds);
+    }
+    function validClockTime(value) {
+      return value is string && value.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+    }
+    function scholarsAreNotBlocked(uidA, uidB) {
+      return !exists(/databases/$(database)/documents/blocks/$(uidA + '__' + uidB)) &&
+        !exists(/databases/$(database)/documents/blocks/$(uidB + '__' + uidA));
+    }
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+    function validSettlementProfileUpdate(uid, requestData, currentData) {
+      let sessionId = requestData.get('lastSettlementId', '');
+      let session = getAfter(/databases/$(database)/documents/sessions/$(sessionId)).data;
+      let isRequester = session.requester.uid == uid;
+      let ledgerId = isRequester ? sessionId + '__spent' : sessionId + '__earned';
+      let ledger = getAfter(/databases/$(database)/documents/transactions/$(ledgerId)).data;
+      let amount = session.creditAmount;
+      return request.auth != null &&
+        request.auth.uid in session.participantIds &&
+        uid in session.participantIds &&
+        session.status == 'Completed' &&
+        session.statsApplied == true &&
+        amount is number && amount > 0 &&
+        currentData.get('lastSettlementId', '') != sessionId &&
+        !exists(/databases/$(database)/documents/transactions/$(ledgerId)) &&
+        ledger.uid == uid && ledger.sessionId == sessionId &&
+        changedKeys(requestData, currentData).hasOnly([
+          'timeCredits', 'creditsEarned', 'creditsSpent', 'completedSwaps',
+          'lastSettlementId', 'updatedAt'
+        ]) &&
+        requestData.completedSwaps == currentData.get('completedSwaps', 0) + 1 &&
+        ((isRequester &&
+          requestData.timeCredits == currentData.get('timeCredits', 0) - amount &&
+          requestData.timeCredits >= 0 &&
+          requestData.creditsSpent == currentData.get('creditsSpent', 0) + amount &&
+          requestData.get('creditsEarned', 0) == currentData.get('creditsEarned', 0)) ||
+        (!isRequester && session.mentor.uid == uid &&
+          requestData.timeCredits == currentData.get('timeCredits', 0) + amount &&
+          requestData.creditsEarned == currentData.get('creditsEarned', 0) + amount &&
+          requestData.get('creditsSpent', 0) == currentData.get('creditsSpent', 0)));
+    }
+    function validRatingProfileUpdate(uid, requestData, currentData) {
+      let reviewId = requestData.get('lastRatingReviewId', '');
+      let review = getAfter(/databases/$(database)/documents/reviews/$(reviewId)).data;
+      let nextCount = currentData.get('ratingCount', 0) + 1;
+      let nextSum = currentData.get('ratingSum', 0) + review.rating;
+      return request.auth != null &&
+        review.authorUid == request.auth.uid && review.targetUid == uid &&
+        !exists(/databases/$(database)/documents/reviews/$(reviewId)) &&
+        changedKeys(requestData, currentData).hasOnly([
+          'ratingCount', 'ratingSum', 'ratingAverage',
+          'lastRatingReviewId', 'updatedAt'
+        ]) &&
+        requestData.ratingCount == nextCount &&
+        requestData.ratingSum == nextSum &&
+        requestData.ratingAverage == nextSum / nextCount;
+    }
 
     // ---- User profiles --------------------------------------------------
-    // Any authenticated scholar can read the directory so people can find
-    // each other; only the owner of a profile can create/update it.
-    // NOTE: this exposes every user's full profile (including email if stored)
-    // to any authenticated user. If that is unacceptable, split public fields
-    // from private ones (e.g. users/{uid}/private) instead of locking the
-    // directory, which the Discover/session features depend on.
+    // Authenticated scholars can read public profiles for Discover. Profile
+    // documents are intentionally limited to the public profile schema; email
+    // and account credentials remain in Firebase Authentication.
     match /users/{uid} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid &&
+        request.resource.data.uid == uid &&
+        validPublicProfileKeys(request.resource.data) &&
+        validInitialStats(request.resource.data);
       // Owners can edit their own profile; additionally, a rating bump (a
       // positive increment to ratingCount/ratingSum only) is allowed by any
       // authenticated user — this is what a review submission uses.
-      allow update: if request.auth != null &&
-        (request.auth.uid == uid || ratingBumpOnly(request.resource.data, resource.data));
+      allow update: if request.auth != null && request.auth.uid == uid &&
+        request.resource.data.uid == uid &&
+        profileFieldsOnly(request.resource.data, resource.data) ||
+        validSettlementProfileUpdate(uid, request.resource.data, resource.data) ||
+        validRatingProfileUpdate(uid, request.resource.data, resource.data) ||
+        (request.auth.token.admin == true &&
+          changedKeys(request.resource.data, resource.data).hasOnly(['timeCredits', 'updatedAt']) &&
+          request.resource.data.timeCredits >= 0);
+      allow delete: if false;
+    }
+
+    // ---- Scholar blocks ---------------------------------------------------
+    // Block edges are private to the scholar who created them.
+    match /blocks/{blockId} {
+      allow read: if request.auth != null && resource.data.blockerUid == request.auth.uid;
+      allow create: if request.auth != null &&
+        blockId == request.auth.uid + '__' + request.resource.data.blockedUid &&
+        request.resource.data.keys().hasOnly(['blockerUid', 'blockedUid', 'createdAt']) &&
+        request.resource.data.blockerUid == request.auth.uid &&
+        request.resource.data.blockedUid is string &&
+        request.resource.data.blockedUid != request.auth.uid &&
+        request.resource.data.createdAt is number;
+      allow update: if false;
+      allow delete: if request.auth != null && resource.data.blockerUid == request.auth.uid;
+    }
+
+    // ---- Safety reports ---------------------------------------------------
+    // Users may submit reports and read only their own. Moderation is limited
+    // to accounts with the admin custom claim.
+    match /reports/{reportId} {
+      allow create: if request.auth != null &&
+        request.resource.data.keys().hasOnly([
+          'reporterUid', 'reportedUid', 'category', 'details', 'source',
+          'conversationId', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'reporterUid', 'reportedUid', 'category', 'details', 'source',
+          'conversationId', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.reporterUid == request.auth.uid &&
+        request.resource.data.reportedUid is string &&
+        request.resource.data.reportedUid != request.auth.uid &&
+        request.resource.data.category in [
+          'harassment', 'spam', 'impersonation', 'unsafe', 'other'
+        ] &&
+        request.resource.data.details is string &&
+        request.resource.data.details.size() <= 2000 &&
+        request.resource.data.source in ['profile', 'chat'] &&
+        request.resource.data.conversationId is string &&
+        request.resource.data.conversationId.size() <= 200 &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.createdAt is number &&
+        ((request.resource.data.source == 'profile' &&
+          request.resource.data.conversationId == '') ||
+          (request.resource.data.source == 'chat' &&
+            request.resource.data.conversationId.size() > 0 &&
+            request.auth.uid in get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.participantIds &&
+            request.resource.data.reportedUid in get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.participantIds));
+      allow read: if request.auth != null &&
+        (resource.data.reporterUid == request.auth.uid || isAdmin());
+      allow update: if isAdmin() &&
+        changedKeys(request.resource.data, resource.data).hasOnly([
+          'status', 'reviewedAt', 'reviewedBy'
+        ]) &&
+        request.resource.data.status in ['open', 'reviewing', 'resolved', 'dismissed'] &&
+        request.resource.data.reviewedBy == request.auth.uid &&
+        request.resource.data.reviewedAt is number;
       allow delete: if false;
     }
 
@@ -53,15 +196,24 @@ service cloud.firestore {
     // only ever read their own entries and can never forge or alter a ledger
     // that isn't theirs.
     match /transactions/{transactionId} {
-      allow read: if request.auth != null &&
-        (resource.data.uid == request.auth.uid ||
-          request.auth.uid in (resource.data.participantIds || []));
-      allow create: if request.auth != null &&
-        request.resource.data.uid == request.auth.uid &&
-        request.resource.data.type in ['earned', 'spent'] &&
-        request.resource.data.amount is number &&
-        request.resource.data.sessionId is string &&
-        changedKeys(request.resource.data, {}).hasAll(['uid', 'type', 'amount', 'sessionId']);
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null && (
+        (request.auth.token.admin == true &&
+          request.resource.data.type == 'adjustment' &&
+          request.resource.data.adjustedBy == request.auth.uid) ||
+        (request.resource.data.sessionId is string &&
+          request.auth.uid in getAfter(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.participantIds &&
+          getAfter(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'Completed' &&
+          getAfter(/databases/$(database)/documents/users/$(request.resource.data.uid)).data.lastSettlementId == request.resource.data.sessionId &&
+          ((request.resource.data.type == 'spent' &&
+            transactionId == request.resource.data.sessionId + '__spent' &&
+            request.resource.data.uid == getAfter(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.requester.uid &&
+            request.resource.data.amount == -getAfter(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.creditAmount) ||
+          (request.resource.data.type == 'earned' &&
+            transactionId == request.resource.data.sessionId + '__earned' &&
+            request.resource.data.uid == getAfter(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.mentor.uid &&
+            request.resource.data.amount == getAfter(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.creditAmount)))
+      );
       allow update: if false;
       allow delete: if false;
     }
@@ -73,16 +225,15 @@ service cloud.firestore {
     match /reviews/{reviewId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null &&
+        reviewId == request.resource.data.sessionId + '__' + request.auth.uid &&
         request.resource.data.authorUid == request.auth.uid &&
         request.resource.data.targetUid != request.auth.uid &&
-        request.resource.data.rating is int &&
-        request.resource.data.rating >= 1 &&
-        request.resource.data.rating <= 5 &&
-        request.resource.data.sessionId is string &&
-        get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data != null &&
-        get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'Completed' &&
+        request.resource.data.rating is number &&
+        request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
         request.auth.uid in get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.participantIds &&
-        request.resource.data.targetUid in get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.participantIds;
+        request.resource.data.targetUid in get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.participantIds &&
+        get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'Completed' &&
+        getAfter(/databases/$(database)/documents/users/$(request.resource.data.targetUid)).data.lastRatingReviewId == reviewId;
       allow update: if false;
       allow delete: if false;
     }
@@ -101,7 +252,18 @@ service cloud.firestore {
       allow create: if request.auth != null &&
         isRequester(request.resource.data, request.auth) &&
         request.resource.data.status == 'pending' &&
-        request.resource.data.mentor.uid != request.resource.data.requester.uid;
+        request.resource.data.creditsOffered is number &&
+        request.resource.data.creditsOffered > 0 &&
+        request.resource.data.creditsOffered <= 8 &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.timeCredits >= request.resource.data.creditsOffered &&
+        request.resource.data.preferredDate is string &&
+        request.resource.data.preferredDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        validClockTime(request.resource.data.preferredTimeSlot) &&
+        request.resource.data.timeZone is string &&
+        request.resource.data.timeZone.size() > 0 &&
+        request.resource.data.timeZone.size() <= 100 &&
+        request.resource.data.mentor.uid != request.resource.data.requester.uid &&
+        scholarsAreNotBlocked(request.auth.uid, request.resource.data.mentor.uid);
       allow update: if request.auth != null && (
         // Requester cancels their pending request.
         (isRequester(resource.data, request.auth) &&
@@ -113,9 +275,15 @@ service cloud.firestore {
         (isRequester(resource.data, request.auth) &&
           resource.data.status == 'rescheduled' &&
           request.resource.data.status == 'pending' &&
+          request.resource.data.timeZone is string &&
+          request.resource.data.timeZone.size() > 0 &&
+          request.resource.data.timeZone.size() <= 100 &&
+          validClockTime(request.resource.data.preferredTimeSlot) &&
+          request.resource.data.get('rescheduledTimeZone', null) == null &&
           changedKeys(request.resource.data, resource.data).hasOnly([
             'status', 'preferredDate', 'formattedDate', 'preferredTimeSlot',
-            'rescheduledDate', 'rescheduledSlot', 'rescheduleNote', 'respondedAt',
+            'timeZone', 'rescheduledDate', 'rescheduledSlot', 'rescheduledTimeZone',
+            'rescheduleNote', 'respondedAt',
           ])) ||
         // Mentor accepts a pending request (session is created in same batch).
         (isMentor(resource.data, request.auth) &&
@@ -128,6 +296,9 @@ service cloud.firestore {
         (isMentor(resource.data, request.auth) &&
           resource.data.status == 'pending' &&
           request.resource.data.status == 'declined' &&
+          request.resource.data.declineReason is string &&
+          request.resource.data.declineReason.size() > 0 &&
+          request.resource.data.declineReason.size() <= 500 &&
           changedKeys(request.resource.data, resource.data).hasOnly([
             'status', 'respondedAt', 'declineReason',
           ])) ||
@@ -135,9 +306,13 @@ service cloud.firestore {
         (isMentor(resource.data, request.auth) &&
           resource.data.status == 'pending' &&
           request.resource.data.status == 'rescheduled' &&
+          request.resource.data.rescheduledTimeZone is string &&
+          request.resource.data.rescheduledTimeZone.size() > 0 &&
+          request.resource.data.rescheduledTimeZone.size() <= 100 &&
+          validClockTime(request.resource.data.rescheduledSlot) &&
           changedKeys(request.resource.data, resource.data).hasOnly([
             'status', 'respondedAt', 'rescheduledDate', 'rescheduledSlot',
-            'rescheduleNote',
+            'rescheduledTimeZone', 'rescheduleNote',
           ]))
       );
       allow delete: if false;
@@ -156,20 +331,73 @@ service cloud.firestore {
         request.auth.uid in request.resource.data.participantIds &&
         request.resource.data.status == 'Accepted' &&
         request.resource.data.originRequestId is string &&
+        request.resource.data.creditAmount is number &&
+        request.resource.data.creditAmount > 0 &&
+        request.resource.data.timeZone is string &&
+        request.resource.data.timeZone.size() > 0 &&
+        request.resource.data.timeZone.size() <= 100 &&
+        request.resource.data.startAt is number &&
+        request.resource.data.endAt is number &&
+        validClockTime(request.resource.data.time) &&
+        request.resource.data.meetingLink is string &&
+        request.resource.data.meetingLink.matches('https?://.+') &&
         request.resource.data.requester.uid != null &&
         request.resource.data.mentor.uid != null &&
         request.resource.data.requester.uid != request.resource.data.mentor.uid &&
         request.resource.data.participantIds.hasAll([
           request.resource.data.requester.uid,
-          request.resource.data.mentor.uid,
+          request.resource.data.mentor.uid
         ]) &&
-        request.resource.data.participantIds.size() == 2;
+        request.resource.data.participantIds.size() == 2 &&
+        scholarsAreNotBlocked(
+          request.resource.data.requester.uid,
+          request.resource.data.mentor.uid
+        ) &&
+        getAfter(/databases/$(database)/documents/requests/$(request.resource.data.originRequestId)).data.status == 'accepted' &&
+        getAfter(/databases/$(database)/documents/requests/$(request.resource.data.originRequestId)).data.linkedSessionId == sessionId &&
+        getAfter(/databases/$(database)/documents/requests/$(request.resource.data.originRequestId)).data.requester.uid == request.resource.data.requester.uid &&
+        getAfter(/databases/$(database)/documents/requests/$(request.resource.data.originRequestId)).data.mentor.uid == request.resource.data.mentor.uid;
       allow update: if request.auth != null &&
         request.auth.uid in resource.data.participantIds &&
         request.auth.uid in request.resource.data.participantIds &&
         // Participants may not swap the partner or add/remove anyone.
         request.resource.data.participantIds.hasAll(resource.data.participantIds) &&
-        resource.data.participantIds.hasAll(request.resource.data.participantIds);
+        resource.data.participantIds.hasAll(request.resource.data.participantIds) &&
+        (
+          changedKeys(request.resource.data, resource.data).hasOnly([
+            'title', 'date', 'time', 'timeZone', 'startAt', 'endAt', 'notes', 'meetingLink'
+          ]) &&
+            request.resource.data.timeZone is string &&
+            request.resource.data.timeZone.size() > 0 &&
+            validClockTime(request.resource.data.time) &&
+            request.resource.data.startAt is number &&
+            request.resource.data.endAt is number ||
+          (resource.data.status == 'Accepted' &&
+            request.resource.data.status == 'Cancelled' &&
+            request.resource.data.cancelledBy == request.auth.uid &&
+            request.resource.data.cancelledAt is number &&
+            changedKeys(request.resource.data, resource.data).hasOnly([
+              'status', 'cancelledAt', 'cancelledBy'
+            ]) &&
+            changedKeys(request.resource.data, resource.data).hasAll([
+              'status', 'cancelledAt', 'cancelledBy'
+            ])) ||
+          (resource.data.status == 'Accepted' &&
+            request.resource.data.status == 'Accepted' &&
+            changedKeys(request.resource.data, resource.data).hasOnly(['settledBy']) &&
+            request.resource.data.settledBy.diff(resource.data.get('settledBy', {})).affectedKeys().hasOnly([request.auth.uid])) ||
+          (resource.data.status == 'Accepted' &&
+            request.resource.data.status == 'Completed' &&
+            request.resource.data.statsApplied == true &&
+            request.resource.data.settledBy[request.resource.data.requester.uid] != null &&
+            request.resource.data.settledBy[request.resource.data.mentor.uid] != null &&
+            request.resource.data.settledBy.diff(resource.data.get('settledBy', {})).affectedKeys().hasOnly([request.auth.uid]) &&
+            changedKeys(request.resource.data, resource.data).hasOnly([
+              'settledBy', 'status', 'completedAt', 'statsApplied'
+            ]) &&
+            getAfter(/databases/$(database)/documents/transactions/$(sessionId + '__spent')).data.sessionId == sessionId &&
+            getAfter(/databases/$(database)/documents/transactions/$(sessionId + '__earned')).data.sessionId == sessionId)
+        );
       allow delete: if false;
     }
 
@@ -181,6 +409,15 @@ service cloud.firestore {
         request.auth.uid in resource.data.participantIds;
       allow create: if request.auth != null &&
         request.auth.uid in request.resource.data.participantIds &&
+        request.resource.data.participantIds.size() == 2 &&
+        request.resource.data.participantIds[0] is string &&
+        request.resource.data.participantIds[1] is string &&
+        request.resource.data.participantIds[0] != request.resource.data.participantIds[1] &&
+        scholarsAreNotBlocked(
+          request.resource.data.participantIds[0],
+          request.resource.data.participantIds[1]
+        ) &&
+        request.resource.data.keys().hasOnly(['participantIds']) &&
         request.resource.data.participantIds.removeAll([request.auth.uid]).size() == 1;
       allow update: if request.auth != null &&
         request.auth.uid in resource.data.participantIds &&
@@ -188,9 +425,37 @@ service cloud.firestore {
         // No participant set mutation after creation.
         request.resource.data.participantIds.hasAll(resource.data.participantIds) &&
         resource.data.participantIds.hasAll(request.resource.data.participantIds) &&
-        changedKeys(request.resource.data, resource.data).hasOnly([
-          'lastText', 'lastFrom', 'lastFromName', 'updatedAt', 'unread',
-        ]);
+        (
+          (changedKeys(request.resource.data, resource.data).hasOnly([
+            'lastText', 'lastFrom', 'lastFromName', 'lastMessageId', 'updatedAt', 'unread'
+          ]) &&
+            changedKeys(request.resource.data, resource.data).hasAll([
+              'lastText', 'lastFrom', 'lastFromName', 'lastMessageId', 'updatedAt', 'unread'
+            ]) &&
+            request.resource.data.lastFrom == request.auth.uid &&
+            request.resource.data.lastText is string &&
+            request.resource.data.lastText.size() > 0 &&
+            request.resource.data.lastText.size() <= 4000 &&
+            request.resource.data.lastFromName is string &&
+            request.resource.data.lastFromName.size() <= 100 &&
+            request.resource.data.lastMessageId is string &&
+            request.resource.data.updatedAt is number &&
+            scholarsAreNotBlocked(request.auth.uid, otherParticipant(resource.data.participantIds)) &&
+            getAfter(/databases/$(database)/documents/conversations/$(conversationId)/messages/$(request.resource.data.lastMessageId)).data.fromUid == request.auth.uid &&
+            getAfter(/databases/$(database)/documents/conversations/$(conversationId)/messages/$(request.resource.data.lastMessageId)).data.toUid == otherParticipant(resource.data.participantIds) &&
+            getAfter(/databases/$(database)/documents/conversations/$(conversationId)/messages/$(request.resource.data.lastMessageId)).data.text == request.resource.data.lastText &&
+            getAfter(/databases/$(database)/documents/conversations/$(conversationId)/messages/$(request.resource.data.lastMessageId)).data.conversationId == conversationId &&
+            validUnreadMap(request.resource.data.unread, resource.data.participantIds) &&
+            request.resource.data.unread.get(request.auth.uid, 0) ==
+              resource.data.unread.get(request.auth.uid, 0) &&
+            request.resource.data.unread.get(otherParticipant(resource.data.participantIds), 0) ==
+              resource.data.unread.get(otherParticipant(resource.data.participantIds), 0) + 1) ||
+          (changedKeys(request.resource.data, resource.data).hasOnly(['unread']) &&
+            validUnreadMap(request.resource.data.unread, resource.data.participantIds) &&
+            request.resource.data.unread.get(request.auth.uid, 0) == 0 &&
+            request.resource.data.unread.get(otherParticipant(resource.data.participantIds), 0) ==
+              resource.data.unread.get(otherParticipant(resource.data.participantIds), 0))
+        );
       allow delete: if false;
 
       // Messages are restricted to participants; only the sender can create.
@@ -204,18 +469,37 @@ service cloud.firestore {
             get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
         allow create: if request.auth != null &&
           request.auth.uid in request.resource.data.participantIds &&
+          request.resource.data.keys().hasOnly([
+            'conversationId', 'participantIds', 'fromUid', 'toUid',
+            'text', 'createdAt', 'read'
+          ]) &&
+          request.resource.data.keys().hasAll([
+            'conversationId', 'participantIds', 'fromUid', 'toUid',
+            'text', 'createdAt', 'read'
+          ]) &&
           request.resource.data.fromUid == request.auth.uid &&
+          request.resource.data.toUid is string &&
+          request.resource.data.toUid != request.auth.uid &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 &&
+          request.resource.data.text.size() <= 4000 &&
+          request.resource.data.createdAt is number &&
+          request.resource.data.read == false &&
           request.resource.data.conversationId == conversationId &&
+          getAfter(/databases/$(database)/documents/conversations/$(conversationId)).data.lastMessageId == messageId &&
+          request.resource.data.participantIds.size() == 2 &&
+          request.resource.data.toUid in request.resource.data.participantIds &&
+          scholarsAreNotBlocked(
+            request.resource.data.fromUid,
+            request.resource.data.toUid
+          ) &&
           request.resource.data.participantIds.hasAll(
             getAfter(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
           ) &&
           getAfter(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds.hasAll(
             request.resource.data.participantIds
           );
-        allow update: if request.auth != null &&
-          request.auth.uid in
-            get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds &&
-          changedKeys(request.resource.data, resource.data).hasOnly(['read']);
+        allow update: if false;
         allow delete: if false;
       }
     }

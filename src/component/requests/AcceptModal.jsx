@@ -32,6 +32,12 @@ export function AcceptModal({
               <p className="text-xs text-[#705e69]">
                 {request.requestedSkill} • {request.formattedDate}
               </p>
+              <p className="text-xs text-[#705e69]">
+                Requested start: {request.preferredTimeSlot || 'time not specified'}
+              </p>
+              <p className="text-[10px] text-[#887580]">
+                Requested slot uses {request.timeZone || 'an unknown time zone'}
+              </p>
             </div>
           </div>
           <button
@@ -74,19 +80,13 @@ export function AcceptModal({
               value={platform}
               onChange={(e) => {
                 onPlatformChange(e.target.value);
-                onMeetingLinkChange(
-                  e.target.value === 'Zoom Meeting Room'
-                    ? 'https://zoom.us/j/new'
-                    : 'https://meet.google.com/new'
-                );
+                onMeetingLinkChange('');
               }}
               className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3 py-2 text-xs text-[#201a1b]"
             >
-              <option value="SkillSwap Connect">
-                SkillSwap Connect (Integrated Audio/Video)
-              </option>
               <option value="Zoom Meeting Room">University Zoom Room</option>
               <option value="Google Meet">Google Meet</option>
+              <option value="Other">Other video platform</option>
             </select>
           </div>
 
@@ -98,7 +98,8 @@ export function AcceptModal({
               type="url"
               value={meetingLink}
               onChange={(e) => onMeetingLinkChange(e.target.value)}
-              placeholder="https://meet.google.com/new"
+              placeholder="https://meet.google.com/your-meeting-code"
+              required
               className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3 py-2 text-xs text-[#201a1b] focus:outline-none focus:border-[#524156]"
             />
             <p className="text-[11px] text-[#705e69] mt-1">

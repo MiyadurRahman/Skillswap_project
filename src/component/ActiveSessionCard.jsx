@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const ActiveSessionCard = ({ session, onJoin, onViewDetails, onShowToast }) => {
+export const ActiveSessionCard = ({ session, onJoin, onViewDetails }) => {
   return (
     <div
       id={`session-${session.id}`}
@@ -32,19 +32,15 @@ export const ActiveSessionCard = ({ session, onJoin, onViewDetails, onShowToast 
 
       <div className="flex items-center justify-between mt-5 pt-3 border-t border-[#ccc4cd]/20">
         <button
-          onClick={() => {
-            if (onViewDetails) {
-              onViewDetails(session);
-            } else {
-              onShowToast(`Reviewing preparation notes for ${session.title}`);
-            }
-          }}
+          onClick={() => onViewDetails?.(session)}
+          disabled={!onViewDetails}
           className="text-xs font-semibold text-[#675975] hover:text-[#4e4353] transition-colors cursor-pointer"
         >
           View Materials & Details
         </button>
         <button
-          onClick={() => onJoin(session)}
+          onClick={() => onJoin?.(session)}
+          disabled={!onJoin}
           className="flex items-center gap-1.5 px-4 py-1.5 bg-[#c5b3d3] hover:bg-[#a992bb] text-[#52445f] hover:text-[#22162e] rounded-full text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
         >
           <span className="material-symbols-outlined text-[16px]">videocam</span>

@@ -4,7 +4,7 @@ import { MentorCard } from '../component/MentorCard';
 import { MobileNav } from '../component/MobileNav';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/auth';
-import { allPeers } from '../data/peersData';
+import { formatLocalDateTime } from '../utils/dateUtils';
 
 export const DashboardPage = ({
   onNavigateScreen,
@@ -15,57 +15,31 @@ export const DashboardPage = ({
   userProfile: propProfile,
   sessions = [],
   onSelectSession,
-  realtime = false,
   realtimeUsers = [],
   onRequestRealtime,
   onMessageMentor,
 }) => {
-  const { currentUser, userProfile: authProfile, logOut } = useAuth();
+  const { currentUser, userProfile: authProfile, logOut, isAdmin } = useAuth();
   const userProfile = authProfile || propProfile || {};
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState(null);
 
-  // Map dynamic sessions or fallback to initial defaults (demo only)
-  const activeSessions = sessions.length > 0 ? sessions.map((s) => ({
+  // Map live sessions into dashboard cards.
+  const activeSessions = sessions.filter((s) => !['Cancelled', 'Completed'].includes(s.status)).map((s) => ({
     id: s.id,
     title: s.title,
     category: s.partner?.badges?.[0] || 'Exchange',
     type: 'Academic Swap',
     mentorName: s.partner?.name || 'Academic Peer',
-    dateStr: s.date || 'Upcoming',
+    dateStr: s.startMs ? formatLocalDateTime(s.startMs) : s.date || 'Upcoming',
     iconName: 'psychology',
     bgCategoryColor: 'bg-[#ffdada]',
     textCategoryColor: 'text-[#5c3f40]',
     status: s.status || 'upcoming',
     rawSession: s,
-  })) : realtime ? [] : [
-    {
-      id: 'session-1',
-      title: 'Data Structures & Dynamic Programming',
-      category: 'Algorithms',
-      type: 'Exchange',
-      mentorName: 'Dr. Rafiqul Islam',
-      dateStr: 'Tomorrow, 14:00',
-      iconName: 'psychology',
-      bgCategoryColor: 'bg-[#ffdada]',
-      textCategoryColor: 'text-[#5c3f40]',
-      status: 'upcoming',
-    },
-    {
-      id: 'session-2',
-      title: 'LaTeX Research Paper Peer Review',
-      category: 'Academic Writing',
-      type: 'Mentoring',
-      mentorName: 'Mahir Faisal',
-      dateStr: 'Friday, 09:30',
-      iconName: 'history_edu',
-      bgCategoryColor: 'bg-[#efdbfd]',
-      textCategoryColor: 'text-[#4f415c]',
-      status: 'upcoming',
-    },
-  ];
+  }));
 
-  // Normalize a peer (demo allPeers or realtime Firestore user) into the shape
+  // Normalize a Firestore user into the shape
   // MentorCard / the mentor modal expects.
   const toMentorCard = (peer) => {
     const skillNames = Array.isArray(peer.skillsTeach)
@@ -78,91 +52,54 @@ export const DashboardPage = ({
       name: peer.name || 'Scholar',
       field: peer.title || peer.primaryField || 'Academic Scholar',
       institution: peer.university || peer.institution || 'University',
-      rating: peer.rating ?? 4.8,
+      rating: peer.rating ?? 0,
       reviewsCount: peer.reviewsCount ?? 0,
       avatarUrl: peer.avatarUrl,
-      isOnline: peer.isOnline !== false,
+      isOnline: peer.isOnline === true,
       badges:
         skillNames.length > 0
           ? skillNames.slice(0, 3)
           : peer.badges && peer.badges.length > 0
             ? peer.badges
-            : ['Verified Scholar'],
-      hourlyRateCredits: peer.hourlyCredits ?? peer.hourlyRateCredits ?? 1.0,
+            : [],
       rawUser: peer,
     };
   };
 
-  const fallbackMentors = useMemo(() => [
-    {
-      id: 'mentor-1',
-      name: 'Dr. Rafiqul Islam',
-      field: 'Algorithms & Discrete Math',
-      rating: 4.9,
-      reviewsCount: 124,
-      avatarUrl: academicAssets.avatars.rafiqulIslam,
-      isOnline: true,
-      institution: 'UIU CSE Faculty',
-      badges: ['Dynamic Programming', 'Graph Theory'],
-      hourlyRateCredits: 1.0,
-    },
-    {
-      id: 'mentor-2',
-      name: 'Mahir Faisal',
-      field: 'Neural Networks & PyTorch',
-      rating: 5.0,
-      reviewsCount: 89,
-      avatarUrl: academicAssets.avatars.mahirFaisal,
-      isOnline: true,
-      institution: 'UIU AI Research Lab',
-      badges: ['Transformers', 'PyTorch'],
-      hourlyRateCredits: 1.0,
-    },
-    {
-      id: 'mentor-3',
-      name: 'Shakib Chowdhury',
-      field: 'MATLAB & Control Systems',
-      rating: 4.8,
-      reviewsCount: 210,
-      avatarUrl: academicAssets.avatars.shakibChowdhury,
-      isOnline: false,
-      institution: 'BUET Robotics Lab',
-      badges: ['MATLAB', 'Embedded Systems'],
-      hourlyRateCredits: 1.0,
-    },
-    {
-      id: 'mentor-4',
-      name: 'Abrar Zahin',
-      field: 'Full Stack & Cloud Systems',
-      rating: 4.95,
-      reviewsCount: 96,
-      avatarUrl: academicAssets.avatars.abrarZahin,
-      isOnline: true,
-      institution: 'UIU Software Club',
-      badges: ['React', 'Node.js', 'Docker'],
-      hourlyRateCredits: 1.0,
-    },
-  ], []);
-
-  // The same scholars Discover shows: live Firestore users in realtime mode,
-  // the shared demo peer dataset otherwise.
+  // The same live Firestore scholars shown in Discover.
   const recommendedMentors = useMemo(() => {
-    const source = realtime
-      ? realtimeUsers.filter((u) => u.uid && u.uid !== currentUser?.uid)
-      : allPeers;
+    const source = realtimeUsers.filter((u) => u.uid && u.uid !== currentUser?.uid);
     const mapped = source.map(toMentorCard);
-    return mapped.length > 0 ? mapped : fallbackMentors;
-  }, [realtime, realtimeUsers, currentUser?.uid, fallbackMentors]);
+    return mapped;
+  }, [realtimeUsers, currentUser?.uid]);
 
-  const weeklyGrowthBars = [
-    { day: 'MON', height: '30%', hours: '1.5 hrs' },
-    { day: 'TUE', height: '50%', hours: '2.5 hrs' },
-    { day: 'WED', height: '45%', hours: '2.0 hrs' },
-    { day: 'THU', height: '80%', hours: '4.0 hrs', highlight: true },
-    { day: 'FRI', height: '60%', hours: '3.0 hrs' },
-    { day: 'SAT', height: '70%', hours: '3.5 hrs' },
-    { day: 'SUN', height: '95%', hours: '4.5 hrs' },
-  ];
+  const weeklyGrowthBars = useMemo(() => {
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - (6 - index));
+      return { date, day: date.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase(), hours: 0 };
+    });
+    sessions
+      .filter((session) => session.status === 'Completed' && session.completedAt)
+      .forEach((session) => {
+        const completed = new Date(session.completedAt);
+        const day = days.find((entry) => entry.date.toDateString() === completed.toDateString());
+        if (!day) return;
+        const startAt = Number(session.startAt);
+        const endAt = Number(session.endAt);
+        if (Number.isFinite(startAt) && Number.isFinite(endAt) && endAt > startAt) {
+          day.hours += (endAt - startAt) / 3_600_000;
+        }
+      });
+    const max = Math.max(1, ...days.map((day) => day.hours));
+    return days.map((day) => ({
+      day: day.day,
+      height: `${Math.max(day.hours > 0 ? 8 : 0, (day.hours / max) * 100)}%`,
+      hours: `${day.hours.toFixed(1)} hrs`,
+      value: day.hours,
+    }));
+  }, [sessions]);
 
   // Derive trending tags from the actual recommended scholars so the filter
   // chips always match real skills instead of stale hardcoded strings.
@@ -197,21 +134,21 @@ export const DashboardPage = ({
       await logOut();
       onShowToast('Successfully logged out.');
       onNavigateScreen('login');
-    } catch {
-      onShowToast('Logged out.');
-      onNavigateScreen('login');
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      onShowToast('Could not sign out. Please try again.');
     }
   };
 
-  const displayName = userProfile?.name || currentUser?.displayName || 'Tanvir Ahmed';
+  const displayName = userProfile?.name || currentUser?.displayName || 'Scholar';
   const firstName = displayName.split(' ')[0];
-  const userAvatar = userProfile?.avatarUrl || academicAssets.avatars.tanvirAhmed;
-  const userCredits = userProfile?.timeCredits !== undefined ? userProfile.timeCredits : 24.5;
-  const userRole = userProfile?.academicLevel || 'BSc in CSE';
-  const userInstitution = userProfile?.university || 'United International University (UIU)';
+  const userAvatar = userProfile?.avatarUrl || academicAssets.avatars.defaultMaleScholar;
+  const userCredits = Number(userProfile?.timeCredits || 0);
+  const userRole = userProfile?.academicLevel || 'Academic level not provided';
+  const userInstitution = userProfile?.university || 'University not provided';
   const upcomingSessionCount = activeSessions.length;
   const totalHoursLogged = weeklyGrowthBars
-    .reduce((sum, bar) => sum + (parseFloat(bar.hours) || 0), 0)
+    .reduce((sum, bar) => sum + bar.value, 0)
     .toFixed(1);
 
   // Sidebar body, shared between the desktop <aside> and the mobile drawer so
@@ -286,7 +223,6 @@ export const DashboardPage = ({
                 <span className="material-symbols-outlined text-[18px]">inbox</span>
                 <span>Session Requests</span>
               </div>
-              <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
             </button>
             <button
               onClick={() => go('schedule')}
@@ -312,6 +248,44 @@ export const DashboardPage = ({
               <span className="material-symbols-outlined text-[18px]">person</span>
               Profile Settings
             </button>
+            <div className="mt-3 rounded-2xl border border-[#ebd8d4] bg-white/70 p-2">
+              <p className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-[#887580]">
+                Trust &amp; Safety
+              </p>
+              <button
+                onClick={() => go('my-safety-reports')}
+                className="group w-full flex items-center gap-2.5 rounded-xl px-2 py-2 text-left text-xs font-semibold text-[#4a454c] transition-colors hover:bg-[#f7ebeb] cursor-pointer"
+              >
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f7ebeb] text-[#675975] transition-colors group-hover:bg-white">
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-[18px] w-[18px]"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 21V4m0 1c5-4 9 4 14 0v10c-5 4-9-4-14 0" />
+                  </svg>
+                </span>
+                <span className="min-w-0 flex-1">My Safety Reports</span>
+                <span className="material-symbols-outlined text-[16px] text-[#a2949c] transition-transform group-hover:translate-x-0.5">chevron_right</span>
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => go('admin-reports')}
+                  className="group w-full flex items-center gap-2.5 rounded-xl px-2 py-2 text-left text-xs font-semibold text-[#4a454c] transition-colors hover:bg-[#f7ebeb] cursor-pointer"
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f7ebeb] text-[#675975] transition-colors group-hover:bg-white">
+                    <span className="material-symbols-outlined text-[18px]">policy</span>
+                  </span>
+                  <span className="min-w-0 flex-1">Safety Reports</span>
+                  <span className="material-symbols-outlined text-[16px] text-[#a2949c] transition-transform group-hover:translate-x-0.5">chevron_right</span>
+                </button>
+              )}
+            </div>
           </nav>
         </div>
 
@@ -325,16 +299,9 @@ export const DashboardPage = ({
             Find a Peer
           </button>
           <button
-            onClick={async () => {
+            onClick={() => {
               onDone();
-              try {
-                await logOut();
-                onShowToast('Successfully logged out.');
-                onNavigateScreen('login');
-              } catch {
-                onShowToast('Logged out.');
-                onNavigateScreen('login');
-              }
+              void handleSignOut();
             }}
             className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-[#7b757d] hover:text-red-700 font-semibold transition-colors cursor-pointer"
           >
@@ -378,7 +345,6 @@ export const DashboardPage = ({
                 id="dash-nav-requests"
               >
                 <span>Requests</span>
-                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
               </button>
               <button
                 onClick={() => onNavigateScreen('session-details')}
@@ -407,15 +373,6 @@ export const DashboardPage = ({
                 placeholder="Search skills or mentors..."
                 className="bg-transparent border-none focus:outline-none placeholder-[#efdbfd]/50 text-xs w-44 text-white"
               />
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => onShowToast('Notifications: 2 pending peer reviews.')}
-                className="p-2 text-white/80 hover:text-white transition-colors cursor-pointer"
-                title="Notifications"
-              >
-                <span className="material-symbols-outlined text-[22px]">notifications</span>
-              </button>
             </div>
             <div
               onClick={() => onNavigateScreen('profile-setup')}
@@ -447,7 +404,7 @@ export const DashboardPage = ({
       {/* Main Content Layout */}
       <div className="pt-[72px] flex max-w-[1280px] mx-auto min-h-screen">
         {/* Left Side Navigation */}
-        <aside className="w-64 bg-[#fdf1f1] border-r border-[#ccc4cd]/30 p-6 hidden md:flex flex-col justify-between shrink-0">
+        <aside className="sticky top-[72px] h-[calc(100vh-72px)] w-64 overflow-y-auto scrollbar-none bg-[#fdf1f1] border-r border-[#ccc4cd]/30 p-6 hidden md:flex flex-col justify-between shrink-0">
           {renderSidebar()}
         </aside>
 
@@ -458,7 +415,7 @@ export const DashboardPage = ({
             <div className="lg:col-span-2 bg-gradient-to-r from-[#675975] to-[#52445f] text-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden">
               <div className="relative z-10 space-y-2">
                 <span className="text-[11px] font-semibold text-[#efdbfd] uppercase tracking-wider bg-white/10 px-3 py-1 rounded-full">
-                  Verified Scholar Session
+                  Peer learning session
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
                   Welcome back, {firstName}!
@@ -506,15 +463,11 @@ export const DashboardPage = ({
                   <span className="text-sm font-semibold text-[#4a454c]">Credit Hours</span>
                 </div>
                 <p className="text-xs text-[#4a454c]/80 mt-1">
-                  Cloud verified on Firestore ledger.
+                  Synced from your Firestore credit ledger.
                 </p>
               </div>
 
-              <div className="mt-5 pt-4 border-t border-[#ccc4cd]/20 flex items-center justify-between">
-                <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">trending_up</span>
-                  +4.5 hrs this month
-                </span>
+              <div className="mt-5 pt-4 border-t border-[#ccc4cd]/20 flex items-center justify-end">
                 <button
                   onClick={onOpenWalletModal}
                   className="text-xs font-bold text-[#675975] hover:underline cursor-pointer"
@@ -655,7 +608,7 @@ export const DashboardPage = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
               {filteredMentors.map((mentor) => (
                 <MentorCard
                   key={mentor.id}

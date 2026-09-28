@@ -1,14 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 import { useReviews } from '../hooks/useReviews';
-import { formatAcademicDate, toDateInput } from '../utils/dateUtils';
-
-const PROFILE_SLOTS = [
-  { value: `${toDateInput(2)}|03:00 PM`, label: `${formatAcademicDate(2, false)} · 3:00 PM – 4:00 PM` },
-  { value: `${toDateInput(2)}|05:00 PM`, label: `${formatAcademicDate(2, false)} · 5:00 PM – 6:00 PM` },
-  { value: `${toDateInput(4)}|11:00 AM`, label: `${formatAcademicDate(4, false)} · 11:00 AM – 12:00 PM` },
-];
+import { getAchievementBadges, subscribeUserProfile } from '../services/realtime';
+import { resolveAvatarForName } from '../assets';
 
 export const PublicProfilePage = ({
   onNavigateScreen,
@@ -16,106 +11,78 @@ export const PublicProfilePage = ({
   onShowToast,
   userProfile: currentLoggedProfile,
   profileData: customProfile,
-  onCreateSession,
   onMessageMentor,
+  onRequestRealtime,
+  blockedUserIds = [],
+  onBlockScholar,
+  onUnblockScholar,
+  onReportScholar,
 }) => {
-  const { userProfile: authProfile } = useAuth();
+  const { currentUser, userProfile: authProfile } = useAuth();
   const activeUser = authProfile || currentLoggedProfile || {};
 
   // Message Dialog state (real chat is opened via the global drawer)
-  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState(PROFILE_SLOTS[0].value);
-  const [offeredSkill, setOfferedSkill] = useState('Python Data Science');
-  const [sessionTopic, setSessionTopic] = useState('Introduction to Behavioral Economics and Market Heuristics');
 
   // Reviews expansion state
   const [showAllReviews, setShowAllReviews] = useState(false);
-  const [requestSeed] = useState(Date.now);
+  const profileUid = customProfile?.uid || customProfile?.id || null;
+  const isOwnProfile = Boolean(currentUser?.uid && currentUser.uid === profileUid);
+  const isBlocked = Boolean(profileUid && blockedUserIds.includes(profileUid));
+  const [liveProfile, setLiveProfile] = useState(customProfile || null);
 
-  // Profile data defaults to Dr. Elena Vance matching exact uploaded screenshot
-  const defaultElenaProfile = {
-    id: 'elena-vance',
-    name: 'Dr. Elena Vance',
-    title: 'Senior Fellow in Behavioral Economics',
-    rating: 4.9,
-    reviewsCount: 124,
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&auto=format&fit=crop&q=80',
-    isOnline: true,
-    bio: 'With over 15 years in academic research and cross-disciplinary studies, I specialize in the intersection of cognitive psychology and market dynamics. My goal is to bridge the gap between theoretical frameworks and practical application through collaborative peer-to-peer exchange.',
-    credentials: ['PhD from Oxford', 'Verified Scholar'],
-    responseSpeed: 'Usually responds in 2h',
-    skillsTeach: [
-      'Behavioral Modeling',
-      'Statistical Analysis (R)',
-      'Game Theory',
-      'Cognitive Bias Research',
-      'Academic Writing',
-    ],
-    skillsWant: [
-      'Advanced Python',
-      'Machine Learning Basics',
-      'Data Visualization',
-      'Public Speaking',
-    ],
-    availability: 'Available: Tue, Thu, Sat',
-    preferredMode: 'Preferred: Virtual / Zoom',
-    swapsCount: 48,
-    learnersCount: '2.1k',
-    reviews: [
-      {
-        id: 'rev-1',
-        name: 'Marcus Thorne',
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
-        rating: 5,
-        quote: "Elena's session on Game Theory was transformative. She has a way of making complex mathematical concepts feel intuitive. Looking forward to our next swap!",
-        meta: 'Oct 14, 2024 • Swapped for Python Intro',
-      },
-      {
-        id: 'rev-2',
-        name: 'Dr. Sarah L.',
-        avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=240&auto=format&fit=crop&q=80',
-        rating: 5,
-        quote: "Fantastic collaboration. Her statistical analysis skills are top-notch. She really helped me refine my research paper methodology.",
-        meta: 'Sep 28, 2024 • Swapped for Data Viz',
-      },
-      {
-        id: 'rev-3',
-        name: 'Prof. Julian V.',
-        avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80',
-        rating: 5,
-        quote: 'Insightful exploration of stochastic choice theory. Highly recommended peer mentor for researchers preparing manuscript publications.',
-        meta: 'Sep 12, 2024 • Swapped for Statistical Modeling',
-      },
-    ],
+  useEffect(() => {
+    if (!profileUid) return undefined;
+    return subscribeUserProfile(profileUid, setLiveProfile);
+  }, [profileUid]);
+
+  const emptyProfile = {
+    id: null,
+    name: 'Scholar',
+    title: 'Peer Scholar',
+    rating: 0,
+    reviewsCount: 0,
+    avatarUrl: resolveAvatarForName('Scholar'),
+    isOnline: false,
+    bio: 'This scholar has not added a biography yet.',
+    credentials: [],
+    responseSpeed: 'Not enough response data',
+    skillsTeach: [],
+    skillsWant: [],
+    availability: 'Availability not provided',
+    preferredMode: 'Preferred mode not provided',
+    swapsCount: 0,
+    learnersCount: 0,
+    reviews: [],
   };
-
-  const profile = !customProfile
-    ? defaultElenaProfile
+  const profileSource = liveProfile || customProfile;
+  const ratingCount = Number(profileSource?.ratingCount ?? profileSource?.reviewsCount ?? 0);
+  const ratingSum = Number(profileSource?.ratingSum ?? 0);
+  const profile = !profileSource
+    ? emptyProfile
     : {
-      id: customProfile.id || defaultElenaProfile.id,
-      name: customProfile.name || defaultElenaProfile.name,
-      title: customProfile.title || defaultElenaProfile.title,
-      rating: customProfile.rating || defaultElenaProfile.rating,
-      reviewsCount: customProfile.reviewsCount || defaultElenaProfile.reviewsCount,
-      avatarUrl: customProfile.avatarUrl || defaultElenaProfile.avatarUrl,
-      isOnline: customProfile.isOnline !== undefined ? customProfile.isOnline : true,
-      bio: customProfile.bio || defaultElenaProfile.bio,
-      credentials: customProfile.credentials && customProfile.credentials.length > 0 ? customProfile.credentials : defaultElenaProfile.credentials,
-      responseSpeed: customProfile.responseSpeed || defaultElenaProfile.responseSpeed,
-      skillsTeach: customProfile.skillsTeach && customProfile.skillsTeach.length > 0 ? customProfile.skillsTeach : defaultElenaProfile.skillsTeach,
-      skillsWant: customProfile.skillsWant && customProfile.skillsWant.length > 0 ? customProfile.skillsWant : defaultElenaProfile.skillsWant,
-      availability: customProfile.availability || defaultElenaProfile.availability,
-      preferredMode: customProfile.preferredMode || defaultElenaProfile.preferredMode,
-      swapsCount: customProfile.swapsCount || defaultElenaProfile.swapsCount,
-      learnersCount: customProfile.learnersCount || defaultElenaProfile.learnersCount,
-      reviews: customProfile.reviews && customProfile.reviews.length > 0 ? customProfile.reviews : defaultElenaProfile.reviews,
+      ...emptyProfile,
+      ...profileSource,
+      id: profileUid,
+      uid: profileUid,
+      name: profileSource.name || 'Scholar',
+      title: profileSource.title || profileSource.academicLevel || 'Peer Scholar',
+      rating: ratingCount > 0
+        ? Number(profileSource.ratingAverage ?? ratingSum / ratingCount)
+        : 0,
+      reviewsCount: ratingCount,
+      avatarUrl: profileSource.avatarUrl || resolveAvatarForName(profileSource.name || 'Scholar'),
+      skillsTeach: profileSource.skillsTeach || profileSource.expertiseAreas || [],
+      skillsWant: profileSource.skillsWant || profileSource.learningGoals || [],
+      swapsCount: Number(profileSource.completedSwaps ?? profileSource.swapsCount ?? 0),
+      learnersCount: Number(profileSource.uniquePartners ?? 0),
+      credentials: profileSource.credentials || [],
+      achievementBadges: getAchievementBadges(profileSource),
+      reviews: [],
       };
 
   const displayedReviews = showAllReviews ? profile.reviews : profile.reviews.slice(0, 2);
 
-  // Live reviews for realtime Firestore profiles; demo profiles keep the
-  // seeded review list.
-  const reviewTargetUid = customProfile?.uid || customProfile?.id || null;
+  const reviewTargetUid = profileUid;
   const {
     reviews: liveReviews,
     count: liveCount,
@@ -143,60 +110,17 @@ export const PublicProfilePage = ({
       : 'New'
     : profile.rating.toFixed(1);
   const shownReviewCount = isLiveProfile ? (hasReviews ? liveCount : 0) : profile.reviewsCount;
+  const displayedBadges = [...(profile.achievementBadges || []), ...(profile.credentials || [])];
 
-  const handleSendSessionRequest = (e) => {
-    e.preventDefault();
-    setIsRequestModalOpen(false);
-
-    const newSession = {
-      id: `session-${requestSeed}`,
-      title: sessionTopic || (profile.skillsTeach && profile.skillsTeach[0]) || 'Academic Peer Exchange',
-      status: 'Accepted',
-      description: `In-depth collaborative academic session on ${sessionTopic || (profile.skillsTeach && profile.skillsTeach[0]) || 'academic peer tutoring'}. Exchange focused on practical modeling and theoretical foundations.`,
-      learningGoals: (profile.skillsTeach || ['Methodological Rigor', 'Statistical Modeling']).slice(0, 3).map((s) => `Master core foundations of ${s}`),
-      duration: '90 Minutes',
-      method: 'Video Call',
-      platform: 'SkillSwap Connect',
-      date: selectedSlot.split('|')[0],
-      time: selectedSlot.split('|')[1] || '02:30 PM',
-      partner: {
-        id: profile.id,
-        name: profile.name,
-        title: profile.title,
-        avatarUrl: profile.avatarUrl,
-        isOnline: profile.isOnline,
-        badges: (profile.skillsTeach || ['Peer Scholar']).slice(0, 2),
-        skillsTeach: profile.skillsTeach || [],
-        skillsWant: profile.skillsWant || [],
-        rating: profile.rating,
-        reviewsCount: profile.reviewsCount,
-        credentials: profile.credentials || ['Verified Scholar'],
-        responseSpeed: profile.responseSpeed || 'Usually responds in 2h',
-        availability: profile.availability || 'Available on request',
-        preferredMode: profile.preferredMode || 'SkillSwap Connect Video Call',
-      },
-      notes: [
-        {
-          id: `note-${requestSeed}`,
-          authorName: profile.name,
-          authorAvatar: profile.avatarUrl,
-          timestamp: 'Just now',
-          text: `Looking forward to our session! I'll share the preliminary reading materials and references for ${sessionTopic || profile.skillsTeach?.[0] || 'our discussion'} shortly.`,
-        },
-      ],
-    };
-
-    if (onCreateSession) {
-      onCreateSession(newSession);
-    } else {
-      onShowToast(`✨ Session scheduled with ${profile.name}!`);
-      onNavigateScreen('session-details');
+  const handleRequestSession = () => {
+    if (!onRequestRealtime || !profileUid) {
+      onShowToast?.('This scholar is not available for a session request.');
+      return;
     }
+    onRequestRealtime(profile);
   };
 
-  const userAvatar =
-    activeUser?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
+  const userAvatar = activeUser?.avatarUrl || resolveAvatarForName(activeUser?.name || 'Scholar');
 
   return (
     <div id="screen-public-profile" className="min-h-screen bg-[#fff8f7] text-[#201a1b] flex flex-col font-sans selection:bg-[#c5b3d3] selection:text-[#22162e]">
@@ -245,7 +169,6 @@ export const PublicProfilePage = ({
                 id="public-nav-requests"
               >
                 <span>Requests</span>
-                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
               </button>
               <button
                 onClick={() => onNavigateScreen('session-details')}
@@ -260,19 +183,9 @@ export const PublicProfilePage = ({
           {/* Right: Notification bell, ledger icon, and profile */}
           <div className="flex items-center gap-4">
             <button
-              onClick={() => onShowToast('Notifications: 2 new skill match recommendations')}
-              className="p-2 text-white/80 hover:text-white transition-colors relative"
-              title="Notifications"
-              id="btn-public-notifs"
-            >
-              <span className="material-symbols-outlined text-[21px]">notifications</span>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#f0b2aa] rounded-full"></span>
-            </button>
-
-            <button
               onClick={() => {
                 if (onOpenWalletModal) onOpenWalletModal();
-                else onShowToast('Academic Credit Ledger: 24.5 Hours Available');
+                else onShowToast('The credit ledger is unavailable right now.');
               }}
               className="p-2 text-white/80 hover:text-white transition-colors"
               title="Academic Ledger"
@@ -389,13 +302,13 @@ export const PublicProfilePage = ({
 
                   {/* Credentials / Badges Row */}
                   <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                    {profile.credentials?.map((badge, idx) => (
+                    {displayedBadges.map((badge, idx) => (
                       <span
                         key={idx}
                         className="inline-flex items-center gap-1.5 bg-white border border-[#e6d3cf] text-[#4a3b47] px-3.5 py-1.5 rounded-full text-xs font-medium shadow-2xs"
                       >
                         <span className="material-symbols-outlined text-[16px] text-[#695665]">
-                          {badge.toLowerCase().includes('phd') ? 'school' : 'verified'}
+                          {badge.toLowerCase().includes('phd') ? 'school' : 'workspace_premium'}
                         </span>
                         <span>{badge}</span>
                       </span>
@@ -576,15 +489,31 @@ export const PublicProfilePage = ({
 
               {/* Action Buttons */}
               <div className="w-full mt-6 space-y-3">
+                {currentUser && !isOwnProfile && (
+                  <div className="flex justify-center gap-4 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => onReportScholar?.({ uid: profileUid, name: profile.name, source: 'profile' })}
+                      className="text-[#705e69] underline underline-offset-2 hover:text-[#342738]"
+                    >Report scholar</button>
+                    <button
+                      type="button"
+                      onClick={() => isBlocked ? onUnblockScholar?.(profileUid) : onBlockScholar?.(profileUid)}
+                      className="text-[#705e69] underline underline-offset-2 hover:text-[#342738]"
+                    >{isBlocked ? 'Unblock scholar' : 'Block scholar'}</button>
+                  </div>
+                )}
                 <button
-                  onClick={() => setIsRequestModalOpen(true)}
-                  className="w-full py-3.5 px-4 bg-[#bfa8c7] hover:bg-[#a992b4] text-white rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.98]"
+                  disabled={isBlocked}
+                  onClick={handleRequestSession}
+                  className="w-full py-3.5 px-4 bg-[#bfa8c7] hover:bg-[#a992b4] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.98]"
                   id="btn-request-session"
                 >
                   REQUEST SESSION
                 </button>
 
                 <button
+                  disabled={isBlocked}
                   onClick={() => {
                     if (onMessageMentor) {
                       onMessageMentor({
@@ -594,10 +523,10 @@ export const PublicProfilePage = ({
                         avatarUrl: profile.avatarUrl,
                       });
                     } else {
-                      onShowToast(`Opening chat with ${profile.name}...`);
+                      onShowToast('Messaging is unavailable for this scholar right now.');
                     }
                   }}
-                  className="w-full py-3.5 px-4 bg-white hover:bg-[#fbf0ee] border-2 border-[#4a3b47] text-[#4a3b47] rounded-full text-xs font-bold uppercase tracking-wider transition-all active:scale-[0.98]"
+                  className="w-full py-3.5 px-4 bg-white hover:bg-[#fbf0ee] disabled:opacity-50 disabled:cursor-not-allowed border-2 border-[#4a3b47] text-[#4a3b47] rounded-full text-xs font-bold uppercase tracking-wider transition-all active:scale-[0.98]"
                   id="btn-message-scholar"
                 >
                   MESSAGE {profile.name.toUpperCase().replace('DR. ', '').replace('PROF. ', '')}
@@ -651,127 +580,14 @@ export const PublicProfilePage = ({
               SkillSwap Academic
             </span>
             <span className="text-xs text-[#786571] mt-0.5 block">
-              © 2026 SkillSwap Academic. All rights reserved.
+              © {new Date().getFullYear()} SkillSwap Academic. All rights reserved.
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-[#63515d]">
-            <button
-              onClick={() => onShowToast('SkillSwap Privacy Policy: Academic privacy & data sovereignty guaranteed')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Privacy Policy
-            </button>
-            <button
-              onClick={() => onShowToast('Terms of Service: Standard Academic Credit Barter Agreement')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Terms of Service
-            </button>
-            <button
-              onClick={() => onShowToast('Partner Universities: Stanford, Oxford, UIU, Cambridge, MIT')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              University Partners
-            </button>
-            <button
-              onClick={() => onShowToast('Contact Support: support@skillswap.edu')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Contact Support
-            </button>
-          </div>
         </div>
       </footer>
 
-      {/* REQUEST SESSION MODAL */}
-      {isRequestModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-[#ecd9d5] max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between border-b border-[#f4e7e4] pb-3">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#4a3b47]">calendar_month</span>
-                <h3 className="font-bold text-base text-[#201a1b]">
-                  Request Exchange with {profile.name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsRequestModalOpen(false)}
-                className="text-[#8e7a87] hover:text-[#201a1b] p-1"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleSendSessionRequest} className="space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-[#453742] block mb-1">
-                  Choose Available Slot ({profile.availability})
-                </label>
-                <select
-                  value={selectedSlot}
-                  onChange={(e) => setSelectedSlot(e.target.value)}
-                  className="w-full bg-[#fdf8f7] border border-[#e2d0cd] rounded-xl px-3 py-2 text-[#201a1b] font-medium focus:outline-none focus:border-[#4a3b47]"
-                >
-                  <option value="Tue, 2:00 PM">Tue, 2:00 PM - 3:00 PM</option>
-                  <option value="Tue, 4:30 PM">Tue, 4:30 PM - 5:30 PM</option>
-                  {PROFILE_SLOTS.map((slot) => (
-                    <option key={slot.value} value={slot.value}>{slot.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-[#453742] block mb-1">
-                  Skill You Can Offer in Return
-                </label>
-                <input
-                  type="text"
-                  value={offeredSkill}
-                  onChange={(e) => setOfferedSkill(e.target.value)}
-                  placeholder="e.g. Python Data Science, Academic Writing"
-                  className="w-full bg-[#fdf8f7] border border-[#e2d0cd] rounded-xl px-3 py-2 text-[#201a1b] focus:outline-none focus:border-[#4a3b47]"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-[#453742] block mb-1">
-                  Topic / Objectives
-                </label>
-                <textarea
-                  rows={3}
-                  value={sessionTopic}
-                  onChange={(e) => setSessionTopic(e.target.value)}
-                  className="w-full bg-[#fdf8f7] border border-[#e2d0cd] rounded-xl p-3 text-[#201a1b] focus:outline-none focus:border-[#4a3b47]"
-                ></textarea>
-              </div>
-
-              <div className="bg-[#fbf0ee] p-3 rounded-xl text-[11px] text-[#786571] flex items-center justify-between">
-                <span>Session Fee:</span>
-                <span className="font-bold text-[#4a3b47]">1.0 Skill Credit (Swap)</span>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsRequestModalOpen(false)}
-                  className="px-4 py-2 font-semibold text-[#786571] hover:text-[#201a1b]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-[#4a3b47] hover:bg-[#342738] text-white font-bold rounded-xl transition-colors shadow-xs"
-                >
-                  Confirm Request
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* DIRECT MESSAGE opens the real global chat drawer (no fake modal) */}
+      {/* Direct Message opens the global Firestore-backed chat drawer. */}
 
     </div>
   );

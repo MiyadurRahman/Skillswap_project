@@ -10,6 +10,9 @@ import { SessionDetailsPage } from '../pages/SessionDetailsPage';
 import { RequestsPage } from '../pages/RequestsPage';
 import { SchedulePage } from '../pages/SchedulePage';
 import { LeaderboardPage } from '../pages/LeaderboardPage';
+import { AdminReportsPage } from '../pages/AdminReportsPage';
+import { MySafetyReportsPage } from '../pages/MySafetyReportsPage';
+import { LegalPage } from '../pages/LegalPage';
 
 // NOTE: Pages are intentionally imported eagerly (no React.lazy / code
 // splitting). Vite's code-splitting of these modules produced a circular
@@ -21,13 +24,10 @@ export const AppRoutes = ({
   currentScreen,
   setCurrentScreen,
   userProfile,
-  setUserProfile,
   onOpenMeeting,
   onOpenWallet,
   onOpenMentor,
-  onOpenSSO,
   onShowToast,
-  onExploreDemo,
   selectedProfile,
   setSelectedProfile,
   sessions = [],
@@ -53,9 +53,24 @@ export const AppRoutes = ({
   onCancelOutgoingRequest,
   onConfirmRescheduleRequest,
   onSettleSession,
+  blockedUserIds = [],
+  onBlockScholar,
+  onUnblockScholar,
+  onReportScholar,
+  isAdmin = false,
 }) => {
   let screen;
   switch (currentScreen) {
+    case 'privacy':
+    case 'terms':
+      screen = (
+        <LegalPage
+          type={currentScreen}
+          onBack={() => setCurrentScreen(realtime ? 'dashboard' : 'get-started')}
+        />
+      );
+      break;
+
     case 'requests':
     case 'request-session':
       screen = (
@@ -133,6 +148,28 @@ export const AppRoutes = ({
       );
       break;
 
+    case 'admin-reports':
+      screen = isAdmin ? (
+        <AdminReportsPage
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onShowToast={onShowToast}
+        />
+      ) : (
+        <DashboardPage
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onShowToast={onShowToast}
+        />
+      );
+      break;
+
+    case 'my-safety-reports':
+      screen = (
+        <MySafetyReportsPage
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+        />
+      );
+      break;
+
     case 'public-profile':
       screen = (
         <PublicProfilePage
@@ -145,6 +182,11 @@ export const AppRoutes = ({
           onShowToast={onShowToast}
           onCreateSession={onCreateSession}
           onMessageMentor={onMessageMentor}
+          onRequestRealtime={onRequestRealtime}
+          blockedUserIds={blockedUserIds}
+          onBlockScholar={onBlockScholar}
+          onUnblockScholar={onUnblockScholar}
+          onReportScholar={onReportScholar}
         />
       );
       break;
@@ -154,9 +196,9 @@ export const AppRoutes = ({
         <GetStartedPage
           onNavigateToSignUp={() => setCurrentScreen('signup')}
           onNavigateToLogin={() => setCurrentScreen('login')}
-          onExploreDemo={onExploreDemo}
+          onNavigateToPrivacy={() => setCurrentScreen('privacy')}
+          onNavigateToTerms={() => setCurrentScreen('terms')}
           onShowToast={onShowToast}
-          onOpenSSO={onOpenSSO}
           realtime={realtime}
           realtimeUsers={realtimeUsers}
         />
@@ -169,6 +211,8 @@ export const AppRoutes = ({
           onLoginSuccess={() => setCurrentScreen('dashboard')}
           onNavigateToSignUp={() => setCurrentScreen('signup')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
+          onNavigateToPrivacy={() => setCurrentScreen('privacy')}
+          onNavigateToTerms={() => setCurrentScreen('terms')}
           onShowToast={onShowToast}
         />
       );
@@ -184,6 +228,7 @@ export const AppRoutes = ({
           onOpenWalletModal={onOpenWallet}
           onShowToast={onShowToast}
           onSaveProfileSkills={onSaveProfileSkills}
+          realtimeUsers={realtimeUsers}
         />
       );
       break;
@@ -230,12 +275,11 @@ export const AppRoutes = ({
     case 'signup':
       screen = (
         <SignUpPage
-          onSignUpSuccess={({ name, email }) => {
-            setUserProfile((prev) => ({ ...prev, name, email }));
-            setCurrentScreen('profile-setup');
-          }}
+          onSignUpSuccess={() => setCurrentScreen('profile-setup')}
           onNavigateToLogin={() => setCurrentScreen('login')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
+          onNavigateToPrivacy={() => setCurrentScreen('privacy')}
+          onNavigateToTerms={() => setCurrentScreen('terms')}
           onShowToast={onShowToast}
         />
       );
@@ -245,7 +289,7 @@ export const AppRoutes = ({
       screen = (
         <ProfileSetupPage
           userProfile={userProfile}
-          onUpdateProfile={(updated) => setUserProfile((prev) => ({ ...prev, ...updated }))}
+          onUpdateProfile={() => {}}
           onNavigateScreen={(screen) => setCurrentScreen(screen)}
           onShowToast={onShowToast}
         />

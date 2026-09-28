@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "skillswap-45be2"
+    "default": "skillswap-45be2",
+    "production": "skillswap-45be2"
   }
 }

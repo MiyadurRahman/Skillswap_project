@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   addDoc,
+  deleteDoc,
   setDoc,
   updateDoc,
   writeBatch,
@@ -9,6 +10,8 @@ import {
   query,
   where,
   orderBy,
+  limitToLast,
+  limit,
   getDoc,
   arrayUnion,
   increment,
@@ -16,16 +19,22 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { resolveAvatarForName, academicAssets } from '../assets';
+import {
+  getLocalTimeZone,
+  isValidTimeZone,
+  toTimeInputValue,
+  zonedDateTimeToEpoch,
+} from '../utils/dateUtils';
+import {
+  DEFAULT_CREDIT_AMOUNT,
+  INITIAL_TIME_CREDITS,
+} from '../config/economy';
 
-const DEFAULT_AVATAR = academicAssets?.avatars?.defaultMaleScholar ||
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+const DEFAULT_AVATAR = academicAssets?.avatars?.defaultMaleScholar || resolveAvatarForName('Scholar');
 
-// One time-credit swap is charged at 2.5 Academic Credits (i.e. 2.5 hours)
-// when a session is settled. Mirrors the demo seed cost of 250 credits / 100.
-export const DEFAULT_CREDIT_AMOUNT = 2.5;
+export { DEFAULT_CREDIT_AMOUNT } from '../config/economy';
 
-// Normalize the credits a requester offered (stored as Academic Credit units,
-// e.g. 250) into credit-hours (e.g. 2.5).
+// Normalize legacy hundred-based values while storing new values directly.
 export const toCreditHours = (creditsOffered) => {
   const raw = Number(creditsOffered);
   if (!Number.isFinite(raw) || raw <= 0) return null;
@@ -54,13 +63,53 @@ const num = (value) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+// Firestore rejects `undefined` anywhere in an object, including nested
+// optional profile fields. Remove only undefined values while preserving nulls.
+const firestoreData = (value) => {
+  if (Array.isArray(value)) {
+    return value.filter((entry) => entry !== undefined).map(firestoreData);
+  }
+  if (value && typeof value === 'object' && value.constructor === Object) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, entry]) => entry !== undefined)
+        .map(([key, entry]) => [key, firestoreData(entry)])
+    );
+  }
+  return value;
+};
+
+export const getAchievementBadges = (profile = {}) => {
+  const badges = [];
+  const swaps = num(profile.completedSwaps);
+  const count = num(profile.ratingCount);
+  const average = count > 0 ? num(profile.ratingSum) / count : 0;
+  const taught = asArray(profile.skillsTeach || profile.expertiseAreas);
+  const wanted = asArray(profile.skillsWant || profile.learningGoals);
+  if (swaps >= 1) badges.push('First Swap');
+  if (swaps >= 5) badges.push('Active Scholar');
+  if (swaps >= 20) badges.push('Swap Veteran');
+  if (count >= 5 && average >= 4.5) badges.push('Highly Rated');
+  if (count >= 10 && average >= 4.8) badges.push('Trusted Mentor');
+  if (num(profile.creditsEarned) >= 25) badges.push('Knowledge Contributor');
+  if (taught.length >= 3 && wanted.length >= 3) badges.push('Skill Explorer');
+  return badges;
+};
+
+const millis = (value) => {
+  if (value && typeof value.toMillis === 'function') return value.toMillis();
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 // ---------------------------------------------------------------------------
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
 export const formatTimeAgo = (ts) => {
-  if (!ts) return 'Recently';
-  const diff = Date.now() - ts;
+  const timestamp = millis(ts);
+  if (!timestamp) return 'Recently';
+  const diff = Date.now() - timestamp;
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'Just now';
   if (mins < 60) return `${mins} min ago`;
@@ -76,11 +125,35 @@ export const formatTimeAgo = (ts) => {
 // Profile
 // ---------------------------------------------------------------------------
 
+const editableProfile = (profile = {}) => {
+  const allowed = [
+    'name', 'title', 'academicLevel', 'university', 'bio', 'avatarUrl',
+    'expertiseAreas', 'learningGoals', 'skillsTeach', 'skillsWant',
+    'availability', 'preferredMode', 'isOnline', 'lastActiveAt',
+  ];
+  return Object.fromEntries(
+    allowed
+      .filter((key) => profile[key] !== undefined)
+      .map((key) => [key, profile[key]])
+  );
+};
+
 export const upsertUserProfile = async (uid, profile) => {
   const ref = doc(db, 'users', uid);
+  const existing = await getDoc(ref);
+  const initialStats = existing.exists() ? {} : {
+    timeCredits: INITIAL_TIME_CREDITS,
+    creditsEarned: 0,
+    creditsSpent: 0,
+    completedSwaps: 0,
+    ratingCount: 0,
+    ratingSum: 0,
+    ratingAverage: 0,
+    achievementBadges: [],
+  };
   await setDoc(
     ref,
-    { ...profile, uid, updatedAt: Date.now() },
+    { ...editableProfile(profile), ...initialStats, uid, updatedAt: Date.now() },
     { merge: true }
   );
   return profile;
@@ -100,7 +173,23 @@ export const ensureUserProfile = async (uid, profile) => {
   if (snap.exists()) {
     return { id: snap.id, ...snap.data() };
   }
-  await setDoc(ref, { ...profile, uid, updatedAt: Date.now() }, { merge: true });
+  await setDoc(
+    ref,
+    {
+      ...editableProfile(profile),
+      timeCredits: INITIAL_TIME_CREDITS,
+      creditsEarned: 0,
+      creditsSpent: 0,
+      completedSwaps: 0,
+      ratingCount: 0,
+      ratingSum: 0,
+      ratingAverage: 0,
+      achievementBadges: [],
+      uid,
+      updatedAt: Date.now(),
+    },
+    { merge: true }
+  );
   return profile;
 };
 
@@ -113,8 +202,8 @@ export const subscribeUserProfile = (uid, callback) => {
   );
 };
 
-// All public scholar profiles (for the Discover directory). Excludes no one;
-// the UI filters out the current viewer.
+// Public scholar profiles used by Discover. Keep this projection explicit so
+// fields added to account documents never leak into the directory model.
 export const subscribeAllUsers = (callback, onFirst) => {
   const q = query(collection(db, 'users'));
   let fired = false;
@@ -129,6 +218,8 @@ export const subscribeAllUsers = (callback, onFirst) => {
         const u = d.data();
         const ratingSum = num(u.ratingSum);
         const ratingCount = num(u.ratingCount);
+        const lastActiveAt = millis(u.lastActiveAt);
+        const achievementBadges = getAchievementBadges(u);
         return {
           id: d.id,
           uid: d.id,
@@ -136,10 +227,11 @@ export const subscribeAllUsers = (callback, onFirst) => {
           title: u.title || u.academicLevel || 'Peer Scholar',
           avatarUrl: u.avatarUrl || DEFAULT_AVATAR,
           university: u.university || 'University',
-          isOnline: u.isOnline,
-          rating: ratingCount > 0 ? Math.round((ratingSum / ratingCount) * 10) / 10 : (num(u.rating) || 4.8),
+          isOnline: u.isOnline === true || (lastActiveAt > 0 && Date.now() - lastActiveAt < 5 * 60 * 1000),
+          lastActiveAt,
+          rating: ratingCount > 0 ? Math.round((ratingSum / ratingCount) * 10) / 10 : 0,
           ratingCount,
-          reviewsCount: u.reviewsCount != null ? num(u.reviewsCount) : ratingCount,
+          reviewsCount: ratingCount,
           completedSwaps: num(u.completedSwaps),
           creditsEarned: num(u.creditsEarned),
           creditsSpent: num(u.creditsSpent),
@@ -147,14 +239,14 @@ export const subscribeAllUsers = (callback, onFirst) => {
           skillsWant: asArray(u.skillsWant || u.learningGoals),
           bio: u.bio || 'Scholar on SkillSwap Academic.',
           timeCredits: num(u.timeCredits),
-          badges: asArray(u.badges || u.expertiseAreas).slice(0, 2),
+          badges: achievementBadges,
+          achievementBadges,
+          availability: u.availability || '',
+          preferredMode: u.preferredMode || '',
+          academicLevel: u.academicLevel || '',
+          credentials: asArray(u.credentials),
         };
       });
-      console.info(
-        '[users] subscription',
-        `${users.length} users`,
-        users.map((u) => `${u.uid.slice(0, 8)}:${u.name}`).join(' | ')
-      );
       callback(users);
     },
     (err) => {
@@ -177,31 +269,33 @@ export const mapIncomingRequest = (doc) => {
       title: r.requester?.title || 'Peer Scholar',
       university: r.requester?.university || 'University',
       avatarUrl: r.requester?.avatarUrl || DEFAULT_AVATAR,
-      rating: r.requester?.rating || 4.8,
+      rating: num(r.requester?.rating),
       completedSwaps: r.requester?.completedSwaps ?? 0,
       isOnline: r.requester?.isOnline ?? false,
     },
-    requestedSkill: r.requestedSkill || 'Academic Skills',
-    skillLevel: r.skillLevel || 'Advanced Level • 60 min',
-    offeredExchange: r.offeredExchange || `${r.creditsOffered ?? 250} Academic Credits`,
-    offeredSkill: r.offeredSkill || 'Peer Expertise',
+    requestedSkill: r.requestedSkill || 'Skill not specified',
+    skillLevel: r.skillLevel || 'Not specified',
+    offeredExchange: r.offeredExchange || `${r.creditsOffered ?? DEFAULT_CREDIT_AMOUNT} Academic Credits`,
+    offeredSkill: r.offeredSkill || '',
     preferredDate: r.preferredDate,
+    timeZone: r.timeZone || '',
     formattedDate: r.formattedDate || r.preferredDate || 'Flexible date',
     preferredTimeSlot: r.preferredTimeSlot || 'Any time slot',
     goals: r.goals || '',
     status: r.status || 'pending',
     urgency:
       r.status === 'pending'
-        ? r.urgency || 'Expires in 24 hours'
+        ? r.urgency || 'Awaiting response'
         : r.status,
     submittedAt: formatTimeAgo(r.createdAt),
     createdAt: r.createdAt,
-    creditsOffered: r.creditsOffered ?? 250,
+    creditsOffered: r.creditsOffered ?? DEFAULT_CREDIT_AMOUNT,
     linkedSessionId: r.linkedSessionId,
     responseNote: r.responseNote,
     declineReason: r.declineReason,
     rescheduledDate: r.rescheduledDate,
     rescheduledSlot: r.rescheduledSlot,
+    rescheduledTimeZone: r.rescheduledTimeZone || '',
     rescheduleNote: r.rescheduleNote,
   };
 };
@@ -215,14 +309,15 @@ export const mapOutgoingRequest = (doc) => {
       name: r.mentor?.name || 'Scholar',
       title: r.mentor?.title || 'Peer Scholar',
       avatarUrl: r.mentor?.avatarUrl || DEFAULT_AVATAR,
-      badge1: r.mentor?.badge1 || 'Verified Scholar',
-      badge2: r.mentor?.badge2 || 'Peer Mentor',
+      badge1: r.mentor?.badges?.[0] || '',
+      badge2: r.mentor?.badges?.[1] || '',
     },
     requestedSkill: r.requestedSkill || 'Academic Skills',
-    skillLevel: r.skillLevel || 'Advanced Level • 60 min',
-    cost: r.cost ?? r.creditsOffered ?? 250,
-    creditsOffered: r.creditsOffered ?? 250,
+    skillLevel: r.skillLevel || 'Not specified',
+    cost: r.cost ?? r.creditsOffered ?? DEFAULT_CREDIT_AMOUNT,
+    creditsOffered: r.creditsOffered ?? DEFAULT_CREDIT_AMOUNT,
     preferredDate: r.preferredDate || 'Flexible date',
+    timeZone: r.timeZone || '',
     formattedDate: r.formattedDate || r.preferredDate || 'Flexible date',
     preferredTimeSlot: r.preferredTimeSlot || 'Any time slot',
     goals: r.goals || '',
@@ -234,6 +329,7 @@ export const mapOutgoingRequest = (doc) => {
     declineReason: r.declineReason,
     rescheduledDate: r.rescheduledDate,
     rescheduledSlot: r.rescheduledSlot,
+    rescheduledTimeZone: r.rescheduledTimeZone || '',
     rescheduleNote: r.rescheduleNote,
   };
 };
@@ -334,7 +430,7 @@ const dayKey = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 // Resolve { startAt, endAt } (ms) from any supported date/time representation.
-export const resolveSessionTimes = ({ date, time, duration, startAt, endAt }) => {
+export const resolveSessionTimes = ({ date, time, duration, startAt, endAt, timeZone }) => {
   const startTs = Number(startAt);
   if (startTs && !Number.isNaN(startTs) && new Date(startTs).getFullYear() > 2000) {
     const durMs = durationToMinutes(duration) * 60000;
@@ -345,8 +441,19 @@ export const resolveSessionTimes = ({ date, time, duration, startAt, endAt }) =>
   if (!parts) return { startAt: null, endAt: null };
   const base = new Date(parts[0], parts[1], parts[2], 9, 0, 0);
   const window = slotToWindow(time);
-  if (window) base.setHours(window[0], window[1], 0, 0);
-  const start = base.getTime();
+  const hour = window ? window[0] : 9;
+  const minute = window ? window[1] : 0;
+  const start = isValidTimeZone(timeZone)
+    ? zonedDateTimeToEpoch({
+        year: parts[0],
+        month: parts[1] + 1,
+        day: parts[2],
+        hour,
+        minute,
+        timeZone,
+      })
+    : (base.setHours(hour, minute, 0, 0), base.getTime());
+  if (!start) return { startAt: null, endAt: null };
   const end = start + durationToMinutes(duration) * 60000;
   return { startAt: start, endAt: end };
 };
@@ -358,6 +465,7 @@ const sessionSchedule = (s) => {
     duration: s.duration,
     startAt: s.startAt,
     endAt: s.endAt,
+    timeZone: s.timeZone,
   });
   return {
     startMs: startAt,
@@ -381,9 +489,12 @@ export const mapSession = (doc, currentUid) => {
     status: s.status || 'Accepted',
     creditAmount: creditAmount || null,
     settledBy: s.settledBy || {},
+    cancelledAt: millis(s.cancelledAt),
+    cancelledBy: s.cancelledBy || '',
     description: s.description || '',
     learningGoals: s.learningGoals || [],
     duration: s.duration || '60 Minutes',
+    timeZone: s.timeZone || '',
     method: s.method || 'Video Call',
     platform: s.platform || 'Google Meet',
     date: s.date || 'Upcoming',
@@ -397,14 +508,15 @@ export const mapSession = (doc, currentUid) => {
       name: partner.name || 'Partner',
       title: partner.title || 'Peer Scholar',
       avatarUrl: partner.avatarUrl || DEFAULT_AVATAR,
-      isOnline: partner.isOnline !== false,
-      badges: partner.badges || ['Scholar Swap'],
-      rating: partner.rating || 4.8,
+      isOnline: partner.isOnline === true,
+      badges: partner.achievementBadges || partner.badges || [],
+      rating: partner.ratingAverage || partner.rating || 0,
       reviewsCount: partner.completedSwaps ?? 0,
       university: partner.university,
     },
     notes: (s.notes || []).map((n) => ({ ...n })),
-    createdAt: s.createdAt,
+    createdAt: millis(s.createdAt),
+    completedAt: millis(s.completedAt),
     startMs: schedule.startMs,
     endMs: schedule.endMs,
     dayKey: schedule.dayKey,
@@ -483,9 +595,9 @@ export const buildRequesterSnapshot = (uid, profile) => ({
   title: profile?.title || profile?.academicLevel || 'Peer Scholar',
   avatarUrl: profile?.avatarUrl || resolveAvatarForName(profile?.name || 'Scholar', DEFAULT_AVATAR),
   university: profile?.university || 'University',
-  rating: profile?.rating ?? 4.8,
+  rating: profile?.rating ?? 0,
   completedSwaps: profile?.completedSwaps ?? 0,
-  isOnline: true,
+  isOnline: profile?.isOnline === true,
   expertiseAreas: profile?.expertiseAreas || [],
   learningGoals: profile?.learningGoals || [],
 });
@@ -497,13 +609,14 @@ export const createRequest = async ({ requester, mentor, details }) => {
   }
   const safeRequester =
     requester?.uid && requester.uid !== uid ? { ...requester, uid } : requester;
-  const docRef = await addDoc(collection(db, 'requests'), {
+  const payload = firestoreData({
     requester: safeRequester || { uid, name: 'Scholar' },
     mentor,
     ...details,
     status: 'pending',
     createdAt: Date.now(),
   });
+  const docRef = await addDoc(collection(db, 'requests'), payload);
   return docRef.id;
 };
 
@@ -515,7 +628,7 @@ export const acceptRequest = async ({
   currentProfile,
   note,
   platform = 'Google Meet',
-  meetingLink = 'https://meet.google.com/new',
+  meetingLink = '',
 }) => {
   const sessionRef = doc(collection(db, 'sessions'));
   const sessionId = sessionRef.id;
@@ -526,9 +639,9 @@ export const acceptRequest = async ({
     title: request.requester?.title || 'Peer Scholar',
     avatarUrl: request.requester?.avatarUrl || DEFAULT_AVATAR,
     university: request.requester?.university || 'University',
-    rating: request.requester?.rating || 4.8,
+    rating: num(request.requester?.rating),
     completedSwaps: request.requester?.completedSwaps ?? 0,
-    isOnline: true,
+    isOnline: request.requester?.isOnline === true,
   };
 
   const mentor = {
@@ -539,7 +652,7 @@ export const acceptRequest = async ({
     university: currentProfile?.university || 'University',
     rating: currentProfile?.rating ?? 0,
     completedSwaps: currentProfile?.completedSwaps ?? 0,
-    isOnline: true,
+    isOnline: currentProfile?.isOnline === true,
     badges: (currentProfile?.expertiseAreas || []).slice(0, 2),
   };
 
@@ -549,10 +662,15 @@ export const acceptRequest = async ({
       ? '45 Minutes'
       : '60 Minutes';
 
+  const timeZone = isValidTimeZone(request.timeZone)
+    ? request.timeZone
+    : getLocalTimeZone();
+  const sessionTime = toTimeInputValue(request.preferredTimeSlot);
   const { startAt, endAt } = resolveSessionTimes({
-    date: request.formattedDate || request.preferredDate,
-    time: request.preferredTimeSlot,
+    date: request.preferredDate || request.formattedDate,
+    time: sessionTime,
     duration,
+    timeZone,
   });
 
   const sessionData = {
@@ -561,17 +679,14 @@ export const acceptRequest = async ({
     status: 'Accepted',
     creditAmount: toCreditHours(request.creditsOffered) || null,
     settledBy: {},
-    description: `Collaborative mentorship session requested by ${requester.name}. Focus: ${request.requestedSkill}.`,
-    learningGoals: [
-      `Master foundational concepts in ${request.requestedSkill}`,
-      'Solve core applied problems and edge cases',
-      'Review methodological integrity and literature context',
-    ],
+    description: request.goals?.trim() || '',
+    learningGoals: request.goals?.trim() ? [request.goals.trim()] : [],
     duration,
+    timeZone,
     method: 'Video Call',
     platform,
     date: request.formattedDate || request.preferredDate,
-    time: request.preferredTimeSlot,
+    time: sessionTime,
     startAt: startAt || null,
     endAt: endAt || null,
     meetingLink,
@@ -618,25 +733,26 @@ export const acceptRequest = async ({
   // NOTE: credits are NOT moved at accept time. Time credits are only
   // transferred when a participant settles their side of the session
   // (settleSessionSide), keeping the ledger honest and never overdrafted.
-  // Cosmetic/demo sessions update local state via useSessionHandlers only.
-
   return sessionId;
 };
 
 export const declineRequest = async (requestId, reason) => {
+  const cleanReason = String(reason || '').trim();
+  if (!cleanReason) throw new Error('Choose a reason before declining this request.');
   await updateDoc(doc(db, 'requests', requestId), {
     status: 'declined',
     respondedAt: Date.now(),
-    declineReason: reason || 'Schedule conflict during this time slot',
+    declineReason: cleanReason.slice(0, 500),
   });
 };
 
-export const rescheduleRequest = async (requestId, { date, slot, note }) => {
+export const rescheduleRequest = async (requestId, { date, slot, note, timeZone }) => {
   await updateDoc(doc(db, 'requests', requestId), {
     status: 'rescheduled',
     respondedAt: Date.now(),
     rescheduledDate: date,
     rescheduledSlot: slot,
+    rescheduledTimeZone: isValidTimeZone(timeZone) ? timeZone : getLocalTimeZone(),
     rescheduleNote: note || '',
   });
 };
@@ -650,12 +766,14 @@ export const cancelOutgoingRequest = async (requestId) => {
 
 // Requester confirms the mentor's proposed alternate time — reopens the
 // request with the new date/slot so the mentor can accept it.
-export const confirmRescheduleRequest = async (requestId, newDate, newSlot) => {
+export const confirmRescheduleRequest = async (requestId, newDate, newSlot, timeZone) => {
   await updateDoc(doc(db, 'requests', requestId), {
     status: 'pending',
     preferredDate: newDate,
     formattedDate: newDate,
     preferredTimeSlot: newSlot,
+    timeZone: isValidTimeZone(timeZone) ? timeZone : getLocalTimeZone(),
+    rescheduledTimeZone: null,
     rescheduledDate: null,
     rescheduledSlot: null,
     rescheduleNote: null,
@@ -674,24 +792,144 @@ export const addSessionNote = async (sessionId, note) => {
 };
 
 // ---------------------------------------------------------------------------
+// Trust and safety
+// ---------------------------------------------------------------------------
+
+export const getBlockId = (blockerUid, blockedUid) => `${blockerUid}__${blockedUid}`;
+
+export const subscribeBlockedUsers = (blockerUid, callback, onError) => {
+  if (!blockerUid) return () => {};
+  const q = query(collection(db, 'blocks'), where('blockerUid', '==', blockerUid));
+  return onSnapshot(
+    q,
+    (snapshot) => callback(snapshot.docs.map((entry) => entry.data().blockedUid).filter(Boolean)),
+    (error) => onError?.(error)
+  );
+};
+
+export const blockScholar = async (blockerUid, blockedUid) => {
+  if (!blockerUid || !blockedUid || blockerUid === blockedUid) {
+    throw new Error('Choose another scholar to block.');
+  }
+  if (auth.currentUser?.uid !== blockerUid) {
+    throw new Error('Sign in again before changing your blocked scholars.');
+  }
+  const blockRef = doc(db, 'blocks', getBlockId(blockerUid, blockedUid));
+  const existing = await getDoc(blockRef);
+  if (existing.exists()) return;
+  await setDoc(blockRef, { blockerUid, blockedUid, createdAt: Date.now() });
+};
+
+export const unblockScholar = async (blockerUid, blockedUid) => {
+  if (!blockerUid || !blockedUid || auth.currentUser?.uid !== blockerUid) {
+    throw new Error('Sign in again before changing your blocked scholars.');
+  }
+  await deleteDoc(doc(db, 'blocks', getBlockId(blockerUid, blockedUid)));
+};
+
+export const submitScholarReport = async ({
+  reporterUid,
+  reportedUid,
+  category,
+  details,
+  source = 'profile',
+  conversationId = '',
+}) => {
+  const allowedCategories = ['harassment', 'spam', 'impersonation', 'unsafe', 'other'];
+  if (!reporterUid || !reportedUid || reporterUid === reportedUid) {
+    throw new Error('This scholar cannot be reported from the current account.');
+  }
+  if (auth.currentUser?.uid !== reporterUid) {
+    throw new Error('Sign in again before submitting a report.');
+  }
+  if (!allowedCategories.includes(category)) {
+    throw new Error('Choose a reason for your report.');
+  }
+  await addDoc(collection(db, 'reports'), {
+    reporterUid,
+    reportedUid,
+    category,
+    details: String(details || '').trim().slice(0, 2000),
+    source: source === 'chat' ? 'chat' : 'profile',
+    conversationId: String(conversationId || '').slice(0, 200),
+    status: 'open',
+    createdAt: Date.now(),
+  });
+};
+
+export const subscribeAdminReports = (callback, onError) => {
+  const reportsQuery = query(
+    collection(db, 'reports'),
+    orderBy('createdAt', 'desc'),
+    limit(100)
+  );
+  return onSnapshot(
+    reportsQuery,
+    (snapshot) => callback(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }))),
+    (error) => onError?.(error)
+  );
+};
+
+export const subscribeMyReports = (reporterUid, callback, onError) => {
+  if (!reporterUid || auth.currentUser?.uid !== reporterUid) {
+    onError?.(new Error('Sign in to view your reports.'));
+    return () => {};
+  }
+  const reportsQuery = query(
+    collection(db, 'reports'),
+    where('reporterUid', '==', reporterUid),
+    orderBy('createdAt', 'desc'),
+    limit(100)
+  );
+  return onSnapshot(
+    reportsQuery,
+    (snapshot) => callback(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }))),
+    (error) => onError?.(error)
+  );
+};
+
+export const updateReportReview = async (reportId, status) => {
+  const allowedStatuses = ['reviewing', 'resolved', 'dismissed'];
+  if (!reportId || !allowedStatuses.includes(status)) {
+    throw new Error('Choose a valid report status.');
+  }
+  const reviewerUid = auth.currentUser?.uid;
+  if (!reviewerUid) throw new Error('Sign in again before updating this report.');
+  await updateDoc(doc(db, 'reports', reportId), {
+    status,
+    reviewedAt: Date.now(),
+    reviewedBy: reviewerUid,
+  });
+};
+
+// ---------------------------------------------------------------------------
 // Chat / conversations
 // ---------------------------------------------------------------------------
 
 // Deterministic id for a 1:1 conversation between two users.
 export const getConversationId = (uidA, uidB) => [uidA, uidB].sort().join('__');
 
-// Get or create the conversation document between two users.
+// Get or create the conversation document between two users. Participant IDs
+// are stored in deterministic order and are never rewritten after creation.
 export const ensureConversation = async (uidA, uidB) => {
+  if (!uidA || !uidB || uidA === uidB) {
+    throw new Error('Choose another scholar to start a conversation.');
+  }
   const convId = getConversationId(uidA, uidB);
   const ref = doc(db, 'conversations', convId);
-  const data = {
-    participantIds: [uidA, uidB],
-  };
-  // A read of a non-existent document cannot satisfy the participant-based
-  // read rule. An idempotent merge works for both cases: it creates the parent
-  // for a new chat and leaves all existing message metadata untouched.
-  await setDoc(ref, data, { merge: true });
-  return { id: convId, ...data };
+  const participantIds = [uidA, uidB].sort();
+  try {
+    await setDoc(ref, { participantIds }, { merge: true });
+    return { id: convId, participantIds };
+  } catch (error) {
+    // Legacy conversations may contain the correct pair in the opposite array
+    // order. Rules correctly block changing that protected field; in that case
+    // read and reuse the existing conversation instead.
+    if (!String(error?.code || '').includes('permission-denied')) throw error;
+    const existing = await getDoc(ref);
+    if (!existing.exists()) throw error;
+    return { id: existing.id, ...existing.data() };
+  }
 };
 
 const mapConversation = (doc) => {
@@ -751,7 +989,8 @@ export const subscribeConversationMessages = (conversationId, callback, onError)
   if (!conversationId) return () => {};
   const q = query(
     collection(db, 'conversations', conversationId, 'messages'),
-    orderBy('createdAt', 'asc')
+    orderBy('createdAt', 'asc'),
+    limitToLast(100)
   );
   let unsub = () => {};
   let retryTimer = null;
@@ -802,17 +1041,32 @@ export const subscribeConversationMessages = (conversationId, callback, onError)
 // protected array-field change in Firestore and makes replies fail for the
 // participant whose sender/recipient order differs from the stored order.
 export const sendMessage = async ({ conversationId, participantIds, fromUid, toUid, fromName, text }) => {
+  const cleanText = typeof text === 'string' ? text.trim() : '';
+  if (!fromUid || !toUid || fromUid === toUid) {
+    throw new Error('A valid conversation participant is required.');
+  }
+  if (!cleanText || cleanText.length > 4000) {
+    throw new Error('Messages must contain 1 to 4000 characters.');
+  }
   const convId = conversationId || getConversationId(fromUid, toUid);
   const convRef = doc(db, 'conversations', convId);
   const msgRef = doc(collection(db, 'conversations', convId, 'messages'));
   const now = Date.now();
   const messageParticipantIds = participantIds || [fromUid, toUid];
+  if (
+    messageParticipantIds.length !== 2 ||
+    !messageParticipantIds.includes(fromUid) ||
+    !messageParticipantIds.includes(toUid)
+  ) {
+    throw new Error('The conversation participants are invalid.');
+  }
 
   const batch = writeBatch(db);
   batch.update(convRef, {
-    lastText: text,
+    lastText: cleanText,
     lastFrom: fromUid,
-    lastFromName: fromName || 'Scholar',
+    lastFromName: String(fromName || 'Scholar').slice(0, 100),
+    lastMessageId: msgRef.id,
     updatedAt: now,
     [`unread.${toUid}`]: increment(1),
   });
@@ -821,7 +1075,7 @@ export const sendMessage = async ({ conversationId, participantIds, fromUid, toU
     participantIds: messageParticipantIds,
     fromUid,
     toUid,
-    text,
+    text: cleanText,
     createdAt: now,
     read: false,
   });
@@ -842,11 +1096,8 @@ export const markConversationRead = async (conversationId, uid) => {
 // ---------------------------------------------------------------------------
 // Time-credit ledger & session settlement
 // ---------------------------------------------------------------------------
-// Each participant settles ONLY their own side of a session (rules enforce
-// `request.auth.uid == uid` on their own users/transactions docs). When the
-// requester settles, the agreed credits move from their balance to the
-// mentor's; writes happen in one transaction so a low balance is never
-// overdrafted and the session flips to Completed exactly once per user.
+// Settlement runs as one Firestore transaction. Security rules validate the
+// resulting profile balances, session state, and create-only ledger entries.
 
 export const mapTransaction = (doc) => {
   const t = doc.data();
@@ -857,9 +1108,13 @@ export const mapTransaction = (doc) => {
     type: t.type || 'spent',
     amount: num(t.amount),
     date: t.date || formatTimeAgo(t.createdAt),
-    createdAt: num(t.createdAt) || Date.now(),
-    partner: t.partner || 'Peer Scholar',
+    createdAt: millis(t.createdAt),
+    partner: t.partner || (t.type === 'adjustment' ? 'Administrator' : 'Peer Scholar'),
     partnerUid: t.partnerUid || '',
+    reason: t.reason || '',
+    balanceBefore: t.balanceBefore,
+    balanceAfter: t.balanceAfter,
+    adjustedBy: t.adjustedBy || '',
   };
 };
 
@@ -883,107 +1138,131 @@ export const subscribeTransactions = (uid, callback, onFirst) => {
   );
 };
 
-// Settle the current user's side of a session.
-//  - requester: pays min(agreed, balance) -> mentor earns the same amount
-//  - mentor:   we never require the mentor to hold credits; they just earn
-// When both sides have settled, the session is marked Completed.
+// Settle the current user's side of a session. Credits move only after both
+// participants confirm completion.
 export const settleSessionSide = async ({ sessionId, currentUid }) => {
   if (!sessionId || !currentUid) {
     throw new Error('Missing session or user for settlement.');
   }
-  const sessionRef = doc(db, 'sessions', sessionId);
+  if (auth.currentUser?.uid !== currentUid) {
+    throw new Error('The authenticated account does not match this session action.');
+  }
+  return runTransaction(db, async (transaction) => {
+    const sessionRef = doc(db, 'sessions', sessionId);
+    const sessionSnapshot = await transaction.get(sessionRef);
+    if (!sessionSnapshot.exists()) throw new Error('Session not found.');
 
-  const result = await runTransaction(db, async (tx) => {
-    const snap = await tx.get(sessionRef);
-    if (!snap.exists()) throw new Error('Session not found.');
-
-    const s = snap.data();
-    const amount = s.creditAmount != null ? s.creditAmount : DEFAULT_CREDIT_AMOUNT;
-
-    if (s.status === 'Completed') {
-      throw new Error('This session is already completed.');
-    }
-    if ((s.settledBy && s.settledBy[currentUid]) || (s.settled && s.settled[currentUid])) {
-      throw new Error('You already settled this session.');
-    }
-
-    const requesterUid = s.requester?.uid;
-    const mentorUid = s.mentor?.uid;
-    const participants = s.participantIds || [requesterUid, mentorUid].filter(Boolean);
-    if (!participants.includes(currentUid)) {
+    const session = sessionSnapshot.data();
+    const participantIds = asArray(session.participantIds);
+    if (participantIds.length !== 2 || !participantIds.includes(currentUid)) {
       throw new Error('You are not a participant in this session.');
     }
-
-    const isRequester = currentUid === requesterUid
-      ? true
-      : currentUid === mentorUid
-        ? false
-        : !(participants[0] === mentorUid);
-
-    const partnerUid = isRequester ? mentorUid : requesterUid;
-
-    const myUserRef = doc(db, 'users', currentUid);
-    const mySnap = await tx.get(myUserRef);
-    const myData = mySnap.exists() ? mySnap.data() : {};
-    const balance = num(myData.timeCredits);
-
-    // The ledger must stay symmetric: the requester pays the agreed amount
-    // (never more than they actually hold), and the mentor earns exactly what
-    // was paid. If the requester can't cover the full amount we refuse rather
-    // than mint credits out of thin air.
-    if (isRequester && balance < amount) {
-      throw new Error(
-        `Not enough time credits to settle this session (need ${amount}, have ${balance.toFixed(2)}).`
-      );
-    }
-    const paid = amount;
-
-    const now = Date.now();
-
-    if (isRequester) {
-      tx.set(doc(collection(db, 'transactions')), {
-        uid: currentUid,
-        sessionId,
-        partnerUid,
-        partner: s.mentor?.name || 'Peer Mentor',
-        title: s.title || 'Peer Mentoring Session',
-        type: 'spent',
-        amount: -paid,
-        createdAt: now,
-        date: `settled ${formatTimeAgo(now)}`,
-      });
-    } else {
-      tx.set(doc(collection(db, 'transactions')), {
-        uid: currentUid,
-        sessionId,
-        partnerUid,
-        partner: s.requester?.name || 'Peer Scholar',
-        title: s.title || 'Peer Mentoring Session',
-        type: 'earned',
-        amount,
-        createdAt: now,
-        date: `settled ${formatTimeAgo(now)}`,
-      });
+    if (session.status === 'Completed' || session.statsApplied === true) {
+      return { alreadyCompleted: true, allSettled: true };
     }
 
-    tx.update(myUserRef, {
-      timeCredits: Number((balance + (isRequester ? -paid : amount)).toFixed(3)),
-      creditsEarned: num(myData.creditsEarned) + (isRequester ? 0 : amount),
-      creditsSpent: num(myData.creditsSpent) + (isRequester ? paid : 0),
+    const settledBy = { ...(session.settledBy || {}) };
+    const alreadyConfirmed = Boolean(settledBy[currentUid]);
+    if (!alreadyConfirmed) settledBy[currentUid] = Date.now();
+    const allSettled = participantIds.every((uid) => Boolean(settledBy[uid]));
+    if (!allSettled) {
+      if (!alreadyConfirmed) transaction.update(sessionRef, { settledBy });
+      return { alreadyConfirmed, allSettled: false };
+    }
+
+    // Older/interrupted settlement attempts can leave both confirmations on
+    // an Accepted session without applying credits or profile statistics. Do
+    // not return early for that recoverable state: rerun the atomic finalizer.
+
+    const requesterUid = session.requester?.uid;
+    const mentorUid = session.mentor?.uid;
+    if (!requesterUid || !mentorUid || requesterUid === mentorUid) {
+      throw new Error('Session participants are invalid.');
+    }
+
+    const requesterRef = doc(db, 'users', requesterUid);
+    const mentorRef = doc(db, 'users', mentorUid);
+    const spentRef = doc(db, 'transactions', `${sessionId}__spent`);
+    const earnedRef = doc(db, 'transactions', `${sessionId}__earned`);
+    // Ledger reads are owner-only. Reading both predictable ledger IDs here
+    // causes permission-denied for the participant who does not own each entry
+    // (even when those entries do not exist yet). The rules reject duplicate
+    // settlement writes atomically, so only participant profiles need reads.
+    const [requesterSnapshot, mentorSnapshot] = await Promise.all([
+      transaction.get(requesterRef),
+      transaction.get(mentorRef),
+    ]);
+
+    if (!requesterSnapshot.exists() || !mentorSnapshot.exists()) {
+      throw new Error('A participant profile is missing.');
+    }
+    const requester = requesterSnapshot.data();
+    const mentor = mentorSnapshot.data();
+    const amount = num(session.creditAmount);
+    if (amount <= 0) throw new Error('The session credit amount is invalid.');
+    const requesterBalance = num(requester.timeCredits);
+    if (requesterBalance < amount) {
+      throw new Error(`The requester needs ${amount} credits but has ${requesterBalance}.`);
+    }
+
+    const completedAt = Date.now();
+    const requesterBalanceAfter = Number((requesterBalance - amount).toFixed(3));
+    const mentorBalanceAfter = Number((num(mentor.timeCredits) + amount).toFixed(3));
+    transaction.update(requesterRef, {
+      timeCredits: requesterBalanceAfter,
+      creditsSpent: num(requester.creditsSpent) + amount,
+      completedSwaps: num(requester.completedSwaps) + 1,
+      lastSettlementId: sessionId,
+      updatedAt: completedAt,
     });
-
-    const nextSettledBy = { ...(s.settledBy || {}), [currentUid]: now };
-    const allSettled = participants.every((p) => nextSettledBy[p] != null);
-
-    tx.update(sessionRef, {
-      settledBy: nextSettledBy,
-      ...[allSettled ? { status: 'Completed', completedAt: now } : {}],
+    transaction.update(mentorRef, {
+      timeCredits: mentorBalanceAfter,
+      creditsEarned: num(mentor.creditsEarned) + amount,
+      completedSwaps: num(mentor.completedSwaps) + 1,
+      lastSettlementId: sessionId,
+      updatedAt: completedAt,
     });
-
-    return { paid, isRequester, allSettled, completedAt: allSettled ? now : null };
+    transaction.set(spentRef, {
+      uid: requesterUid,
+      sessionId,
+      participantIds,
+      partnerUid: mentorUid,
+      partner: session.mentor?.name || 'Peer Mentor',
+      title: session.title || 'Peer Mentoring Session',
+      type: 'spent',
+      amount: -amount,
+      balanceAfter: requesterBalanceAfter,
+      createdAt: completedAt,
+    });
+    transaction.set(earnedRef, {
+      uid: mentorUid,
+      sessionId,
+      participantIds,
+      partnerUid: requesterUid,
+      partner: session.requester?.name || 'Peer Scholar',
+      title: session.title || 'Peer Mentoring Session',
+      type: 'earned',
+      amount,
+      balanceAfter: mentorBalanceAfter,
+      createdAt: completedAt,
+    });
+    transaction.update(sessionRef, {
+      settledBy,
+      status: 'Completed',
+      completedAt,
+      statsApplied: true,
+    });
+    return { alreadyConfirmed, allSettled: true, paid: amount, completedAt };
   });
+};
 
-  return result;
+export const updateUserPresence = (uid, isOnline) => {
+  if (!uid) return Promise.resolve();
+  return setDoc(
+    doc(db, 'users', uid),
+    { isOnline: Boolean(isOnline), lastActiveAt: Date.now(), updatedAt: Date.now() },
+    { merge: true }
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -1017,7 +1296,7 @@ export const mapReview = (doc) => {
     targetUid: r.targetUid || '',
     rating: num(r.rating),
     comment: r.comment || '',
-    createdAt: num(r.createdAt) || Date.now(),
+    createdAt: millis(r.createdAt) || Date.now(),
     meta: r.createdAt ? `Reviewed ${formatTimeAgo(r.createdAt)}` : 'Recent review',
   };
 };
@@ -1045,8 +1324,6 @@ export const subscribeReviews = (targetUid, callback, onFirst) => {
 export const submitReview = async ({
   sessionId,
   authorUid,
-  authorName,
-  authorAvatar,
   targetUid,
   rating,
   comment,
@@ -1054,37 +1331,90 @@ export const submitReview = async ({
   if (!sessionId || !authorUid || !targetUid) {
     throw new Error('Missing review references.');
   }
-  const clamped = Math.max(1, Math.min(5, Math.round(num(rating))));
-  const reviewRef = doc(db, 'reviews', reviewDocumentId(sessionId, authorUid));
-
-  await runTransaction(db, async (tx) => {
-    const existing = await tx.get(reviewRef);
-    if (existing.exists()) {
-      throw new Error('You already reviewed this session.');
-    }
-
+  if (auth.currentUser?.uid !== authorUid) {
+    throw new Error('The authenticated account does not match this review.');
+  }
+  const normalizedRating = Math.max(1, Math.min(5, Math.round(num(rating))));
+  return runTransaction(db, async (transaction) => {
+    const sessionRef = doc(db, 'sessions', sessionId);
+    const reviewRef = doc(db, 'reviews', reviewDocumentId(sessionId, authorUid));
     const targetRef = doc(db, 'users', targetUid);
-    const targetSnap = await tx.get(targetRef);
-    if (!targetSnap.exists()) {
-      throw new Error('The reviewed scholar no longer exists.');
+    const authorRef = doc(db, 'users', authorUid);
+    const [sessionSnapshot, reviewSnapshot, targetSnapshot, authorSnapshot] =
+      await Promise.all([
+        transaction.get(sessionRef),
+        transaction.get(reviewRef),
+        transaction.get(targetRef),
+        transaction.get(authorRef),
+      ]);
+
+    if (!sessionSnapshot.exists() || sessionSnapshot.data().status !== 'Completed') {
+      throw new Error('Only completed sessions can be reviewed.');
+    }
+    if (reviewSnapshot.exists()) throw new Error('You already reviewed this session.');
+    if (!targetSnapshot.exists()) throw new Error('Scholar profile not found.');
+    const participants = asArray(sessionSnapshot.data().participantIds);
+    if (!participants.includes(authorUid) || !participants.includes(targetUid)) {
+      throw new Error('Both scholars must belong to this session.');
     }
 
-    tx.set(reviewRef, {
+    const target = targetSnapshot.data();
+    const nextCount = num(target.ratingCount) + 1;
+    const nextSum = num(target.ratingSum) + normalizedRating;
+    const createdAt = Date.now();
+    transaction.set(reviewRef, {
       sessionId,
+      sessionTitle: sessionSnapshot.data().title || 'Academic Session',
       authorUid,
-      authorName: authorName || 'Scholar',
-      authorAvatar: authorAvatar || DEFAULT_AVATAR,
+      authorName: authorSnapshot.data()?.name || 'Scholar',
+      authorAvatar: authorSnapshot.data()?.avatarUrl || '',
       targetUid,
-      rating: clamped,
-      comment: comment || '',
-      createdAt: Date.now(),
+      rating: normalizedRating,
+      comment: String(comment || '').trim().slice(0, 2000),
+      createdAt,
     });
-
-    tx.update(targetRef, {
-      ratingCount: increment(1),
-      ratingSum: increment(clamped),
+    transaction.update(targetRef, {
+      ratingCount: nextCount,
+      ratingSum: nextSum,
+      ratingAverage: nextSum / nextCount,
+      lastRatingReviewId: reviewDocumentId(sessionId, authorUid),
+      updatedAt: createdAt,
     });
+    return { rating: normalizedRating, ratingCount: nextCount };
   });
+};
 
-  return { rating: clamped };
+export const adjustUserCredits = async ({ targetUid, amount, reason }) => {
+  const normalizedAmount = Number(amount);
+  if (!targetUid || !Number.isFinite(normalizedAmount) || normalizedAmount === 0) {
+    throw new Error('Provide a user and a non-zero adjustment.');
+  }
+  if (String(reason || '').trim().length < 5) {
+    throw new Error('A clear adjustment reason is required.');
+  }
+  return runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', targetUid);
+    const userSnapshot = await transaction.get(userRef);
+    if (!userSnapshot.exists()) throw new Error('User not found.');
+    const before = num(userSnapshot.data().timeCredits);
+    const after = Number((before + normalizedAmount).toFixed(3));
+    if (after < 0) throw new Error('The balance cannot become negative.');
+
+    const transactionRef = doc(collection(db, 'transactions'));
+    const createdAt = Date.now();
+    transaction.update(userRef, { timeCredits: after, updatedAt: createdAt });
+    transaction.set(transactionRef, {
+      uid: targetUid,
+      participantIds: [targetUid],
+      type: 'adjustment',
+      amount: normalizedAmount,
+      reason: String(reason).trim().slice(0, 500),
+      adjustedBy: auth.currentUser?.uid || '',
+      balanceBefore: before,
+      balanceAfter: after,
+      title: 'Administrative credit adjustment',
+      createdAt,
+    });
+    return { transactionId: transactionRef.id, balanceBefore: before, balanceAfter: after };
+  });
 };

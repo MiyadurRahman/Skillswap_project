@@ -22,8 +22,7 @@ export function useRequestHandlers({ myUid, myProfile, setSelectedSessionId }) {
         title: mentor.title,
         avatarUrl: mentor.avatarUrl,
         university: mentor.university,
-        badge1: mentor.badge1,
-        badge2: mentor.badge2,
+        badges: Array.isArray(mentor.badges) ? mentor.badges : [],
       };
       return createRequest({ requester, mentor: mentorSnapshot, details });
     },
@@ -32,11 +31,7 @@ export function useRequestHandlers({ myUid, myProfile, setSelectedSessionId }) {
 
   const handleAcceptIncoming = useCallback(
     async (request, { note, platform, meetingLink }) => {
-      const fixedLink =
-        meetingLink ||
-        (platform === 'Zoom Meeting Room'
-          ? 'https://zoom.us/j/new'
-          : 'https://meet.google.com/new');
+      const fixedLink = String(meetingLink || '').trim();
       if (!isSafeWebUrl(fixedLink)) {
         throw new Error('Please enter a valid http:// or https:// meeting link.');
       }

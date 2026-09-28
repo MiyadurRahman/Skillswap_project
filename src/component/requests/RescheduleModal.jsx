@@ -1,4 +1,4 @@
-import { toDateInput } from '../../utils/dateUtils';
+import { getLocalTimeZone, toDateInput } from '../../utils/dateUtils';
 import { useDialogBehavior } from '../../hooks/useDialogBehavior';
 
 // Propose-an-alternate-time modal for incoming requests.
@@ -21,6 +21,9 @@ export function RescheduleModal({
         <h3 id="reschedule-request-title" className="font-bold text-base text-[#201a1b]">
           Propose Alternate Time to {request.requester.name}
         </h3>
+        <p className="text-[11px] text-[#705e69]">
+          Original request: {request.formattedDate} at {request.preferredTimeSlot} ({request.timeZone || 'unknown time zone'}). Your proposal uses {getLocalTimeZone()}.
+        </p>
 
         <div className="space-y-3 text-xs">
           <div>
@@ -40,15 +43,13 @@ export function RescheduleModal({
             <label className="block font-bold text-[#201a1b] mb-1">
               Proposed Alternate Time Slot:
             </label>
-            <select
+            <input
+              type="time"
               value={slot}
               onChange={(e) => onSlotChange(e.target.value)}
               className="w-full bg-[#fcf6f5] border border-[#eddcd8] rounded-xl px-3 py-2 text-xs"
-            >
-              <option value="Morning (09:00 - 11:00)">Morning (09:00 - 11:00)</option>
-              <option value="Afternoon (14:00 - 15:30)">Afternoon (14:00 - 15:30)</option>
-              <option value="Evening (17:00 - 18:30)">Evening (17:00 - 18:30)</option>
-            </select>
+              required
+            />
           </div>
 
           <div>

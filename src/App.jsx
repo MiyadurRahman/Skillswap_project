@@ -6,91 +6,47 @@ import { AppRoutes } from './routes/AppRoutes';
 import { Modals } from './component/Modals';
 import { NotificationBell } from './component/NotificationBell';
 import { ChatPanel } from './component/ChatPanel';
-import { academicAssets, createInitialAvatar } from './assets';
-import { initialSessions } from './data/sessionsData';
-import { initialConversations } from './data/chatData';
-import {
-  initialIncomingRequests,
-  initialOutgoingRequests,
-  drJulianVance,
-} from './data/requestsData';
-import { usePersistentState } from './hooks/usePersistentState';
-import {
-  useFirestoreSubscriptions,
-  REQUIRED_SNAPSHOTS,
-} from './hooks/useFirestoreSubscriptions';
+import { ReportScholarModal } from './component/ReportScholarModal';
+import { createInitialAvatar } from './assets';
+import { useFirestoreSubscriptions } from './hooks/useFirestoreSubscriptions';
 import { useToast } from './hooks/useToast';
 import { useChat } from './hooks/useChat';
 import { useSessionHandlers } from './hooks/useSessionHandlers';
 import { useRequestHandlers } from './hooks/useRequestHandlers';
 import { toMentorModel } from './utils/toMentorModel';
 import { openExternalUrl } from './utils/urlUtils';
+import { submitScholarReport } from './services/realtime';
+import { EducationalLoader } from './component/EducationalLoader';
 
 function AppContent() {
   const {
     currentUser,
     userProfile: authProfile,
-    signIn,
+    isAdmin,
     loading,
     updateProfileData,
   } = useAuth();
   const [currentScreen, setCurrentScreen] = useState('get-started');
   const [activeModal, setActiveModal] = useState(null);
 
-  // Production path = real Firebase Auth user; Demo path = local seed data.
-  const isRealtime = Boolean(currentUser && !currentUser.isDemo && currentUser.uid);
+  const isRealtime = Boolean(currentUser?.uid);
   const myUid = currentUser?.uid;
 
-  const [localProfile, setLocalProfile] = useState({
-    name: 'Alex Rivera',
-    email: 'scholar@university.edu',
-    title: 'PhD Scholar',
-    academicLevel: 'PhD Candidate',
-    university: 'Stanford University',
-    avatarUrl: academicAssets.avatars.alexRivera,
-    timeCredits: 24.5,
-    expertiseAreas: ['Applied Math', 'LaTeX', 'Python', 'Fourier Analysis'],
-    learningGoals: ['Game Theory', 'R-Studio', 'CRISPR Data Analysis'],
-    bio: 'Doctoral candidate focusing on high-energy mathematical physics and stochastic modeling.',
-  });
-
-  const myProfile = authProfile || localProfile;
-
-  // Sessions + requests live in Firestore in realtime mode; otherwise they are
-  // seeded/demo data persisted to localStorage.
-  const [sessions, setSessions] = usePersistentState(
-    'skillswap_sessions',
-    initialSessions,
-    !isRealtime
-  );
-  const [incomingRequests, setIncomingRequests] = usePersistentState(
-    'skillswap_incoming_requests',
-    initialIncomingRequests,
-    !isRealtime
-  );
-  const [outgoingRequests, setOutgoingRequests] = usePersistentState(
-    'skillswap_outgoing_requests',
-    initialOutgoingRequests,
-    !isRealtime
-  );
-
-  // Chat: conversations + message cache are persisted locally so the UI isn't
-  // blank while Firestore subscriptions connect.
-  const [conversations, setConversations] = usePersistentState(
-    'skillswap_conversations',
-    initialConversations
-  );
-  const [chatMessages, setChatMessages] = usePersistentState(
-    'skillswap_chat_messages',
-    {}
-  );
+  const myProfile = authProfile || {};
+  const [sessions, setSessions] = useState([]);
+  const [incomingRequests, setIncomingRequests] = useState([]);
+  const [outgoingRequests, setOutgoingRequests] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [chatMessages, setChatMessages] = useState({});
 
   const [realtimeUsers, setRealtimeUsers] = useState([]);
   const [creditTransactions, setCreditTransactions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
-  const [selectedMentorForRequest, setSelectedMentorForRequest] = useState(drJulianVance);
+  const [selectedMentorForRequest, setSelectedMentorForRequest] = useState(null);
   const [selectedMentor, setSelectedMentor] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
   const selectedSession =
     sessions.find((s) => s.id === selectedSessionId) || sessions[0] || null;
@@ -106,7 +62,7 @@ function AppContent() {
   }, []);
 
   // Live Firestore subscriptions + the initial-paint readiness gate.
-  const { readyCount } = useFirestoreSubscriptions({
+  const { dataReady, dataDelayed } = useFirestoreSubscriptions({
     isRealtime,
     myUid,
     setIncomingRequests,
@@ -116,10 +72,20 @@ function AppContent() {
     setConversations,
     setCreditTransactions,
   });
-  const dataReady = !isRealtime || readyCount >= REQUIRED_SNAPSHOTS;
 
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   const {
     activeChat,
+    blockedUserIds,
     chatPeers,
     conversationsWithPeers,
     handleOpenChat,
@@ -127,13 +93,14 @@ function AppContent() {
     handleSendChatMessage,
     handleMarkChatRead,
     handleCloseChat,
+    handleBlockScholar,
+    handleUnblockScholar,
   } = useChat({
     isRealtime,
     myUid,
     myProfile,
     realtimeUsers,
     conversations,
-    setConversations,
     chatMessages,
     setChatMessages,
     showToast,
@@ -146,8 +113,6 @@ function AppContent() {
     handleAddSessionNote,
     handleSettleSession,
   } = useSessionHandlers({
-    isRealtime,
-    setSessions,
     setSelectedSessionId,
     setCurrentScreen,
     showToast,
@@ -163,39 +128,6 @@ function AppContent() {
     handleCancelOutgoing,
   } = useRequestHandlers({ myUid, myProfile, setSelectedSessionId });
 
-  // When leaving realtime mode, fall back to the local demo dataset.
-  useEffect(() => {
-    if (isRealtime) return;
-    const restore = () => {
-      try {
-        const cachedSessions = JSON.parse(localStorage.getItem('skillswap_sessions'));
-        setSessions(Array.isArray(cachedSessions) ? cachedSessions : initialSessions);
-        const cachedIncoming = JSON.parse(localStorage.getItem('skillswap_incoming_requests'));
-        setIncomingRequests(Array.isArray(cachedIncoming) ? cachedIncoming : initialIncomingRequests);
-        const cachedOutgoing = JSON.parse(localStorage.getItem('skillswap_outgoing_requests'));
-        setOutgoingRequests(Array.isArray(cachedOutgoing) ? cachedOutgoing : initialOutgoingRequests);
-        const cachedConvs = JSON.parse(localStorage.getItem('skillswap_conversations'));
-        setConversations(Array.isArray(cachedConvs) ? cachedConvs : initialConversations);
-        handleCloseChat();
-        setSelectedSessionId(null);
-      } catch {
-        setSessions(initialSessions);
-        setIncomingRequests(initialIncomingRequests);
-        setOutgoingRequests(initialOutgoingRequests);
-        setConversations(initialConversations);
-      }
-    };
-    restore();
-  }, [
-    isRealtime,
-    setSessions,
-    setIncomingRequests,
-    setOutgoingRequests,
-    setConversations,
-    handleCloseChat,
-    setSelectedSessionId,
-  ]);
-
   const handleRequestRealtime = useCallback((peer) => {
     const model = toMentorModel(peer);
     setSelectedMentorForRequest(model);
@@ -204,14 +136,13 @@ function AppContent() {
 
   const handleSaveProfileSkills = async ({ skillsTeach, skillsWant }) => {
     const updates = {
+      skillsTeach,
+      skillsWant,
       expertiseAreas: skillsTeach,
       learningGoals: skillsWant,
     };
-    if (currentUser) {
-      await updateProfileData(updates);
-    } else {
-      setLocalProfile((previous) => ({ ...previous, ...updates }));
-    }
+    if (!currentUser) throw new Error('Sign in to update your skill profile.');
+    await updateProfileData(updates);
   };
 
   const isPublicAuthScreen = ['login', 'signup', 'get-started'].includes(currentScreen);
@@ -227,7 +158,7 @@ function AppContent() {
       return;
     }
     setSelectedSessionId(session?.id || null);
-    setActiveModal('meeting');
+    showToast('No meeting link has been added to this session yet.');
   };
 
   const handleOpenMentor = (mentor) => {
@@ -269,25 +200,32 @@ function AppContent() {
     [handleMessageMentor]
   );
 
-  const handleExploreDemo = async () => {
-    try {
-      const res = await signIn('demo@skillswap.edu', 'password123');
-      showToast(`Logged in as ${res.profile?.fullName || 'UIU'}!`);
-      setCurrentScreen('dashboard');
-    } catch {
-      showToast('Exploring dashboard...');
-      setCurrentScreen('dashboard');
+  const handleReportScholar = useCallback((scholar) => {
+    if (!myUid) {
+      showToast('Sign in to report a scholar.');
+      return;
     }
-  };
+    setReportTarget(scholar?.uid ? scholar : null);
+  }, [myUid, showToast]);
+
+  const handleSubmitReport = useCallback(async ({ category, details }) => {
+    if (!myUid || !reportTarget?.uid) throw new Error('Sign in to submit this report.');
+    await submitScholarReport({
+      reporterUid: myUid,
+      reportedUid: reportTarget.uid,
+      category,
+      details,
+      source: reportTarget.source,
+      conversationId: reportTarget.conversationId,
+    });
+    setReportTarget(null);
+    showToast('Report submitted. Thank you for helping keep SkillSwap safe.');
+  }, [myUid, reportTarget, showToast]);
 
   // Wait for the first Firestore snapshots so the page never paints in a
-  // half-empty state on refresh (demo mode paints instantly).
+  // half-empty state on refresh.
   if (!dataReady && !loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fff8f7]">
-        <div className="w-8 h-8 border-4 border-[#675975] border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+    return <EducationalLoader label="Gathering your study updates…" />;
   }
 
   return (
@@ -304,6 +242,20 @@ function AppContent() {
         >
           <span className="material-symbols-outlined text-[18px] text-[#efdbfd]">info</span>
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {(!isOnline || dataDelayed) && (
+        <div
+          role="status"
+          className="fixed bottom-4 left-1/2 z-[115] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-[#352f2f]/95 px-4 py-2.5 text-xs font-semibold text-white shadow-xl"
+        >
+          <span className="material-symbols-outlined text-[17px]" aria-hidden="true">
+            {isOnline ? 'cloud_sync' : 'cloud_off'}
+          </span>
+          {isOnline
+            ? 'Some live data is delayed. SkillSwap will keep reconnecting.'
+            : 'You are offline. Changes may not sync until your connection returns.'}
         </div>
       )}
 
@@ -330,20 +282,21 @@ function AppContent() {
           onSend={handleSendChatMessage}
           onClose={handleCloseChat}
           onMarkRead={handleMarkChatRead}
+          onReport={(peer, conversationId) => handleReportScholar({ ...peer, source: 'chat', conversationId })}
+          onBlock={(peerUid) => blockedUserIds.includes(peerUid) ? handleUnblockScholar(peerUid) : handleBlockScholar(peerUid)}
+          isBlocked={blockedUserIds.includes(activeChat.peer?.uid)}
         />
       )}
 
       <AppRoutes
         currentScreen={routedScreen}
+        isAdmin={isAdmin}
         setCurrentScreen={setCurrentScreen}
         userProfile={myProfile}
-        setUserProfile={setLocalProfile}
         onOpenMeeting={handleOpenMeeting}
         onOpenWallet={() => setActiveModal('wallet')}
         onOpenMentor={handleOpenMentor}
-        onOpenSSO={() => setActiveModal('sso')}
         onShowToast={showToast}
-        onExploreDemo={handleExploreDemo}
         selectedProfile={selectedProfile}
         setSelectedProfile={setSelectedProfile}
         sessions={sessions}
@@ -362,6 +315,10 @@ function AppContent() {
         realtimeUsers={realtimeUsers}
         onRequestRealtime={handleRequestRealtime}
         onMessageMentor={handleMessageMentor}
+        blockedUserIds={blockedUserIds}
+        onBlockScholar={handleBlockScholar}
+        onUnblockScholar={handleUnblockScholar}
+        onReportScholar={handleReportScholar}
         onAcceptRequest={handleAcceptIncoming}
         onDeclineRequest={handleDeclineIncoming}
         onRescheduleRequest={handleRescheduleIncoming}
@@ -382,6 +339,14 @@ function AppContent() {
         userProfile={myProfile}
         creditTransactions={creditTransactions}
       />
+
+      {reportTarget && (
+        <ReportScholarModal
+          scholar={reportTarget}
+          onSubmit={handleSubmitReport}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
     </div>
   );
 }

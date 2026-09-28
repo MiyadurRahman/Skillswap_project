@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/auth';
-import { AUTH_CONFIG } from '../config/authConfig';
 
 export const LoginPage = ({
   onLoginSuccess,
   onNavigateToSignUp,
   onNavigateToGetStarted,
+  onNavigateToPrivacy,
+  onNavigateToTerms,
   onShowToast,
 }) => {
-  const { signIn, signInWithGoogleOAuth, resetPassword, loginAsDemo } = useAuth();
+  const { signIn, signInWithGoogleOAuth, resetPassword } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,39 +20,6 @@ export const LoginPage = ({
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-
-  const handleQuickDemoLogin = async () => {
-    setErrorMessage('');
-    const demoEmail = 'unknown@bscse.uiu.ac.bd';
-    const demoPassword = 'password123';
-    
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setLoading(true);
-
-    try {
-      const result = await (loginAsDemo ? loginAsDemo(demoEmail) : signIn(demoEmail, demoPassword));
-      onShowToast(`Welcome, ${result.profile?.name || 'Unknown'}!`);
-      if (onLoginSuccess) onLoginSuccess();
-    } catch (err) {
-      setErrorMessage(err.message || 'Failed to authenticate demo account.');
-      onShowToast(err.message || 'Demo login failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFillDemo = (demoType) => {
-    if (demoType === 'uiu') {
-      setEmail('unknown@bscse.uiu.ac.bd');
-      setPassword('password123');
-      onShowToast('Loaded UIU credentials. Click "Instant Sign In" to enter!');
-    } else {
-      setEmail('');
-      setPassword('');
-      onShowToast('Cleared form fields.');
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -93,7 +61,7 @@ export const LoginPage = ({
   const handlePasswordReset = async (e) => {
     e.preventDefault();
     if (!resetEmail) {
-      onShowToast('Please enter your university email to receive a reset link.');
+      onShowToast('Please enter your email address to receive a reset link.');
       return;
     }
     setResetLoading(true);
@@ -171,13 +139,13 @@ export const LoginPage = ({
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* University Email */}
+            {/* Account email */}
             <div className="space-y-1.5">
               <label
                 htmlFor="login-email"
                 className="text-xs font-semibold text-[#4a454c] block tracking-wide"
               >
-                University Email
+                Email address
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] opacity-70 text-[18px]">
@@ -188,7 +156,7 @@ export const LoginPage = ({
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. unknown@bscse.uiu.ac.bd"
+                  placeholder="you@example.com"
                   required
                   disabled={loading}
                   className="w-full pl-11 pr-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs sm:text-sm text-[#201a1b] focus:outline-none input-focus-glow disabled:opacity-50"
@@ -310,56 +278,6 @@ export const LoginPage = ({
             </button>
           </div>
 
-          {/* Quick Demo Login Section (Toggled by AUTH_CONFIG.SHOW_DEMO_LOGIN) */}
-          {(AUTH_CONFIG.SHOW_DEMO_LOGIN ?? AUTH_CONFIG.ENABLE_INSTANT_SIGN_IN) && (
-            <div className="mt-5 pt-4 border-t border-[#ccc4cd]/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold text-[#675975] flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[15px]">bolt</span>
-                  Demo Quick Login:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleFillDemo('clear')}
-                  className="text-[10px] text-[#7b757d] hover:text-[#201a1b] underline cursor-pointer"
-                >
-                  Clear Fields
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  id="demo-login-uiu"
-                  type="button"
-                  onClick={() => handleFillDemo('uiu')}
-                  title="Fill input fields"
-                  className={`flex-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors flex items-center justify-between cursor-pointer ${
-                    email === AUTH_CONFIG.DEMO_ACCOUNT.email
-                      ? 'bg-[#675975] text-white border-[#675975] shadow-sm'
-                      : 'bg-[#f7effa] hover:bg-[#ebd9f8] text-[#52445f] border-[#d2c0e0]'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[15px]">school</span>
-                    <span>{AUTH_CONFIG.DEMO_ACCOUNT.label}</span>
-                  </div>
-                  <span className="text-[10px] opacity-75 font-mono">
-                    {AUTH_CONFIG.DEMO_ACCOUNT.email}
-                  </span>
-                </button>
-
-                <button
-                  id="btn-instant-demo-login"
-                  type="button"
-                  disabled={loading}
-                  onClick={() => handleQuickDemoLogin('uiu')}
-                  className="px-3.5 py-2 bg-[#675975] hover:bg-[#52445f] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined text-[14px]">login</span>
-                  <span>Instant Sign In</span>
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer Meta */}
@@ -374,25 +292,9 @@ export const LoginPage = ({
               Sign Up for Free
             </button>
           </p>
-          <div className="flex justify-center gap-5 text-[11px] text-[#4a454c]/70">
-            <button
-              onClick={() => onShowToast('FERPA & Institutional privacy standards enabled.')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Privacy Policy
-            </button>
-            <button
-              onClick={() => onShowToast('SkillSwap academic honor code and peer guidelines.')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Institutional Terms
-            </button>
-            <button
-              onClick={() => onShowToast('Campus Liaison Help Desk: support@skillswap.edu')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Help Center
-            </button>
+          <div className="flex justify-center gap-4 text-[11px] font-semibold text-[#675975]">
+            <button type="button" onClick={onNavigateToPrivacy} className="hover:underline">Privacy</button>
+            <button type="button" onClick={onNavigateToTerms} className="hover:underline">Terms</button>
           </div>
         </footer>
       </main>
@@ -424,7 +326,7 @@ export const LoginPage = ({
                 type="email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
-                placeholder="scholar@university.edu"
+                placeholder="you@example.com"
                 required
                 className="w-full px-4 py-2.5 border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none focus:border-[#675975]"
               />

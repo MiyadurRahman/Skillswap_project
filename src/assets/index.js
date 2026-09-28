@@ -1,6 +1,6 @@
 // Network-independent avatar artwork keeps cards usable when remote profile
 // photos are blocked, slow, or unavailable. Real users can still upload a
-// photo; these SVGs are the polished default for seeded/demo scholars.
+// photo; these SVGs are polished fallbacks for scholars without an avatar.
 const escapeXml = (value) =>
   String(value || '')
     .replaceAll('&', '&amp;')
@@ -29,16 +29,6 @@ export const createInitialAvatar = (
 export const academicAssets = {
   logoTitle: "SkillSwap Academic",
   avatars: {
-    tanvirAhmed: createInitialAvatar('Tanvir Ahmed', '#365a69', '#86b2bd'),
-    rafiqulIslam: createInitialAvatar('Rafiqul Islam', '#4f415c', '#b89ac7'),
-    mahirFaisal: createInitialAvatar('Mahir Faisal', '#735548', '#d3a88d'),
-    shakibChowdhury: createInitialAvatar('Shakib Chowdhury', '#365a4d', '#82b49f'),
-    abrarZahin: createInitialAvatar('Abrar Zahin', '#564b78', '#a89acb'),
-    // Backwards-compatible aliases for existing keys
-    alexRivera: createInitialAvatar('Alex Rivera', '#365a69', '#86b2bd'),
-    julianSterling: createInitialAvatar('Julian Sterling', '#4f415c', '#b89ac7'),
-    sarahKhan: createInitialAvatar('Sarah Khan', '#7a4f65', '#d9a8bd'),
-    jamesWhitmore: createInitialAvatar('James Whitmore', '#365a4d', '#82b49f'),
     defaultScholar: createInitialAvatar('Scholar'),
     defaultMaleScholar: createInitialAvatar('Scholar', '#4f415c', '#9a83aa'),
     defaultFemaleScholar: createInitialAvatar('Scholar', '#7a4f65', '#c997ad'),
@@ -54,25 +44,6 @@ export const academicAssets = {
 };
 
 export const resolveAvatarForName = (name, fallback = academicAssets.avatars.defaultMaleScholar) => {
-  const normalized = (name || '').trim().toLowerCase();
-  if (!normalized) return fallback;
-
-  const femaleHints = [
-    'sarah', 'sadia', 'maria', 'nabila', 'faria', 'tania', 'anika', 'salma', 'ruma',
-    'mim', 'sanjida', 'nusaiba', 'maisha', 'raisa', 'jannat', 'sharna', 'esha',
-    'rehana', 'tasnia', 'tinni', 'sabrina', 'afrin', 'saba', 'sumi', 'lisa', 'julia'
-  ];
-  const maleHints = [
-    'tanvir', 'abrar', 'shakib', 'rafiqul', 'mahir', 'ahmed', 'hasan', 'arif',
-    'rahman', 'hossain', 'saif', 'sabbir', 'jamil', 'nabil', 'mir', 'nazim', 'shuvo',
-    'imran', 'sifat', 'taz', 'zahid', 'rayan', 'farhan', 'adnan', 'tamim'
-  ];
-
-  const isFemale = femaleHints.some((hint) => normalized.includes(hint));
-  const isMale = maleHints.some((hint) => normalized.includes(hint));
-
-  if (isFemale && !isMale) return academicAssets.avatars.defaultFemaleScholar;
-  if (isMale && !isFemale) return academicAssets.avatars.defaultMaleScholar;
-
-  return fallback;
+  const normalized = String(name || '').trim();
+  return normalized ? createInitialAvatar(normalized) : fallback;
 };

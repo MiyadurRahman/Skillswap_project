@@ -9,26 +9,17 @@ export const toMentorModel = (user) => {
     name: user.name || 'Scholar',
     title: user.title || 'Peer Scholar',
     avatarUrl: user.avatarUrl,
-    isOnline: user.isOnline !== false,
+    isOnline: user.isOnline === true,
     university: user.university || user.institution,
-    cost: 250,
-    skills:
-      skillNames.length > 0
-        ? skillNames.map((name, i) => ({
-            id: `skill-${i}`,
-            name,
-            level: 'Advanced Level • 60 min',
-            duration: '60 min',
-          }))
-        : [
-            {
-              id: 'general',
-              name: 'Academic Mentorship',
-              level: 'Flexible Level • 60 min',
-              duration: '60 min',
-            },
-          ],
-    badge1: 'Verified Scholar',
-    badge2: `${user.reviewsCount || 0} Sessions Completed`,
+    cost: Number(user.sessionCreditCost || 2.5),
+    skills: skillNames.map((name, index) => ({
+      id: `skill-${index}`,
+      name,
+      level: '60 minutes',
+      duration: '60 min',
+    })),
+    badges: user.achievementBadges || [],
+    completedSwaps: Number(user.completedSwaps || 0),
+    requestDraft: user.requestDraft,
   };
 };

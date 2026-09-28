@@ -12,7 +12,10 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write src/",
     "check": "npm run lint && npm run typecheck && npm run build",
-    "deploy:rules": "firebase deploy --only firestore"
+    "deploy:rules": "firebase deploy --only firestore",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "deploy": "npm run check && firebase deploy --only hosting,firestore",
+    "set-admin": "npm --prefix admin-tools run set-admin --"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",

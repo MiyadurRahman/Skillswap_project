@@ -1,4 +1,5 @@
 import React from 'react';
+import { resolveAvatarForName } from '../assets';
 
 export const Navbar = ({
   onNavigateScreen,
@@ -49,7 +50,6 @@ export const Navbar = ({
               }`}
             >
               <span>Requests</span>
-              <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
             </button>
             <button
               onClick={() => onNavigateScreen('session-details')}
@@ -74,20 +74,12 @@ export const Navbar = ({
           </nav>
         </div>
 
-        {/* Right: Notifications, Wallet, and Profile */}
+        {/* Right: Wallet and Profile */}
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => onShowToast('Notifications: 2 pending peer exchange invites')}
-            className="p-2 text-white/80 hover:text-white transition-colors relative"
-            title="Notifications"
-          >
-            <span className="material-symbols-outlined text-[21px]">notifications</span>
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#f0b2aa] rounded-full"></span>
-          </button>
           <button
             onClick={() => {
               if (onOpenWalletModal) onOpenWalletModal();
-              else onShowToast('Academic Credit Ledger');
+              else onShowToast('The credit ledger is unavailable right now.');
             }}
             className="p-2 text-white/80 hover:text-white transition-colors"
             title="Credit Ledger & Wallet"
@@ -106,8 +98,7 @@ export const Navbar = ({
             <div className="w-8 h-8 rounded-full border-2 border-white/40 overflow-hidden group-hover:border-white transition-colors">
               <img
                 src={
-                  userProfile?.avatarUrl ||
-                  'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80'
+                  userProfile?.avatarUrl || resolveAvatarForName(userProfile?.name || 'Scholar')
                 }
                 alt="Profile"
                 className="w-full h-full object-cover"

@@ -1,11 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
+import { AvatarImage } from '../component/AvatarImage';
 import { resolveAvatarForName } from '../assets';
-import { allPeers } from '../data/peersData';
-
-const FALLBACK_AVATAR =
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
 
 const medalClass = (rank) =>
   rank === 1
@@ -17,7 +14,7 @@ const medalClass = (rank) =>
 export const LeaderboardPage = ({
   onNavigateScreen,
   onOpenWalletModal,
-  onShowToast,
+  onShowToast: _onShowToast,
   onSelectPeerProfile,
   realtime = false,
   realtimeUsers = [],
@@ -33,9 +30,9 @@ export const LeaderboardPage = ({
       name: p.name || 'Scholar',
       title: p.title || p.primaryField || 'Peer Scholar',
       university: p.university || p.institution || 'University',
-      avatarUrl: p.avatarUrl || resolveAvatarForName(p.name, FALLBACK_AVATAR),
-      isOnline: p.isOnline !== false,
-      bio: p.bio || 'Scholar on SkillSwap Academic.',
+      avatarUrl: p.avatarUrl || resolveAvatarForName(p.name),
+      isOnline: p.isOnline === true,
+      bio: p.bio || '',
       rating: Number(p.rating ?? 0),
       reviewsCount: Number(p.reviewsCount ?? p.ratingCount ?? 0),
       swapsCount: Number(p.completedSwaps ?? p.swapsCount ?? 0),
@@ -45,62 +42,58 @@ export const LeaderboardPage = ({
       raw: p,
     });
 
-    const source = realtime && realtimeUsers.length > 0 ? realtimeUsers : allPeers;
+    const source = realtime ? realtimeUsers : [];
     return source
       .map(mapPeer)
       .filter((p) => p.name && p.name.toLowerCase() !== 'scholar');
   }, [realtime, realtimeUsers, currentUser]);
 
   const ranked = useMemo(() => {
-    const value = (p) =>
-      activeTab === 'swaps' ? p.swapsCount : activeTab === 'earned' ? p.creditsEarned : p.rating;
-    return [...roster].sort((a, b) => value(b) - value(a)).map((p, i) => ({ ...p, rank: i + 1 }));
+    if (activeTab === 'rated') {
+      const rated = roster
+        .filter((p) => p.rating > 0)
+        .sort((a, b) => {
+          const aQualified = a.reviewsCount >= 3;
+          const bQualified = b.reviewsCount >= 3;
+          if (aQualified !== bQualified) return aQualified ? -1 : 1;
+          return b.rating - a.rating;
+        });
+      const unrated = roster.filter((p) => p.rating <= 0);
+      return [
+        ...rated.map((p, i) => ({ ...p, rank: i + 1 })),
+        ...unrated.map((p) => ({ ...p, rank: null })),
+      ];
+    }
+
+    const value = (p) => activeTab === 'swaps' ? p.swapsCount : p.creditsEarned;
+    return [...roster]
+      .sort((a, b) => value(b) - value(a))
+      .map((p, i) => ({ ...p, rank: i + 1 }));
   }, [roster, activeTab]);
 
-  const podium = ranked.slice(0, 3);
-  const rest = ranked.slice(3);
+  const podium = activeTab === 'rated'
+    ? ranked.filter((p) => p.rating > 0).slice(0, 3)
+    : ranked.slice(0, 3);
+  const podiumIds = new Set(podium.map((p) => p.id));
+  const rest = activeTab === 'rated'
+    ? ranked.filter((p) => !podiumIds.has(p.id))
+    : ranked.slice(3);
 
   const stats = useMemo(() => {
-    const total = ranked.length;
-    const swaps = ranked.reduce((s, p) => s + p.swapsCount, 0);
-    const rated = ranked.filter((p) => p.rating > 0);
+    const total = roster.length;
+    const swaps = roster.reduce((s, p) => s + p.swapsCount, 0);
+    const rated = roster.filter((p) => p.rating > 0);
     const avg = rated.length
       ? Math.round((rated.reduce((s, p) => s + p.rating, 0) / rated.length) * 10) / 10
       : 0;
     return { total, swaps, avg };
-  }, [ranked]);
+  }, [roster]);
 
   // Navigate to the peer's full public profile (same shape Discover uses).
   const openProfile = (peer) => {
     const p = peer.raw || peer;
     if (onSelectPeerProfile) {
-      onSelectPeerProfile({
-        id: peer.id,
-        uid: peer.uid,
-        name: peer.name,
-        title: peer.title,
-        rating: peer.rating || 4.8,
-        reviewsCount: peer.reviewsCount || 0,
-        avatarUrl: peer.avatarUrl,
-        isOnline: peer.isOnline,
-        bio: peer.bio,
-        credentials: p.credentials || ['Verified Scholar'],
-        responseSpeed: p.responseSpeed || 'Usually responds in 2h',
-        skillsTeach:
-          peer.skillsTeach.length > 0
-            ? peer.skillsTeach
-            : Array.isArray(p.skills)
-              ? p.skills.map((s) => String(s).toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()))
-              : ['Peer Tutoring', 'Academic Research'],
-        skillsWant:
-          peer.skillsWant.length > 0
-            ? peer.skillsWant
-            : ['Advanced Python', 'Machine Learning', 'Data Visualization'],
-        availability: p.availability || 'Available: Tue, Thu, Sat',
-        preferredMode: p.preferredMode || 'Preferred: Virtual / Zoom',
-        swapsCount: peer.swapsCount,
-        learnersCount: p.learnersCount || '1.2k',
-      });
+      onSelectPeerProfile({ ...p, uid: peer.uid, id: peer.id });
     }
     onNavigateScreen('public-profile');
   };
@@ -149,13 +142,6 @@ export const LeaderboardPage = ({
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => onShowToast?.('Notifications: You moved up the campus leaderboard!')}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              title="Notifications"
-            >
-              <span className="material-symbols-outlined text-[20px]">notifications</span>
-            </button>
-            <button
               onClick={() => onOpenWalletModal && onOpenWalletModal()}
               className="w-9 h-9 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               title="Academic Ledger"
@@ -173,7 +159,7 @@ export const LeaderboardPage = ({
             Academic Exchange
           </p>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#201a1b] tracking-tight">
-            Campus Leaderboard
+            SkillSwap Leaderboard
           </h1>
           <p className="text-xs text-[#705e69] mt-1 max-w-xl">
             See where you rank among scholars by completed swaps, credits earned, and peer ratings.
@@ -197,7 +183,7 @@ export const LeaderboardPage = ({
         </div>
 
         {/* TAB SWITCHER */}
-        <div className="flex items-center gap-1.5 bg-[#f7ebeb] p-1 rounded-xl w-fit">
+        <div className="flex max-w-full items-center gap-1.5 overflow-x-auto bg-[#f7ebeb] p-1 rounded-xl w-full sm:w-fit scrollbar-none">
           {[
             { key: 'swaps', label: 'Most Swaps' },
             { key: 'earned', label: 'Credits Earned' },
@@ -206,7 +192,7 @@ export const LeaderboardPage = ({
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`px-3.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors cursor-pointer ${
+              className={`shrink-0 px-3.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors cursor-pointer ${
                 activeTab === t.key
                   ? 'bg-white text-[#675975] shadow-xs'
                   : 'text-[#7b757d] hover:text-[#201a1b]'
@@ -217,9 +203,15 @@ export const LeaderboardPage = ({
           ))}
         </div>
 
+        {activeTab === 'rated' && (
+          <p className="-mt-4 text-[11px] text-[#8c7b86]">
+            Scholars with 3 or more reviews rank first. Other rated scholars follow; unrated scholars remain listed below without a rank.
+          </p>
+        )}
+
         {/* PODIUM TOP 3 */}
         {podium.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {podium.map((p) => (
               <div
                 key={p.id}
@@ -232,10 +224,9 @@ export const LeaderboardPage = ({
                 </span>
                 <div className="flex items-center gap-3.5">
                   <div className="relative shrink-0">
-                    <img
+                    <AvatarImage
                       src={p.avatarUrl}
-                      alt={p.name}
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      name={p.name}
                       className="w-14 h-14 rounded-2xl object-cover border-2 border-[#efdbfd]"
                     />
                     {p.isOnline && (
@@ -281,9 +272,17 @@ export const LeaderboardPage = ({
             <span className="text-right">Rating</span>
           </div>
 
+          {activeTab === 'rated' && podium.length === 0 && roster.length > 0 && (
+            <p className="px-4 pt-4 text-xs text-[#8c7b86]">
+              No scholars have peer ratings yet. All profiles are listed below.
+            </p>
+          )}
+
           {rest.length === 0 && podium.length === 0 && (
             <p className="p-6 text-xs text-[#8c7b86] italic">
-              No scholars ranked yet — the leaderboard fills as swaps are completed.
+              {activeTab === 'rated'
+                ? 'No scholars have peer ratings yet.'
+                : 'No scholars ranked yet — the leaderboard fills as swaps are completed.'}
             </p>
           )}
 
@@ -294,15 +293,16 @@ export const LeaderboardPage = ({
                 p.isMe ? 'bg-[#fdf1ff]' : ''
               }`}
             >
-              <span className="text-xs font-bold text-[#786571]">#{p.rank}</span>
+              <span className="text-xs font-bold text-[#786571]">
+                {p.rank ? `#${p.rank}` : '—'}
+              </span>
               <button
                 onClick={() => openProfile(p)}
                 className="flex items-center gap-3 min-w-0 text-left cursor-pointer"
               >
-                <img
+                <AvatarImage
                   src={p.avatarUrl}
-                  alt={p.name}
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  name={p.name}
                   className="w-9 h-9 rounded-full object-cover border border-[#ebd8d4] shrink-0"
                 />
                 <span className="min-w-0">
@@ -327,9 +327,7 @@ export const LeaderboardPage = ({
         </div>
 
         <p className="text-[11px] text-[#8c7b86] text-center pt-2">
-          {realtime
-            ? 'Updated live from peer exchange data across your university network.'
-            : 'Demo leaderboard from the campus scholar directory.'}
+          Updated from current peer exchange profiles and completed sessions.
         </p>
       </main>
     </div>

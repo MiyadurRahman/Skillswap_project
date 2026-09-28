@@ -1,0 +1,10 @@
+{
+  "name": "skillswap-admin-tools",
+  "private": true,
+  "scripts": {
+    "set-admin": "node set-admin.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

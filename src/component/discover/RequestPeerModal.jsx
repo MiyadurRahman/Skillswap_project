@@ -82,7 +82,7 @@ export function RequestPeerModal({
               required
             />
             <p className="text-[11px] text-[#705e69] mt-1">
-              Peer availability: {peer.nextAvailable || 'Flexible schedule'}
+              Peer availability: {peer.nextAvailable || 'Not provided'}
             </p>
           </div>
 

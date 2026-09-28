@@ -65,15 +65,15 @@ export const ProfileSetupPage = ({
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
         try {
           setAvatarPreview(canvas.toDataURL('image/jpeg', 0.8));
-          onShowToast('Profile photo uploaded and compressed.');
+          onShowToast('Photo selected. Save your profile to apply the change.');
         } catch {
           setAvatarPreview(src);
-          onShowToast('Profile photo uploaded.');
+          onShowToast('Photo selected. Save your profile to apply the change.');
         }
       };
       img.onerror = () => {
         setAvatarPreview(src);
-        onShowToast('Profile photo uploaded.');
+        onShowToast('Photo selected. Save your profile to apply the change.');
       };
       img.src = src;
     };
@@ -123,6 +123,8 @@ export const ProfileSetupPage = ({
         avatarUrl: avatarPreview,
         expertiseAreas: expertise,
         learningGoals,
+        skillsTeach: expertise,
+        skillsWant: learningGoals,
       };
 
       try {
@@ -134,10 +136,9 @@ export const ProfileSetupPage = ({
         }
         onShowToast('Academic profile updated & saved successfully!');
         onNavigateScreen('dashboard');
-      } catch {
-        onShowToast('Profile saved locally.');
-        if (onUpdateProfile) onUpdateProfile(payload);
-        onNavigateScreen('dashboard');
+      } catch (error) {
+        console.warn('Profile save failed:', error);
+        onShowToast(error?.message || 'Could not save your profile. Please try again.');
       } finally {
         setSaving(false);
       }
@@ -149,9 +150,9 @@ export const ProfileSetupPage = ({
       await logOut();
       onShowToast('Signed out of scholar session.');
       onNavigateScreen('login');
-    } catch {
-      onShowToast('Logged out.');
-      onNavigateScreen('login');
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      onShowToast('Could not sign out. Please try again.');
     }
   };
 

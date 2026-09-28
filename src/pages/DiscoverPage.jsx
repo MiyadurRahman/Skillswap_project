@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
-import { allPeers } from '../data/peersData';
 import { useDiscoverFilters } from '../hooks/useDiscoverFilters';
 import { useDiscoverRequests } from '../hooks/useDiscoverRequests';
 import { RequestPeerModal } from '../component/discover/RequestPeerModal';
+import { AvatarImage } from '../component/AvatarImage';
+import { resolveAvatarForName } from '../assets';
 
 export const DiscoverPage = ({
   onNavigateScreen,
@@ -12,17 +13,14 @@ export const DiscoverPage = ({
   onShowToast,
   userProfile: propProfile,
   onSelectPeerProfile,
-  onCreateSession,
-  realtime = false,
+  realtime = true,
   realtimeUsers = [],
   onRequestRealtime,
   onMessageMentor,
 }) => {
   const { currentUser, userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
-  const userAvatar =
-    userProfile?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
+  const userAvatar = userProfile.avatarUrl || resolveAvatarForName(userProfile.name || 'Scholar');
 
   // Real scholars who exist in Firestore (exclude the current viewer).
   const liveScholars = useMemo(
@@ -70,61 +68,18 @@ export const DiscoverPage = ({
     handleOpenRequestModal,
     handleConfirmDiscoverSession,
   } = useDiscoverRequests({
-    realtime,
     onRequestRealtime,
     onShowToast,
-    onCreateSession,
-    onNavigateScreen,
-    userProfile,
-    userAvatar,
   });
 
   const handleOpenPeer = (peer) => {
-    if (onSelectPeerProfile) {
-      onSelectPeerProfile({
-        id: peer.id,
-        name: peer.name,
-        title: peer.title,
-        rating: peer.rating,
-        reviewsCount: peer.reviewsCount || 48,
-        avatarUrl: peer.avatarUrl,
-        isOnline: peer.isOnline,
-        bio: peer.bio,
-        credentials: peer.credentials || ['Verified Scholar', peer.academicLevel || 'PhD Researcher'],
-        responseSpeed: peer.responseSpeed || 'Usually responds in 2h',
-        skillsTeach: peer.skillsTeach || (peer.skills ? peer.skills.map(s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())) : ['Peer Tutoring', 'Academic Research']),
-        skillsWant: peer.skillsWant || ['Advanced Python', 'Machine Learning Basics', 'Data Visualization', 'Public Speaking'],
-        availability: peer.availability || (peer.nextAvailable ? `Available: ${peer.nextAvailable}` : 'Available: Tue, Thu, Sat'),
-        preferredMode: peer.preferredMode || 'Preferred: Virtual / Zoom',
-        swapsCount: peer.swapsCount || (peer.reviewsCount ? Math.floor(peer.reviewsCount * 0.4) : 48),
-        learnersCount: peer.learnersCount || '1.8k',
-        reviews: peer.reviews || [
-          {
-            id: 'rev-1',
-            name: 'Marcus Thorne',
-            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80',
-            rating: 5,
-            quote: `Outstanding collaboration session with ${peer.name}. Deep academic rigor and clear explanations.`,
-            meta: 'Recent • Swapped for Peer Exchange',
-          },
-          {
-            id: 'rev-2',
-            name: 'Dr. Sarah L.',
-            avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=240&auto=format&fit=crop&q=80',
-            rating: 5,
-            quote: `High quality academic feedback and methodology review. Helped strengthen our paper analysis.`,
-            meta: '2 weeks ago • Swapped for Research Consulting',
-          },
-        ],
-      });
-    }
+    onSelectPeerProfile?.(peer);
     onNavigateScreen('public-profile');
   };
 
   const handleFindPeerCTA = () => {
-    const count = realtime ? filteredLive.length : filteredPeers.length;
-    const kind = realtime ? 'live' : 'verified';
-    onShowToast(`Found ${count} ${kind} academic peers matching your criteria.`);
+    setCurrentPage(1);
+    document.getElementById('main-peer-catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
@@ -140,7 +95,7 @@ export const DiscoverPage = ({
                 { label: 'Dashboard', icon: 'dashboard', onClick: () => onNavigateScreen('dashboard') },
                 { label: 'Skill Manager', icon: 'school', onClick: () => onNavigateScreen('skill-manager') },
                 { label: 'Discover', icon: 'explore', active: true, onClick: () => {} },
-                { label: 'Requests', icon: 'inbox', badge: true, onClick: () => onNavigateScreen('requests') },
+                { label: 'Requests', icon: 'inbox', onClick: () => onNavigateScreen('requests') },
                 { label: 'My Sessions', icon: 'calendar_today', onClick: () => onNavigateScreen('session-details') },
               ]}
             />
@@ -180,7 +135,6 @@ export const DiscoverPage = ({
                 id="nav-tab-requests"
               >
                 <span>Requests</span>
-                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
               </button>
               <button
                 onClick={() => onNavigateScreen('session-details')}
@@ -194,16 +148,6 @@ export const DiscoverPage = ({
 
           {/* Right Action Icons & Profile */}
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => onShowToast('Notifications: Dr. Elena Vance accepted your research paper review request.')}
-              className="p-2 text-white/80 hover:text-white transition-colors relative"
-              title="Notifications"
-              id="btn-nav-notifications"
-            >
-              <span className="material-symbols-outlined text-[21px]">notifications</span>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#f0b2aa] rounded-full"></span>
-            </button>
-
             <button
               onClick={() => onOpenWalletModal && onOpenWalletModal()}
               className="p-2 text-white/80 hover:text-white transition-colors"
@@ -455,11 +399,8 @@ export const DiscoverPage = ({
             {realtime && liveScholars.length > 0 && (
               <div className="rounded-2xl border border-[#d9c4d6] bg-[#f7f1f8] p-5 space-y-4">
                 <div className="flex items-center gap-2.5">
-                  <span className="relative flex w-2.5 h-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full w-2.5 h-2.5 bg-emerald-500"></span>
-                  </span>
-                  <h2 className="text-sm font-bold text-[#3e2f41]">Live Scholars & Mentors</h2>
+                  <span className="material-symbols-outlined text-[17px] text-[#675975]" aria-hidden="true">groups</span>
+                  <h2 className="text-sm font-bold text-[#3e2f41]">Scholar Profiles</h2>
                   <span className="text-[11px] font-semibold text-[#7a6880] bg-white px-2 py-0.5 rounded-full border border-[#e2d3e0]">
                     Requests deliver in real time
                   </span>
@@ -477,7 +418,7 @@ export const DiscoverPage = ({
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                   {filteredLive.map((person) => (
                     <div
                       key={person.id}
@@ -485,13 +426,15 @@ export const DiscoverPage = ({
                     >
                       <div className="flex items-center gap-3">
                         <div className="relative shrink-0">
-                          <img
+                          <AvatarImage
                             src={person.avatarUrl}
-                            alt={person.name}
-                            referrerPolicy="no-referrer"
+                            name={person.name}
                             className="w-11 h-11 rounded-full object-cover border-2 border-[#e2d3e0]"
                           />
-                          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                          <span
+                            className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${person.isOnline === true ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                            title={person.isOnline === true ? 'Online' : 'Offline'}
+                          ></span>
                         </div>
                         <div className="min-w-0">
                           <h3 className="text-sm font-bold text-[#201a1b] truncate">
@@ -510,7 +453,14 @@ export const DiscoverPage = ({
                           </span>
                         ))}
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => handleOpenPeer(person)}
+                        className="w-full py-2 bg-white hover:bg-[#f7f1f8] border border-[#d9c4d6] text-[#473b4b] rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">person</span>
+                        <span>Profile</span>
+                      </button>
                       <button
                         onClick={() => onRequestRealtime && onRequestRealtime(person)}
                         className="w-full py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
@@ -561,10 +511,9 @@ export const DiscoverPage = ({
                     <div className="flex items-start justify-between gap-3 mb-3.5">
                       <div className="flex items-center gap-3.5">
                         <div className="relative shrink-0">
-                          <img
+                          <AvatarImage
                             src={peer.avatarUrl}
-                            alt={peer.name}
-                            referrerPolicy="no-referrer"
+                            name={peer.name}
                             className="w-13 h-13 rounded-full object-cover border-2 border-[#eedfdc] shadow-2xs group-hover:border-[#473b4b] transition-colors"
                           />
                           {peer.isOnline ? (
@@ -598,7 +547,7 @@ export const DiscoverPage = ({
                           star
                         </span>
                         <span className="text-xs font-bold text-[#201a1b]">
-                          {peer.rating.toFixed(1)}
+                          {peer.rating > 0 ? peer.rating.toFixed(1) : 'New'}
                         </span>
                       </div>
                     </div>
@@ -664,7 +613,7 @@ export const DiscoverPage = ({
                 </div>
                 <h3 className="text-base font-bold text-[#201a1b]">No knowledge peers found</h3>
                 <p className="text-xs text-[#705f69] max-w-md mx-auto">
-                  Try adjusting your search terms or unchecking some filter fields to explore more verified scholars.
+                  Try adjusting your search terms or unchecking filters to explore more scholar profiles.
                 </p>
                 <button
                   onClick={resetFilters}
@@ -726,45 +675,17 @@ export const DiscoverPage = ({
           <div>
             <span className="font-bold text-[#3e313f] block sm:inline">SkillSwap Academic</span>
             <span className="hidden sm:inline mx-2 text-[#bda7b2]">•</span>
-            <span>© 2026 SkillSwap Academic. All rights reserved.</span>
+            <span>© {new Date().getFullYear()} SkillSwap Academic. All rights reserved.</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-5 font-medium">
-            <button
-              onClick={() => onShowToast('Institutional Privacy & Academic Integrity Policy')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Privacy Policy
-            </button>
-            <button
-              onClick={() => onShowToast('SkillSwap Academic Terms of Service')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Terms of Service
-            </button>
-            <button
-              onClick={() => onShowToast('Participating Universities: UIU, Stanford, MIT, Harvard, Oxford, BUET')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              University Partners
-            </button>
-            <button
-              onClick={() => onShowToast('Contact Academic Support: support@skillswap.edu')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Contact Support
-            </button>
-          </div>
         </div>
 
         {/* Floating Action Button (FAB) at bottom-right */}
         <div className="fixed bottom-6 right-6 z-30">
           <button
-            onClick={() => {
-              handleOpenRequestModal(allPeers[0]);
-            }}
+            onClick={() => onNavigateScreen('requests')}
             className="w-12 h-12 rounded-2xl bg-[#c5b3d3] hover:bg-[#b39dc3] text-[#2c1d30] shadow-lg flex items-center justify-center text-2xl font-bold transition-transform active:scale-95 border border-white/40"
-            title="Create / Request a Skill Swap"
+            title="Open swap requests"
             id="fab-create-swap"
           >
             <span className="material-symbols-outlined text-[24px]">add</span>

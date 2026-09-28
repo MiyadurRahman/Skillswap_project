@@ -14,8 +14,11 @@ const formatBubbleTime = (ts) => {
   return `${hour12}:${m} ${period}`;
 };
 
-export const ChatPanel = ({ conversation, peer, myUid, messages, onSend, onClose, onMarkRead }) => {
+export const ChatPanel = ({ conversation, peer, myUid, messages, onSend, onClose, onMarkRead, onReport, onBlock, isBlocked = false }) => {
   const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+  const sendingRef = useRef(false);
   const messagesEndRef = useRef(null);
   useDialogBehavior(true, onClose);
 
@@ -32,10 +35,25 @@ export const ChatPanel = ({ conversation, peer, myUid, messages, onSend, onClose
     }
   }, [conversation?.id, myUid, onMarkRead, unreadCount]);
 
-  const handleSend = () => {
-    if (!text.trim()) return;
-    onSend(text.trim());
-    setText('');
+  const handleSend = async () => {
+    const cleanText = text.trim();
+    if (!cleanText || cleanText.length > 4000 || sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(true);
+    setSendError('');
+    try {
+      const sent = await onSend(cleanText);
+      if (sent === false) {
+        setSendError('Message not sent. Your text is still here so you can retry.');
+        return;
+      }
+      setText('');
+    } catch {
+      setSendError('Message not sent. Your text is still here so you can retry.');
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -81,10 +99,26 @@ export const ChatPanel = ({ conversation, peer, myUid, messages, onSend, onClose
             <p className="text-sm font-bold text-white truncate">{peer?.name || 'Scholar'}</p>
             <p className="text-[10px] text-white/60">{peer?.title || 'Peer Scholar'}</p>
           </div>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onReport?.(peer, conversation?.id)}
+              aria-label={`Report ${peer?.name || 'scholar'}`}
+              title="Report scholar"
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/70 hover:text-white"
+            ><span className="material-symbols-outlined text-[18px]">flag</span></button>
+            <button
+              type="button"
+              onClick={() => onBlock?.(peer?.uid)}
+              aria-label={`${isBlocked ? 'Unblock' : 'Block'} ${peer?.name || 'scholar'}`}
+              title={`${isBlocked ? 'Unblock' : 'Block'} scholar`}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/70 hover:text-white"
+            ><span className="material-symbols-outlined text-[18px]">{isBlocked ? 'person_check' : 'block'}</span></button>
+          </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#faf7f9]">
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#faf7f9]" aria-live="polite" aria-relevant="additions">
           {messages.length === 0 && (
             <div className="text-center text-xs text-[#b0a3a8] mt-10">
               Send the first message to start the conversation.
@@ -117,22 +151,34 @@ export const ChatPanel = ({ conversation, peer, myUid, messages, onSend, onClose
 
         {/* Input */}
         <div className="shrink-0 px-3 py-3 bg-white border-t border-[#ede4df] flex items-end gap-2">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            placeholder="Type a message..."
-            aria-label={`Message ${peer?.name || 'scholar'}`}
-            className="flex-1 resize-none bg-[#fbf6f5] border border-[#ede4df] rounded-xl px-3.5 py-2.5 text-xs text-[#201a1b] placeholder:text-[#b0a3a8] focus:outline-none focus:border-[#6a4d72] max-h-[80px]"
-          />
+          <div className="flex-1 min-w-0">
+            <textarea
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                if (sendError) setSendError('');
+              }}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              maxLength={4000}
+              placeholder="Type a message..."
+              aria-label={`Message ${peer?.name || 'scholar'}`}
+              aria-describedby={sendError ? 'chat-message-hint chat-send-error' : 'chat-message-hint'}
+              className="w-full resize-none bg-[#fbf6f5] border border-[#ede4df] rounded-xl px-3.5 py-2.5 text-xs text-[#201a1b] placeholder:text-[#b0a3a8] focus:outline-none focus:border-[#6a4d72] max-h-[80px]"
+            />
+            <div className="mt-1 flex justify-between gap-2 px-1 text-[10px] text-[#8e7d87]">
+              <span id="chat-message-hint">Enter sends; Shift+Enter adds a line</span>
+              <span>{text.length}/4000</span>
+            </div>
+            {sendError && <p id="chat-send-error" role="alert" className="mt-1 px-1 text-[11px] text-red-700">{sendError}</p>}
+          </div>
           <button
-            onClick={handleSend}
-            disabled={!text.trim()}
-            aria-label="Send message"
+            onClick={() => void handleSend()}
+            disabled={!text.trim() || sending || text.trim().length > 4000}
+            aria-label={sending ? 'Sending message' : 'Send message'}
             className="w-9 h-9 rounded-full bg-[#4a3850] hover:bg-[#342636] disabled:bg-[#ddd] text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-[18px]">send</span>
+            <span className="material-symbols-outlined text-[18px]">{sending ? 'progress_activity' : 'send'}</span>
           </button>
         </div>
       </div>
