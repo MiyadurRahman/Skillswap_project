@@ -2,15 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 import { useReviews } from '../hooks/useReviews';
-import { formatAcademicDate, toDateInput } from '../utils/dateUtils';
 import { getAchievementBadges, subscribeUserProfile } from '../services/realtime';
 import { resolveAvatarForName } from '../assets';
-
-const PROFILE_SLOTS = [
-  { value: `${toDateInput(2)}|03:00 PM`, label: `${formatAcademicDate(2, false)} · 3:00 PM – 4:00 PM` },
-  { value: `${toDateInput(2)}|05:00 PM`, label: `${formatAcademicDate(2, false)} · 5:00 PM – 6:00 PM` },
-  { value: `${toDateInput(4)}|11:00 AM`, label: `${formatAcademicDate(4, false)} · 11:00 AM – 12:00 PM` },
-];
 
 export const PublicProfilePage = ({
   onNavigateScreen,
@@ -20,19 +13,21 @@ export const PublicProfilePage = ({
   profileData: customProfile,
   onMessageMentor,
   onRequestRealtime,
+  blockedUserIds = [],
+  onBlockScholar,
+  onUnblockScholar,
+  onReportScholar,
 }) => {
-  const { userProfile: authProfile } = useAuth();
+  const { currentUser, userProfile: authProfile } = useAuth();
   const activeUser = authProfile || currentLoggedProfile || {};
 
   // Message Dialog state (real chat is opened via the global drawer)
-  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState(PROFILE_SLOTS[0].value);
-  const [offeredSkill, setOfferedSkill] = useState('');
-  const [sessionTopic, setSessionTopic] = useState('');
 
   // Reviews expansion state
   const [showAllReviews, setShowAllReviews] = useState(false);
   const profileUid = customProfile?.uid || customProfile?.id || null;
+  const isOwnProfile = Boolean(currentUser?.uid && currentUser.uid === profileUid);
+  const isBlocked = Boolean(profileUid && blockedUserIds.includes(profileUid));
   const [liveProfile, setLiveProfile] = useState(customProfile || null);
 
   useEffect(() => {
@@ -117,28 +112,15 @@ export const PublicProfilePage = ({
   const shownReviewCount = isLiveProfile ? (hasReviews ? liveCount : 0) : profile.reviewsCount;
   const displayedBadges = [...(profile.achievementBadges || []), ...(profile.credentials || [])];
 
-  const handleSendSessionRequest = (e) => {
-    e.preventDefault();
-    setIsRequestModalOpen(false);
-
+  const handleRequestSession = () => {
     if (!onRequestRealtime || !profileUid) {
       onShowToast?.('This scholar is not available for a session request.');
       return;
     }
-
-    onRequestRealtime({
-      ...profile,
-      requestDraft: {
-        topic: sessionTopic,
-        offeredSkill,
-        slot: selectedSlot,
-      },
-    });
+    onRequestRealtime(profile);
   };
 
-  const userAvatar =
-    activeUser?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
+  const userAvatar = activeUser?.avatarUrl || resolveAvatarForName(activeUser?.name || 'Scholar');
 
   return (
     <div id="screen-public-profile" className="min-h-screen bg-[#fff8f7] text-[#201a1b] flex flex-col font-sans selection:bg-[#c5b3d3] selection:text-[#22162e]">
@@ -187,7 +169,6 @@ export const PublicProfilePage = ({
                 id="public-nav-requests"
               >
                 <span>Requests</span>
-                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
               </button>
               <button
                 onClick={() => onNavigateScreen('session-details')}
@@ -202,19 +183,9 @@ export const PublicProfilePage = ({
           {/* Right: Notification bell, ledger icon, and profile */}
           <div className="flex items-center gap-4">
             <button
-              onClick={() => onShowToast('Notifications: 2 new skill match recommendations')}
-              className="p-2 text-white/80 hover:text-white transition-colors relative"
-              title="Notifications"
-              id="btn-public-notifs"
-            >
-              <span className="material-symbols-outlined text-[21px]">notifications</span>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#f0b2aa] rounded-full"></span>
-            </button>
-
-            <button
               onClick={() => {
                 if (onOpenWalletModal) onOpenWalletModal();
-                else onShowToast('Academic Credit Ledger: 24.5 Hours Available');
+                else onShowToast('The credit ledger is unavailable right now.');
               }}
               className="p-2 text-white/80 hover:text-white transition-colors"
               title="Academic Ledger"
@@ -337,7 +308,7 @@ export const PublicProfilePage = ({
                         className="inline-flex items-center gap-1.5 bg-white border border-[#e6d3cf] text-[#4a3b47] px-3.5 py-1.5 rounded-full text-xs font-medium shadow-2xs"
                       >
                         <span className="material-symbols-outlined text-[16px] text-[#695665]">
-                          {badge.toLowerCase().includes('phd') ? 'school' : 'verified'}
+                          {badge.toLowerCase().includes('phd') ? 'school' : 'workspace_premium'}
                         </span>
                         <span>{badge}</span>
                       </span>
@@ -518,15 +489,31 @@ export const PublicProfilePage = ({
 
               {/* Action Buttons */}
               <div className="w-full mt-6 space-y-3">
+                {currentUser && !isOwnProfile && (
+                  <div className="flex justify-center gap-4 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => onReportScholar?.({ uid: profileUid, name: profile.name, source: 'profile' })}
+                      className="text-[#705e69] underline underline-offset-2 hover:text-[#342738]"
+                    >Report scholar</button>
+                    <button
+                      type="button"
+                      onClick={() => isBlocked ? onUnblockScholar?.(profileUid) : onBlockScholar?.(profileUid)}
+                      className="text-[#705e69] underline underline-offset-2 hover:text-[#342738]"
+                    >{isBlocked ? 'Unblock scholar' : 'Block scholar'}</button>
+                  </div>
+                )}
                 <button
-                  onClick={() => setIsRequestModalOpen(true)}
-                  className="w-full py-3.5 px-4 bg-[#bfa8c7] hover:bg-[#a992b4] text-white rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.98]"
+                  disabled={isBlocked}
+                  onClick={handleRequestSession}
+                  className="w-full py-3.5 px-4 bg-[#bfa8c7] hover:bg-[#a992b4] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-xs active:scale-[0.98]"
                   id="btn-request-session"
                 >
                   REQUEST SESSION
                 </button>
 
                 <button
+                  disabled={isBlocked}
                   onClick={() => {
                     if (onMessageMentor) {
                       onMessageMentor({
@@ -536,10 +523,10 @@ export const PublicProfilePage = ({
                         avatarUrl: profile.avatarUrl,
                       });
                     } else {
-                      onShowToast(`Opening chat with ${profile.name}...`);
+                      onShowToast('Messaging is unavailable for this scholar right now.');
                     }
                   }}
-                  className="w-full py-3.5 px-4 bg-white hover:bg-[#fbf0ee] border-2 border-[#4a3b47] text-[#4a3b47] rounded-full text-xs font-bold uppercase tracking-wider transition-all active:scale-[0.98]"
+                  className="w-full py-3.5 px-4 bg-white hover:bg-[#fbf0ee] disabled:opacity-50 disabled:cursor-not-allowed border-2 border-[#4a3b47] text-[#4a3b47] rounded-full text-xs font-bold uppercase tracking-wider transition-all active:scale-[0.98]"
                   id="btn-message-scholar"
                 >
                   MESSAGE {profile.name.toUpperCase().replace('DR. ', '').replace('PROF. ', '')}
@@ -593,125 +580,12 @@ export const PublicProfilePage = ({
               SkillSwap Academic
             </span>
             <span className="text-xs text-[#786571] mt-0.5 block">
-              © 2026 SkillSwap Academic. All rights reserved.
+              © {new Date().getFullYear()} SkillSwap Academic. All rights reserved.
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-[#63515d]">
-            <button
-              onClick={() => onShowToast('SkillSwap Privacy Policy: Academic privacy & data sovereignty guaranteed')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Privacy Policy
-            </button>
-            <button
-              onClick={() => onShowToast('Terms of Service: Standard Academic Credit Barter Agreement')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Terms of Service
-            </button>
-            <button
-              onClick={() => onShowToast('Partner Universities: Stanford, Oxford, UIU, Cambridge, MIT')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              University Partners
-            </button>
-            <button
-              onClick={() => onShowToast('Contact Support: support@skillswap.edu')}
-              className="hover:text-[#201a1b] transition-colors"
-            >
-              Contact Support
-            </button>
-          </div>
         </div>
       </footer>
-
-      {/* REQUEST SESSION MODAL */}
-      {isRequestModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-[#ecd9d5] max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between border-b border-[#f4e7e4] pb-3">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#4a3b47]">calendar_month</span>
-                <h3 className="font-bold text-base text-[#201a1b]">
-                  Request Exchange with {profile.name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsRequestModalOpen(false)}
-                className="text-[#8e7a87] hover:text-[#201a1b] p-1"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleSendSessionRequest} className="space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-[#453742] block mb-1">
-                  Choose Available Slot ({profile.availability})
-                </label>
-                <select
-                  value={selectedSlot}
-                  onChange={(e) => setSelectedSlot(e.target.value)}
-                  className="w-full bg-[#fdf8f7] border border-[#e2d0cd] rounded-xl px-3 py-2 text-[#201a1b] font-medium focus:outline-none focus:border-[#4a3b47]"
-                >
-                  <option value="Tue, 2:00 PM">Tue, 2:00 PM - 3:00 PM</option>
-                  <option value="Tue, 4:30 PM">Tue, 4:30 PM - 5:30 PM</option>
-                  {PROFILE_SLOTS.map((slot) => (
-                    <option key={slot.value} value={slot.value}>{slot.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-[#453742] block mb-1">
-                  Skill You Can Offer in Return
-                </label>
-                <input
-                  type="text"
-                  value={offeredSkill}
-                  onChange={(e) => setOfferedSkill(e.target.value)}
-                  placeholder="e.g. Python Data Science, Academic Writing"
-                  className="w-full bg-[#fdf8f7] border border-[#e2d0cd] rounded-xl px-3 py-2 text-[#201a1b] focus:outline-none focus:border-[#4a3b47]"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-[#453742] block mb-1">
-                  Topic / Objectives
-                </label>
-                <textarea
-                  rows={3}
-                  value={sessionTopic}
-                  onChange={(e) => setSessionTopic(e.target.value)}
-                  className="w-full bg-[#fdf8f7] border border-[#e2d0cd] rounded-xl p-3 text-[#201a1b] focus:outline-none focus:border-[#4a3b47]"
-                ></textarea>
-              </div>
-
-              <div className="bg-[#fbf0ee] p-3 rounded-xl text-[11px] text-[#786571] flex items-center justify-between">
-                <span>Session Fee:</span>
-                <span className="font-bold text-[#4a3b47]">1.0 Skill Credit (Swap)</span>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsRequestModalOpen(false)}
-                  className="px-4 py-2 font-semibold text-[#786571] hover:text-[#201a1b]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-[#4a3b47] hover:bg-[#342738] text-white font-bold rounded-xl transition-colors shadow-xs"
-                >
-                  Confirm Request
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Direct Message opens the global Firestore-backed chat drawer. */}
 

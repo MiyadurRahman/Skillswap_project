@@ -14,6 +14,15 @@ const formatTime = (ms) => {
   return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(ms));
 };
 
+const formatAgendaTime = (ms) => {
+  if (!ms) return 'All day';
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(new Date(ms));
+};
+
 const timeToMinutes = (ms) => {
   if (!ms) return 0;
   const d = new Date(ms);
@@ -226,7 +235,7 @@ export const CalendarView = ({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-[11px] font-bold text-[#675975]">
-                            {formatTime(ev.startMs)}
+                            {formatAgendaTime(ev.startMs)}
                           </span>
                           <span
                             className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${

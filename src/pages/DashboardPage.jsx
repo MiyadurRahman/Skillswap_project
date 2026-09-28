@@ -4,6 +4,7 @@ import { MentorCard } from '../component/MentorCard';
 import { MobileNav } from '../component/MobileNav';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/auth';
+import { formatLocalDateTime } from '../utils/dateUtils';
 
 export const DashboardPage = ({
   onNavigateScreen,
@@ -18,19 +19,19 @@ export const DashboardPage = ({
   onRequestRealtime,
   onMessageMentor,
 }) => {
-  const { currentUser, userProfile: authProfile, logOut } = useAuth();
+  const { currentUser, userProfile: authProfile, logOut, isAdmin } = useAuth();
   const userProfile = authProfile || propProfile || {};
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState(null);
 
   // Map live sessions into dashboard cards.
-  const activeSessions = sessions.map((s) => ({
+  const activeSessions = sessions.filter((s) => !['Cancelled', 'Completed'].includes(s.status)).map((s) => ({
     id: s.id,
     title: s.title,
     category: s.partner?.badges?.[0] || 'Exchange',
     type: 'Academic Swap',
     mentorName: s.partner?.name || 'Academic Peer',
-    dateStr: s.date || 'Upcoming',
+    dateStr: s.startMs ? formatLocalDateTime(s.startMs) : s.date || 'Upcoming',
     iconName: 'psychology',
     bgCategoryColor: 'bg-[#ffdada]',
     textCategoryColor: 'text-[#5c3f40]',
@@ -54,14 +55,13 @@ export const DashboardPage = ({
       rating: peer.rating ?? 0,
       reviewsCount: peer.reviewsCount ?? 0,
       avatarUrl: peer.avatarUrl,
-      isOnline: peer.isOnline !== false,
+      isOnline: peer.isOnline === true,
       badges:
         skillNames.length > 0
           ? skillNames.slice(0, 3)
           : peer.badges && peer.badges.length > 0
             ? peer.badges
             : [],
-      hourlyRateCredits: peer.hourlyCredits ?? peer.hourlyRateCredits ?? 1.0,
       rawUser: peer,
     };
   };
@@ -86,8 +86,11 @@ export const DashboardPage = ({
         const completed = new Date(session.completedAt);
         const day = days.find((entry) => entry.date.toDateString() === completed.toDateString());
         if (!day) return;
-        const durationMatch = String(session.duration || '').match(/\d+(?:\.\d+)?/);
-        day.hours += durationMatch ? Number(durationMatch[0]) / 60 : 1;
+        const startAt = Number(session.startAt);
+        const endAt = Number(session.endAt);
+        if (Number.isFinite(startAt) && Number.isFinite(endAt) && endAt > startAt) {
+          day.hours += (endAt - startAt) / 3_600_000;
+        }
       });
     const max = Math.max(1, ...days.map((day) => day.hours));
     return days.map((day) => ({
@@ -131,9 +134,9 @@ export const DashboardPage = ({
       await logOut();
       onShowToast('Successfully logged out.');
       onNavigateScreen('login');
-    } catch {
-      onShowToast('Logged out.');
-      onNavigateScreen('login');
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      onShowToast('Could not sign out. Please try again.');
     }
   };
 
@@ -220,7 +223,6 @@ export const DashboardPage = ({
                 <span className="material-symbols-outlined text-[18px]">inbox</span>
                 <span>Session Requests</span>
               </div>
-              <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
             </button>
             <button
               onClick={() => go('schedule')}
@@ -246,6 +248,22 @@ export const DashboardPage = ({
               <span className="material-symbols-outlined text-[18px]">person</span>
               Profile Settings
             </button>
+            <button
+              onClick={() => go('my-safety-reports')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[16px] leading-none">flag</span>
+              My Safety Reports
+            </button>
+            {isAdmin && (
+              <button
+                onClick={() => go('admin-reports')}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#4a454c] hover:bg-[#ebe0e0] rounded-xl font-medium text-xs transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[16px] leading-none">policy</span>
+                Safety Reports
+              </button>
+            )}
           </nav>
         </div>
 
@@ -259,16 +277,9 @@ export const DashboardPage = ({
             Find a Peer
           </button>
           <button
-            onClick={async () => {
+            onClick={() => {
               onDone();
-              try {
-                await logOut();
-                onShowToast('Successfully logged out.');
-                onNavigateScreen('login');
-              } catch {
-                onShowToast('Logged out.');
-                onNavigateScreen('login');
-              }
+              void handleSignOut();
             }}
             className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-[#7b757d] hover:text-red-700 font-semibold transition-colors cursor-pointer"
           >
@@ -312,7 +323,6 @@ export const DashboardPage = ({
                 id="dash-nav-requests"
               >
                 <span>Requests</span>
-                <span className="w-2 h-2 rounded-full bg-[#f0b2aa]"></span>
               </button>
               <button
                 onClick={() => onNavigateScreen('session-details')}
@@ -341,15 +351,6 @@ export const DashboardPage = ({
                 placeholder="Search skills or mentors..."
                 className="bg-transparent border-none focus:outline-none placeholder-[#efdbfd]/50 text-xs w-44 text-white"
               />
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => onShowToast('Notifications: 2 pending peer reviews.')}
-                className="p-2 text-white/80 hover:text-white transition-colors cursor-pointer"
-                title="Notifications"
-              >
-                <span className="material-symbols-outlined text-[22px]">notifications</span>
-              </button>
             </div>
             <div
               onClick={() => onNavigateScreen('profile-setup')}
@@ -392,7 +393,7 @@ export const DashboardPage = ({
             <div className="lg:col-span-2 bg-gradient-to-r from-[#675975] to-[#52445f] text-white rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden">
               <div className="relative z-10 space-y-2">
                 <span className="text-[11px] font-semibold text-[#efdbfd] uppercase tracking-wider bg-white/10 px-3 py-1 rounded-full">
-                  Verified Scholar Session
+                  Peer learning session
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
                   Welcome back, {firstName}!
@@ -444,11 +445,7 @@ export const DashboardPage = ({
                 </p>
               </div>
 
-              <div className="mt-5 pt-4 border-t border-[#ccc4cd]/20 flex items-center justify-between">
-                <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">trending_up</span>
-                  +4.5 hrs this month
-                </span>
+              <div className="mt-5 pt-4 border-t border-[#ccc4cd]/20 flex items-center justify-end">
                 <button
                   onClick={onOpenWalletModal}
                   className="text-xs font-bold text-[#675975] hover:underline cursor-pointer"
@@ -589,7 +586,7 @@ export const DashboardPage = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
               {filteredMentors.map((mentor) => (
                 <MentorCard
                   key={mentor.id}

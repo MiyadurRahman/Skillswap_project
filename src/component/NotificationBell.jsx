@@ -108,13 +108,13 @@ export const NotificationBell = ({
         <div
           ref={panelRef}
           role="dialog"
-          aria-label="Message notifications"
+          aria-label="Messages"
           className="absolute right-0 top-full mt-2 w-[340px] max-w-[calc(100vw-2rem)] max-h-[440px] bg-white border border-[#e8dfe4] rounded-2xl shadow-2xl z-[110] overflow-hidden flex flex-col"
         >
           {/* Header */}
           <div className="px-4 pt-4 pb-3 border-b border-[#f4e8e5] flex items-center justify-between shrink-0">
             <h3 className="text-sm font-bold text-[#201a1b]">
-              {showNewChat ? 'New Message' : 'Notifications'}
+              {showNewChat ? 'New Message' : 'Messages'}
             </h3>
             {!showNewChat && (
               <button

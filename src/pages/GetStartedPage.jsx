@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/auth';
+import { AvatarImage } from '../component/AvatarImage';
 
 export const GetStartedPage = ({
   onNavigateToSignUp,
   onNavigateToLogin,
-  onShowToast,
+  onNavigateToPrivacy,
+  onNavigateToTerms,
   realtime = false,
   realtimeUsers = [],
 }) => {
@@ -43,7 +45,7 @@ export const GetStartedPage = ({
     return 'all';
   };
 
-  // "Top Peer Skills Available Now" cards built from the first 4 live scholars.
+  // Directory preview cards use live scholar profiles only.
   const liveSkillCards = liveScholars.slice(0, 4).map((u, idx) => ({
     id: `live-${idx}-${u.uid}`,
     category: deriveCategory(u),
@@ -71,16 +73,16 @@ export const GetStartedPage = ({
       a: 'The credits agreed in a request transfer only after both participants confirm the session is complete. You can spend earned credits on another peer session.',
     },
     {
-      q: 'Do I have to be from a partner university to join?',
-      a: 'Any enrolled undergraduate or graduate student with an institutional .edu or .ac.bd email address can register for free.',
+      q: 'What if my university is not listed?',
+      a: 'Enter your university name in your profile. No university partnership is required to use the scholar directory.',
     },
     {
       q: 'Can I exchange skills across different departments?',
       a: 'Yes! A Computer Science student can tutor an Economics student in Python or SQL, and in return receive tutoring in Econometrics or Macroeconomics.',
     },
     {
-      q: 'Is cross-campus peer exchange supported?',
-      a: 'Yes! You can connect with students and mentors from UIU, BUET, Dhaka University, Stanford, MIT, Oxford, and other partner campuses.',
+      q: 'Can I connect with scholars from other universities?',
+      a: 'Profiles can include a university name, and signed-in scholars can browse other profiles in the directory.',
     },
     {
       q: 'How do peer sessions take place?',
@@ -149,23 +151,20 @@ export const GetStartedPage = ({
           {/* Left Text Column */}
           <div className="lg:col-span-7 space-y-5 sm:space-y-6 min-w-0">
             <div className="inline-flex max-w-full items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#d2c0e0] text-[#52445f] text-[11px] sm:text-xs font-semibold shadow-xs">
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="truncate">Inter-University Knowledge Network • UIU & Partners</span>
+              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">sync_alt</span>
+              <span className="truncate">Peer skill exchange</span>
             </div>
 
             <h1 className="text-[2rem] sm:text-5xl lg:text-[54px] font-extrabold text-[#201a1b] tracking-tight leading-[1.12]">
               Exchange academic skills.{' '}
               <span className="text-[#675975] relative inline-block">
-                Learn for free.
+                Use time credits.
                 <span className="absolute left-0 bottom-1 w-full h-2.5 bg-[#c5b3d3]/45 -z-10 rounded-sm"></span>
               </span>
             </h1>
 
             <p className="text-sm sm:text-base text-[#4a454c] leading-relaxed max-w-xl">
-              Connect with fellow university scholars to swap peer tutoring and research skills. Teach what you excel in, earn local time credits, and book 1-on-1 peer sessions with zero fees.
+              Connect with scholars to exchange tutoring and research skills. Earn time credits by teaching, then use your balance to request sessions with other scholars.
             </p>
 
             {/* Action Buttons */}
@@ -195,15 +194,15 @@ export const GetStartedPage = ({
             <div className="pt-6 border-t border-[#ccc4cd]/40 grid grid-cols-3 gap-2 sm:gap-4 max-w-lg overflow-hidden">
               <div>
                 <div className="text-2xl sm:text-3xl font-extrabold text-[#675975]">Live</div>
-                <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Firestore Profiles</div>
+                <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Scholar profiles</div>
               </div>
               <div className="border-l border-[#ccc4cd]/50 pl-2 sm:pl-4">
                 <div className="text-2xl sm:text-3xl font-extrabold text-[#675975]">1:1</div>
                 <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Time-Credit Swap</div>
               </div>
               <div className="border-l border-[#ccc4cd]/50 pl-2 sm:pl-4">
-                <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700">No cash</div>
-                <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">Time-Credit Exchange</div>
+                <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700">Credits</div>
+                <div className="text-[11px] font-medium text-[#7b757d] mt-0.5">For completed sessions</div>
               </div>
             </div>
           </div>
@@ -216,11 +215,11 @@ export const GetStartedPage = ({
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
                   <span className="text-xs font-bold text-[#201a1b] tracking-wide uppercase">
-                    Live Peer Exchange
+                    Peer profiles
                   </span>
                 </div>
                 <span className="px-2.5 py-1 rounded-full bg-[#efdbfd] text-[#4f415c] text-[11px] font-bold">
-                  1 Hr = 1 Credit
+                  Sign in to browse
                 </span>
               </div>
 
@@ -231,10 +230,9 @@ export const GetStartedPage = ({
                   <div className="p-3.5 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] pointer-events-none select-none">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2.5">
-                        <img
+                        <AvatarImage
                           src={livePeerCards[0].avatarUrl}
-                          alt={livePeerCards[0].name}
-                          referrerPolicy="no-referrer"
+                          name={livePeerCards[0].name}
                           className="w-10 h-10 rounded-full object-cover border-2 border-[#675975]"
                         />
                         <div>
@@ -244,9 +242,7 @@ export const GetStartedPage = ({
                           <span className="text-[10px] text-[#675975] font-medium">{livePeerCards[0].university || 'University Scholar'}</span>
                         </div>
                       </div>
-                      <span className="text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded-md font-bold uppercase">
-                        Teaching
-                      </span>
+                      <span className="text-[10px] bg-[#ffdada] text-[#5c3f40] px-2 py-0.5 rounded-md font-bold uppercase">Skills</span>
                     </div>
                     <div className="bg-white px-3 py-2 rounded-xl text-xs font-semibold text-[#201a1b] border border-[#ccc4cd]/30 flex items-center gap-2">
                       <span className="material-symbols-outlined text-[16px] text-[#675975]">school</span>
@@ -254,24 +250,15 @@ export const GetStartedPage = ({
                     </div>
                   </div>
 
-                  {/* Animated Exchange Connector */}
-                  <div className="flex items-center justify-center -my-2 relative z-20">
-                    <div className="bg-[#675975] text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-md flex items-center gap-1.5 border-2 border-white">
-                      <span className="material-symbols-outlined text-[13px]">sync_alt</span>
-                      <span>Direct Skill Exchange</span>
-                    </div>
-                  </div>
-
-                  {/* Scholar 2: Receiving / Returning (or placeholder) */}
+                  {/* Another current scholar profile, when available. */}
                   <div className="p-3.5 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] pointer-events-none select-none">
                     {livePeerCards[1] ? (
                       <>
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2.5">
-                            <img
+                            <AvatarImage
                               src={livePeerCards[1].avatarUrl}
-                              alt={livePeerCards[1].name}
-                              referrerPolicy="no-referrer"
+                              name={livePeerCards[1].name}
                               className="w-10 h-10 rounded-full object-cover border-2 border-[#c5b3d3]"
                             />
                             <div>
@@ -281,9 +268,7 @@ export const GetStartedPage = ({
                               <span className="text-[10px] text-[#675975] font-medium">{livePeerCards[1].university || 'University Scholar'}</span>
                             </div>
                           </div>
-                          <span className="text-[10px] bg-[#efdbfd] text-[#4f415c] px-2 py-0.5 rounded-md font-bold uppercase">
-                            Returning
-                          </span>
+                          <span className="text-[10px] bg-[#efdbfd] text-[#4f415c] px-2 py-0.5 rounded-md font-bold uppercase">Skills</span>
                         </div>
                         <div className="bg-white px-3 py-2 rounded-xl text-xs font-semibold text-[#201a1b] border border-[#ccc4cd]/30 flex items-center gap-2">
                           <span className="material-symbols-outlined text-[16px] text-[#675975]">school</span>
@@ -294,8 +279,8 @@ export const GetStartedPage = ({
                       <div className="flex items-center gap-2.5 text-[#8c7b86] py-1">
                         <span className="material-symbols-outlined text-[22px]">hourglass_empty</span>
                         <div>
-                          <div className="text-xs font-bold text-[#705e69]">Awaiting matching scholar</div>
-                          <span className="text-[10px] font-medium">Your exchange partner will appear here in real time.</span>
+                          <div className="text-xs font-bold text-[#705e69]">Browse profiles after signing in</div>
+                          <span className="text-[10px] font-medium">Profile data is available to signed-in scholars.</span>
                         </div>
                       </div>
                     )}
@@ -305,9 +290,9 @@ export const GetStartedPage = ({
                 /* Neutral empty state when no live scholars are online */
                 <div className="p-6 bg-[#fcf9fc] rounded-2xl border border-[#eeddf2] text-center space-y-2 pointer-events-none select-none">
                   <span className="material-symbols-outlined text-3xl text-[#b7a4b3] block mx-auto">groups</span>
-                  <p className="text-xs font-bold text-[#705e69]">Live peer exchange feed is idle</p>
+                  <p className="text-xs font-bold text-[#705e69]">Sign in to browse scholar profiles</p>
                   <p className="text-[11px] text-[#8c7b86] max-w-[260px] mx-auto leading-relaxed">
-                    Scholars will appear here in real time as they come online for swaps.
+                    Discover current profiles and skills after creating an account.
                   </p>
                 </div>
               )}
@@ -374,7 +359,7 @@ export const GetStartedPage = ({
             </p>
             <div className="pt-2 flex items-center gap-2 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg w-fit">
               <span className="material-symbols-outlined text-[15px]">trending_up</span>
-              <span>1 Hour Tutored = +1.0 Credit</span>
+              <span>Credits transfer after both scholars confirm completion</span>
             </div>
           </div>
 
@@ -386,13 +371,13 @@ export const GetStartedPage = ({
               </div>
               <span className="text-xs font-black text-[#7b757d] uppercase tracking-wider">STEP 03</span>
             </div>
-            <h3 className="text-base font-bold text-[#201a1b]">Learn Any Skill for Free</h3>
+            <h3 className="text-base font-bold text-[#201a1b]">Learn with Earned Credits</h3>
             <p className="text-xs text-[#4a454c] leading-relaxed">
-              Redeem accumulated credits to receive 1-on-1 coaching from other scholars without a cash payment.
+              Use your available credits to request one-on-one coaching from other scholars.
             </p>
             <div className="pt-2 flex items-center gap-2 text-[11px] font-bold text-[#675975] bg-[#efdbfd] px-2.5 py-1 rounded-lg w-fit">
               <span className="material-symbols-outlined text-[15px]">verified_user</span>
-              <span>Zero Tuition • Peer Verified</span>
+              <span>Confirm completion to settle credits</span>
             </div>
           </div>
         </div>
@@ -406,10 +391,10 @@ export const GetStartedPage = ({
               Discover Disciplines
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-[#201a1b] mt-1">
-              Top Peer Skills Available Now
+              Skills in the scholar directory
             </h2>
             <p className="text-xs sm:text-sm text-[#4a454c] mt-1">
-              Connect with top tutors and peer researchers ready for exchanges.
+              Sign in to browse current scholar profiles and the skills they offer.
             </p>
           </div>
           <button
@@ -505,8 +490,8 @@ export const GetStartedPage = ({
               {/* Action Footer */}
               <div className="pt-4 mt-4 border-t border-[#ccc4cd]/30 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] text-[#7b757d] block uppercase font-bold">Standard Rate</span>
-                  <span className="text-xs font-extrabold text-[#675975]">1.0 Credit / Hr</span>
+                  <span className="text-[10px] text-[#7b757d] block uppercase font-bold">Session terms</span>
+                  <span className="text-xs font-extrabold text-[#675975]">Shown in each request</span>
                 </div>
                 <button
                   type="button"
@@ -605,22 +590,14 @@ export const GetStartedPage = ({
         <div className="max-w-[1240px] mx-auto px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="font-extrabold text-[#675975]">SkillSwap Academic</span>
-            <span className="text-[11px] text-[#7b757d]">© 2026 Academic Peer Exchange</span>
+            <span className="text-[11px] text-[#7b757d]">© {new Date().getFullYear()}</span>
           </div>
-          <div className="flex items-center gap-5 text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => onShowToast && onShowToast('Privacy & FERPA Academic Guidelines')}
-              className="hover:text-[#675975] transition-colors cursor-pointer"
-            >
-              Privacy Policy
+          <div className="flex items-center gap-4 font-semibold">
+            <button type="button" onClick={onNavigateToPrivacy} className="hover:text-[#675975] hover:underline">
+              Privacy
             </button>
-            <button
-              type="button"
-              onClick={() => onShowToast && onShowToast('Terms of Academic Knowledge Exchange')}
-              className="hover:text-[#675975] transition-colors cursor-pointer"
-            >
-              Institutional Terms
+            <button type="button" onClick={onNavigateToTerms} className="hover:text-[#675975] hover:underline">
+              Terms
             </button>
           </div>
         </div>

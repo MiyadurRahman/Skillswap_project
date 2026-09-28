@@ -10,6 +10,9 @@ import { SessionDetailsPage } from '../pages/SessionDetailsPage';
 import { RequestsPage } from '../pages/RequestsPage';
 import { SchedulePage } from '../pages/SchedulePage';
 import { LeaderboardPage } from '../pages/LeaderboardPage';
+import { AdminReportsPage } from '../pages/AdminReportsPage';
+import { MySafetyReportsPage } from '../pages/MySafetyReportsPage';
+import { LegalPage } from '../pages/LegalPage';
 
 // NOTE: Pages are intentionally imported eagerly (no React.lazy / code
 // splitting). Vite's code-splitting of these modules produced a circular
@@ -50,9 +53,24 @@ export const AppRoutes = ({
   onCancelOutgoingRequest,
   onConfirmRescheduleRequest,
   onSettleSession,
+  blockedUserIds = [],
+  onBlockScholar,
+  onUnblockScholar,
+  onReportScholar,
+  isAdmin = false,
 }) => {
   let screen;
   switch (currentScreen) {
+    case 'privacy':
+    case 'terms':
+      screen = (
+        <LegalPage
+          type={currentScreen}
+          onBack={() => setCurrentScreen(realtime ? 'dashboard' : 'get-started')}
+        />
+      );
+      break;
+
     case 'requests':
     case 'request-session':
       screen = (
@@ -130,6 +148,28 @@ export const AppRoutes = ({
       );
       break;
 
+    case 'admin-reports':
+      screen = isAdmin ? (
+        <AdminReportsPage
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onShowToast={onShowToast}
+        />
+      ) : (
+        <DashboardPage
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+          onShowToast={onShowToast}
+        />
+      );
+      break;
+
+    case 'my-safety-reports':
+      screen = (
+        <MySafetyReportsPage
+          onNavigateScreen={(screen) => setCurrentScreen(screen)}
+        />
+      );
+      break;
+
     case 'public-profile':
       screen = (
         <PublicProfilePage
@@ -143,6 +183,10 @@ export const AppRoutes = ({
           onCreateSession={onCreateSession}
           onMessageMentor={onMessageMentor}
           onRequestRealtime={onRequestRealtime}
+          blockedUserIds={blockedUserIds}
+          onBlockScholar={onBlockScholar}
+          onUnblockScholar={onUnblockScholar}
+          onReportScholar={onReportScholar}
         />
       );
       break;
@@ -152,6 +196,8 @@ export const AppRoutes = ({
         <GetStartedPage
           onNavigateToSignUp={() => setCurrentScreen('signup')}
           onNavigateToLogin={() => setCurrentScreen('login')}
+          onNavigateToPrivacy={() => setCurrentScreen('privacy')}
+          onNavigateToTerms={() => setCurrentScreen('terms')}
           onShowToast={onShowToast}
           realtime={realtime}
           realtimeUsers={realtimeUsers}
@@ -165,6 +211,8 @@ export const AppRoutes = ({
           onLoginSuccess={() => setCurrentScreen('dashboard')}
           onNavigateToSignUp={() => setCurrentScreen('signup')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
+          onNavigateToPrivacy={() => setCurrentScreen('privacy')}
+          onNavigateToTerms={() => setCurrentScreen('terms')}
           onShowToast={onShowToast}
         />
       );
@@ -230,6 +278,8 @@ export const AppRoutes = ({
           onSignUpSuccess={() => setCurrentScreen('profile-setup')}
           onNavigateToLogin={() => setCurrentScreen('login')}
           onNavigateToGetStarted={() => setCurrentScreen('get-started')}
+          onNavigateToPrivacy={() => setCurrentScreen('privacy')}
+          onNavigateToTerms={() => setCurrentScreen('terms')}
           onShowToast={onShowToast}
         />
       );

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import './App.css';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/auth';
@@ -6,22 +6,23 @@ import { AppRoutes } from './routes/AppRoutes';
 import { Modals } from './component/Modals';
 import { NotificationBell } from './component/NotificationBell';
 import { ChatPanel } from './component/ChatPanel';
+import { ReportScholarModal } from './component/ReportScholarModal';
 import { createInitialAvatar } from './assets';
-import {
-  useFirestoreSubscriptions,
-  REQUIRED_SNAPSHOTS,
-} from './hooks/useFirestoreSubscriptions';
+import { useFirestoreSubscriptions } from './hooks/useFirestoreSubscriptions';
 import { useToast } from './hooks/useToast';
 import { useChat } from './hooks/useChat';
 import { useSessionHandlers } from './hooks/useSessionHandlers';
 import { useRequestHandlers } from './hooks/useRequestHandlers';
 import { toMentorModel } from './utils/toMentorModel';
 import { openExternalUrl } from './utils/urlUtils';
+import { submitScholarReport } from './services/realtime';
+import { EducationalLoader } from './component/EducationalLoader';
 
 function AppContent() {
   const {
     currentUser,
     userProfile: authProfile,
+    isAdmin,
     loading,
     updateProfileData,
   } = useAuth();
@@ -44,6 +45,8 @@ function AppContent() {
   const [selectedMentorForRequest, setSelectedMentorForRequest] = useState(null);
   const [selectedMentor, setSelectedMentor] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
   const selectedSession =
     sessions.find((s) => s.id === selectedSessionId) || sessions[0] || null;
@@ -59,7 +62,7 @@ function AppContent() {
   }, []);
 
   // Live Firestore subscriptions + the initial-paint readiness gate.
-  const { readyCount } = useFirestoreSubscriptions({
+  const { dataReady, dataDelayed } = useFirestoreSubscriptions({
     isRealtime,
     myUid,
     setIncomingRequests,
@@ -69,10 +72,20 @@ function AppContent() {
     setConversations,
     setCreditTransactions,
   });
-  const dataReady = !isRealtime || readyCount >= REQUIRED_SNAPSHOTS;
 
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   const {
     activeChat,
+    blockedUserIds,
     chatPeers,
     conversationsWithPeers,
     handleOpenChat,
@@ -80,6 +93,8 @@ function AppContent() {
     handleSendChatMessage,
     handleMarkChatRead,
     handleCloseChat,
+    handleBlockScholar,
+    handleUnblockScholar,
   } = useChat({
     isRealtime,
     myUid,
@@ -185,14 +200,32 @@ function AppContent() {
     [handleMessageMentor]
   );
 
+  const handleReportScholar = useCallback((scholar) => {
+    if (!myUid) {
+      showToast('Sign in to report a scholar.');
+      return;
+    }
+    setReportTarget(scholar?.uid ? scholar : null);
+  }, [myUid, showToast]);
+
+  const handleSubmitReport = useCallback(async ({ category, details }) => {
+    if (!myUid || !reportTarget?.uid) throw new Error('Sign in to submit this report.');
+    await submitScholarReport({
+      reporterUid: myUid,
+      reportedUid: reportTarget.uid,
+      category,
+      details,
+      source: reportTarget.source,
+      conversationId: reportTarget.conversationId,
+    });
+    setReportTarget(null);
+    showToast('Report submitted. Thank you for helping keep SkillSwap safe.');
+  }, [myUid, reportTarget, showToast]);
+
   // Wait for the first Firestore snapshots so the page never paints in a
   // half-empty state on refresh.
   if (!dataReady && !loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fff8f7]">
-        <div className="w-8 h-8 border-4 border-[#675975] border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+    return <EducationalLoader label="Gathering your study updates…" />;
   }
 
   return (
@@ -209,6 +242,20 @@ function AppContent() {
         >
           <span className="material-symbols-outlined text-[18px] text-[#efdbfd]">info</span>
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {(!isOnline || dataDelayed) && (
+        <div
+          role="status"
+          className="fixed bottom-4 left-1/2 z-[115] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-[#352f2f]/95 px-4 py-2.5 text-xs font-semibold text-white shadow-xl"
+        >
+          <span className="material-symbols-outlined text-[17px]" aria-hidden="true">
+            {isOnline ? 'cloud_sync' : 'cloud_off'}
+          </span>
+          {isOnline
+            ? 'Some live data is delayed. SkillSwap will keep reconnecting.'
+            : 'You are offline. Changes may not sync until your connection returns.'}
         </div>
       )}
 
@@ -235,11 +282,15 @@ function AppContent() {
           onSend={handleSendChatMessage}
           onClose={handleCloseChat}
           onMarkRead={handleMarkChatRead}
+          onReport={(peer, conversationId) => handleReportScholar({ ...peer, source: 'chat', conversationId })}
+          onBlock={(peerUid) => blockedUserIds.includes(peerUid) ? handleUnblockScholar(peerUid) : handleBlockScholar(peerUid)}
+          isBlocked={blockedUserIds.includes(activeChat.peer?.uid)}
         />
       )}
 
       <AppRoutes
         currentScreen={routedScreen}
+        isAdmin={isAdmin}
         setCurrentScreen={setCurrentScreen}
         userProfile={myProfile}
         onOpenMeeting={handleOpenMeeting}
@@ -264,6 +315,10 @@ function AppContent() {
         realtimeUsers={realtimeUsers}
         onRequestRealtime={handleRequestRealtime}
         onMessageMentor={handleMessageMentor}
+        blockedUserIds={blockedUserIds}
+        onBlockScholar={handleBlockScholar}
+        onUnblockScholar={handleUnblockScholar}
+        onReportScholar={handleReportScholar}
         onAcceptRequest={handleAcceptIncoming}
         onDeclineRequest={handleDeclineIncoming}
         onRescheduleRequest={handleRescheduleIncoming}
@@ -284,6 +339,14 @@ function AppContent() {
         userProfile={myProfile}
         creditTransactions={creditTransactions}
       />
+
+      {reportTarget && (
+        <ReportScholarModal
+          scholar={reportTarget}
+          onSubmit={handleSubmitReport}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
     </div>
   );
 }

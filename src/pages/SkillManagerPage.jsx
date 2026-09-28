@@ -65,11 +65,10 @@ export const SkillManagerPage = ({
           title: peer.title,
           avatarUrl: peer.avatarUrl,
           matchesSkill: theyTeach[0] || peerTeach[0] || 'Academic exchange',
-          quote: peer.bio || 'Open to a peer learning exchange.',
-          compatibility: Math.min(100, 50 + matchPoints * 10),
+          quote: peer.bio || 'No bio provided.',
+          sharedSkillCount: new Set([...theyTeach, ...theyWant].map((skill) => String(skill).toLowerCase())).size,
           isOnline: peer.isOnline,
           institution: peer.university,
-          hourlyCredits: peer.hourlyCredits || 1,
           skills: peerTeach,
           rating: peer.rating || 0,
           reviewsCount: peer.reviewsCount || 0,
@@ -163,18 +162,17 @@ export const SkillManagerPage = ({
         avatarUrl: match.avatarUrl,
         isOnline: match.isOnline,
         badges: match.skills,
-        hourlyRateCredits: match.hourlyCredits,
         bio: match.quote,
         rawUser: match.rawUser,
       });
     } else {
-      onShowToast(`Initiating swap proposal with ${match.name}`);
+      onShowToast('Scholar profile actions are unavailable right now.');
     }
   };
 
   const userAvatar =
     userProfile?.avatarUrl ||
-    resolveAvatarForName(userProfile?.name || currentUser?.displayName || 'Scholar', 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80');
+    resolveAvatarForName(userProfile?.name || currentUser?.displayName || 'Scholar');
 
   return (
     <div id="screen-skill-manager" className="min-h-screen bg-[#fcf5f3] text-[#201a1b] flex flex-col font-sans selection:bg-[#c5b3d3] selection:text-[#22162e]">
@@ -221,25 +219,6 @@ export const SkillManagerPage = ({
 
           {/* Right Action Icons & Profile */}
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => onShowToast('Notifications: 2 new skill match recommendations.')}
-              className="p-2 text-white/80 hover:text-white transition-colors relative"
-              title="Notifications"
-              id="btn-nav-skill-notifs"
-            >
-              <span className="material-symbols-outlined text-[20px]">notifications</span>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#f0b2aa] rounded-full"></span>
-            </button>
-
-            <button
-              onClick={() => onShowToast('Academic Messages & Exchange Inquiries')}
-              className="p-2 text-white/80 hover:text-white transition-colors"
-              title="Messages"
-              id="btn-nav-skill-mail"
-            >
-              <span className="material-symbols-outlined text-[20px]">mail</span>
-            </button>
-
             {/* Profile Avatar */}
             <div
               onClick={() => onNavigateScreen('profile-setup')}
@@ -314,10 +293,7 @@ export const SkillManagerPage = ({
               </button>
 
               <button
-                onClick={() => {
-                  onShowToast('Session Requests: 2 pending peer inquiries');
-                  onNavigateScreen('dashboard');
-                }}
+                onClick={() => onNavigateScreen('requests')}
                 className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-[#65525e] hover:bg-[#f6e1dc] hover:text-[#201a1b] rounded-xl transition-colors text-left"
                 id="menu-item-session-requests"
               >
@@ -328,7 +304,7 @@ export const SkillManagerPage = ({
               </button>
 
               <button
-                onClick={() => onShowToast('Showing historical skill exchange transcripts')}
+                onClick={() => onNavigateScreen('schedule')}
                 className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-[#65525e] hover:bg-[#f6e1dc] hover:text-[#201a1b] rounded-xl transition-colors text-left"
                 id="menu-item-history"
               >
@@ -340,7 +316,7 @@ export const SkillManagerPage = ({
             </nav>
           </div>
 
-          {/* Bottom Sidebar Settings & Support */}
+          {/* Settings */}
           <div className="pt-6 border-t border-[#ecd9d5] space-y-1.5">
             <button
               onClick={() => onNavigateScreen('profile-setup')}
@@ -350,15 +326,6 @@ export const SkillManagerPage = ({
                 settings
               </span>
               <span>Settings</span>
-            </button>
-            <button
-              onClick={() => onShowToast('UIU & Academic Exchange Support: support@skillswap.edu')}
-              className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-[#65525e] hover:bg-[#f6e1dc] hover:text-[#201a1b] rounded-xl transition-colors text-left"
-            >
-              <span className="material-symbols-outlined text-[18px] text-[#7d6a77]">
-                help
-              </span>
-              <span>Support</span>
             </button>
           </div>
         </aside>
@@ -579,18 +546,18 @@ export const SkillManagerPage = ({
 
           </div>
 
-          {/* RECENT ACTIVITY & MATCHES SECTION */}
+          {/* Skill matches from current scholar profiles */}
           <div className="space-y-4 pt-2">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-[#201a1b]">
-                Recent Activity & Matches
+                Skill Matches
               </h2>
               <button
                 onClick={() => onNavigateScreen('discover')}
                 className="text-xs font-semibold text-[#6c5965] hover:text-[#201a1b] transition-colors"
                 id="btn-view-all-matches"
               >
-                View All Matches
+                Browse the directory
               </button>
             </div>
 
@@ -602,7 +569,6 @@ export const SkillManagerPage = ({
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               
-              {/* MATCH CARD 1: Prof. Julian V. */}
               {recentMatches.map((match) => (
                 <div
                   key={match.id}
@@ -639,10 +605,10 @@ export const SkillManagerPage = ({
                     </p>
                   </div>
 
-                  {/* Bottom: Compatibility % & Send Message / Swap proposal CTA */}
+                  {/* Actual shared-skill count and swap proposal action */}
                   <div className="flex items-center justify-between pt-3 border-t border-[#f7eae7]">
                     <span className="text-[11px] font-bold text-[#553b37] bg-[#fbf0ed] px-2 py-0.5 rounded-md border border-[#eddcd8]">
-                      {match.compatibility}% Compatibility
+                      {match.sharedSkillCount} shared skill{match.sharedSkillCount === 1 ? '' : 's'}
                     </span>
 
                     <button
@@ -659,7 +625,6 @@ export const SkillManagerPage = ({
               {/* CARD 3: Dotted Empty Action Box "Broaden your search parameters / Edit Preferences" */}
               <div
                 onClick={() => {
-                  onShowToast('Navigating to Discover filter directory...');
                   onNavigateScreen('discover');
                 }}
                 className="border-2 border-dashed border-[#d8c3bf] hover:border-[#574654] rounded-2xl p-5 flex flex-col items-center justify-center text-center space-y-2 bg-[#fdf5f3]/60 hover:bg-[#fbf0ed] transition-all cursor-pointer min-h-[160px]"

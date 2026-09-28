@@ -18,6 +18,8 @@ import {
   subscribeUserProfile,
   updateUserPresence,
 } from '../services/realtime';
+import { INITIAL_TIME_CREDITS } from '../config/economy';
+import { EducationalLoader } from '../component/EducationalLoader';
 
 const newProfile = (user, overrides = {}) => {
   const name = overrides.name || user.displayName || user.email?.split('@')[0] || 'Scholar';
@@ -35,7 +37,7 @@ const newProfile = (user, overrides = {}) => {
     skillsWant: [],
     expertiseAreas: [],
     learningGoals: [],
-    timeCredits: 0,
+    timeCredits: INITIAL_TIME_CREDITS,
     creditsEarned: 0,
     creditsSpent: 0,
     completedSwaps: 0,
@@ -45,6 +47,28 @@ const newProfile = (user, overrides = {}) => {
     achievementBadges: [],
     ...overrides,
   };
+};
+
+// Firebase can return a newer provider photo than the copy stored in our
+// profile document. Generated initials are also stored as data URLs, so only
+// replace those (or stale provider-hosted URLs) and keep uploaded avatars.
+const isGeneratedAvatar = (avatarUrl) =>
+  typeof avatarUrl === 'string' && avatarUrl.startsWith('data:image/svg+xml');
+
+const isProviderHostedAvatar = (avatarUrl) =>
+  typeof avatarUrl === 'string' &&
+  /(googleusercontent\.com|googleapis\.com|fbcdn\.net|twimg\.com)/i.test(avatarUrl);
+
+const mergeCurrentAuthAvatar = (user, profile) => {
+  if (!profile || !user?.photoURL) return profile;
+
+  const storedAvatar = profile.avatarUrl;
+  const shouldRefresh =
+    !storedAvatar ||
+    isGeneratedAvatar(storedAvatar) ||
+    (isProviderHostedAvatar(storedAvatar) && storedAvatar !== user.photoURL);
+
+  return shouldRefresh ? { ...profile, avatarUrl: user.photoURL } : profile;
 };
 
 export const AuthProvider = ({ children }) => {
@@ -82,7 +106,12 @@ export const AuthProvider = ({ children }) => {
     setUserProfile(profile);
     ensureUserProfile(res.user.uid, profile)
       .then((dbProfile) => {
-        if (dbProfile) setUserProfile(dbProfile);
+        const resolvedProfile = mergeCurrentAuthAvatar(res.user, dbProfile || profile);
+        if (resolvedProfile.avatarUrl !== dbProfile?.avatarUrl) {
+          return upsertUserProfile(res.user.uid, { avatarUrl: resolvedProfile.avatarUrl })
+            .then(() => setUserProfile(resolvedProfile));
+        }
+        setUserProfile(resolvedProfile);
       })
       .catch((e) => {
         console.warn('Could not sync profile to Firestore:', e);
@@ -96,7 +125,13 @@ export const AuthProvider = ({ children }) => {
     const profile = newProfile(res.user);
     let resolvedProfile = profile;
     try {
-      resolvedProfile = (await ensureUserProfile(res.user.uid, profile)) || profile;
+      resolvedProfile = mergeCurrentAuthAvatar(
+        res.user,
+        (await ensureUserProfile(res.user.uid, profile)) || profile
+      );
+      if (resolvedProfile.avatarUrl !== profile.avatarUrl) {
+        await upsertUserProfile(res.user.uid, { avatarUrl: resolvedProfile.avatarUrl });
+      }
     } catch (error) {
       console.warn('Could not sync profile to Firestore:', error);
     }
@@ -157,14 +192,25 @@ export const AuthProvider = ({ children }) => {
             .catch(() => setIsAdmin(false));
 
           // Create the Firestore doc if it doesn't exist (never overwrites).
-          ensureUserProfile(user.uid, fallbackProfile).then((dbProfile) => {
-            if (dbProfile) setUserProfile(dbProfile);
+          ensureUserProfile(user.uid, fallbackProfile).then(async (dbProfile) => {
+            const resolvedProfile = mergeCurrentAuthAvatar(user, dbProfile || fallbackProfile);
+            if (resolvedProfile.avatarUrl !== dbProfile?.avatarUrl) {
+              await upsertUserProfile(user.uid, { avatarUrl: resolvedProfile.avatarUrl });
+            }
+            setUserProfile(resolvedProfile);
             return updateUserPresence(user.uid, true);
           }).catch((e) => console.warn('Profile ensure/sync:', e));
 
           // Live-sync profile from Firestore.
           profileUnsubRef.current = subscribeUserProfile(user.uid, (p) => {
-            if (p) setUserProfile(p);
+            if (!p) return;
+            const resolvedProfile = mergeCurrentAuthAvatar(user, p);
+            setUserProfile(resolvedProfile);
+            if (resolvedProfile.avatarUrl !== p.avatarUrl) {
+              upsertUserProfile(user.uid, { avatarUrl: resolvedProfile.avatarUrl }).catch((e) => {
+                console.warn('Could not refresh profile avatar:', e);
+              });
+            }
           });
         } else {
           setUserProfile(null);
@@ -208,9 +254,7 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={value}>
       {!loading ? children : (
-        <div className="min-h-screen flex items-center justify-center bg-[#fff8f7]">
-          <div className="w-8 h-8 border-4 border-[#675975] border-t-transparent rounded-full animate-spin"></div>
-        </div>
+        <EducationalLoader label="Getting your study space ready…" />
       )}
     </AuthContext.Provider>
   );

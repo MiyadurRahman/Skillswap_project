@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { resolveAvatarForName } from '../assets';
 import { useAuth } from '../context/auth';
 import { MobileNav } from '../component/MobileNav';
 import { AcceptModal } from '../component/requests/AcceptModal';
@@ -45,9 +46,7 @@ export const RequestsPage = ({
 }) => {
   const { userProfile: authProfile } = useAuth();
   const userProfile = authProfile || propProfile || {};
-  const userAvatar =
-    userProfile?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+  const userAvatar = userProfile?.avatarUrl || resolveAvatarForName(userProfile?.name || 'Scholar');
 
   // Active top tab: 'incoming' | 'outgoing' | 'request-form'
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -122,6 +121,7 @@ export const RequestsPage = ({
     selectedSkillId,
     setSelectedSkillId,
     preferredDate,
+    timeZone,
     minPreferredDate,
     setPreferredDate,
     preferredTimeSlot,
@@ -150,7 +150,7 @@ export const RequestsPage = ({
         avatarUrl: person.avatarUrl,
       });
     } else {
-      onShowToast(`Opening chat with ${person.name || 'Scholar'}...`);
+      onShowToast('Messaging is unavailable for this scholar right now.');
     }
   };
 
@@ -212,14 +212,14 @@ export const RequestsPage = ({
             </nav>
           </div>
 
-          {/* Right Icons: Notifications, Wallet, Profile */}
+          {/* Right: Incoming Requests, Wallet, Profile */}
           <div className="flex items-center gap-4">
             <button
-              onClick={() => onShowToast(`You have ${pendingCount} incoming peer requests waiting for review`)}
+              onClick={() => setActiveTab('incoming')}
               className="p-2 text-white/80 hover:text-white transition-colors relative"
-              title="Notifications"
+              title="Incoming requests"
             >
-              <span className="material-symbols-outlined text-[21px]">notifications</span>
+              <span className="material-symbols-outlined text-[21px]">inbox</span>
               {pendingCount > 0 && (
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#f0b2aa] rounded-full"></span>
               )}
@@ -227,7 +227,7 @@ export const RequestsPage = ({
             <button
               onClick={() => {
                 if (onOpenWalletModal) onOpenWalletModal();
-                else onShowToast('Academic Credit Ledger: 24.5 Available Credits');
+                else onShowToast('The credit ledger is unavailable right now.');
               }}
               className="p-2 text-white/80 hover:text-white transition-colors"
               title="Credit Ledger & Wallet"
@@ -308,7 +308,7 @@ export const RequestsPage = ({
               <span>Peer Mentoring Active</span>
             </span>
             <span>•</span>
-            <span>All exchanges verified by Academic Escrow</span>
+            <span>Credits transfer after both scholars confirm completion.</span>
           </div>
         </div>
       </div>
@@ -358,40 +358,40 @@ export const RequestsPage = ({
                   </span>
                 </div>
                 <div className="text-2xl font-bold text-[#201a1b] mt-1.5">{pendingCount}</div>
-                <span className="text-[11px] text-[#705e69]">Require reply within 24h</span>
+                <span className="text-[11px] text-[#705e69]">Awaiting response</span>
               </div>
 
               <div className="bg-white border border-[#ebdcd8] rounded-2xl p-4 shadow-2xs">
                 <div className="flex items-center justify-between text-[#705e69] text-xs font-medium">
-                  <span>Mentor Acceptance Rate</span>
+                  <span>Accepted</span>
                   <span className="material-symbols-outlined text-[18px] text-emerald-600">
-                    verified
+                    check_circle
                   </span>
                 </div>
-                <div className="text-2xl font-bold text-emerald-700 mt-1.5">94%</div>
-                <span className="text-[11px] text-emerald-700 font-semibold">Top 5% University Response</span>
+                <div className="text-2xl font-bold text-emerald-700 mt-1.5">{incomingList.filter((request) => String(request.status).toLowerCase() === 'accepted').length}</div>
+                <span className="text-[11px] text-[#705e69]">Requests accepted</span>
               </div>
 
               <div className="bg-white border border-[#ebdcd8] rounded-2xl p-4 shadow-2xs">
                 <div className="flex items-center justify-between text-[#705e69] text-xs font-medium">
-                  <span>Pending Escrow Credits</span>
+                  <span>Declined</span>
                   <span className="material-symbols-outlined text-[18px] text-[#7b548b]">
-                    account_balance_wallet
+
                   </span>
                 </div>
-                <div className="text-2xl font-bold text-[#201a1b] mt-1.5">700</div>
-                <span className="text-[11px] text-[#705e69]">Credits released on completion</span>
+                <div className="text-2xl font-bold text-[#201a1b] mt-1.5">{incomingList.filter((request) => String(request.status).toLowerCase() === 'declined').length}</div>
+                <span className="text-[11px] text-[#705e69]">Requests declined</span>
               </div>
 
               <div className="bg-white border border-[#ebdcd8] rounded-2xl p-4 shadow-2xs">
                 <div className="flex items-center justify-between text-[#705e69] text-xs font-medium">
-                  <span>Avg. Response Time</span>
+                  <span>Total Received</span>
                   <span className="material-symbols-outlined text-[18px] text-blue-600">
-                    avg_pace
+                    inbox
                   </span>
                 </div>
-                <div className="text-2xl font-bold text-[#201a1b] mt-1.5">1.5 hrs</div>
-                <span className="text-[11px] text-blue-600 font-semibold">Fast Responder Status</span>
+                <div className="text-2xl font-bold text-[#201a1b] mt-1.5">{incomingList.length}</div>
+                <span className="text-[11px] text-[#705e69]">All incoming requests</span>
               </div>
             </div>
 
@@ -581,6 +581,9 @@ export const RequestsPage = ({
                         <span className="text-[11px] text-[#705e69]">
                           {req.preferredTimeSlot}
                         </span>
+                        <span className="block text-[10px] text-[#887580]">
+                          {req.timeZone || 'Legacy request: time zone unknown'}
+                        </span>
                       </div>
                     </div>
 
@@ -719,7 +722,7 @@ export const RequestsPage = ({
                   Outgoing Learning Requests
                 </h1>
                 <p className="text-xs text-[#705e69] mt-1">
-                  Learning requests you have dispatched to verified mentors and senior researchers.
+                  Learning requests you have sent to other scholars in the directory.
                 </p>
               </div>
 
@@ -827,7 +830,10 @@ export const RequestsPage = ({
                           Date & Timing:
                         </span>
                         <div className="font-bold text-[#201a1b] mt-0.5">{req.preferredDate}</div>
-                        <span className="text-[11px] text-[#705e69]">{req.preferredTimeSlot}</span>
+                        <span className="block text-[11px] text-[#705e69]">{req.preferredTimeSlot}</span>
+                        <span className="block text-[10px] text-[#887580]">
+                          {req.timeZone || 'Legacy request: time zone unknown'}
+                        </span>
                       </div>
                       <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#8e6178]">
@@ -846,7 +852,7 @@ export const RequestsPage = ({
                           <span className="block font-bold uppercase tracking-wider text-blue-700 text-[10px] mb-0.5">
                             Mentor Proposed Alternate Time
                           </span>
-                          {req.rescheduledDate} ({req.rescheduledSlot || 'Flexible'})
+                          {req.rescheduledDate} ({req.rescheduledSlot || 'Flexible'}) — {req.rescheduledTimeZone || 'time zone unknown'}
                         </div>
                         <div className="flex items-center gap-2">
                           <button
@@ -981,11 +987,11 @@ export const RequestsPage = ({
                 <ul className="space-y-2.5 text-xs text-[#52444b] leading-relaxed">
                   <li className="flex items-start gap-2">
                     <span className="text-[#8c6773] mt-0.5">•</span>
-                    <span>Requests are usually confirmed within 12 hours.</span>
+                    <span>The other scholar must accept or decline each request.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-[#8c6773] mt-0.5">•</span>
-                    <span>Rescheduling is free up to 24 hours before the session.</span>
+                    <span>You can propose a different time if the suggested time does not work.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-[#8c6773] mt-0.5">•</span>
@@ -1075,36 +1081,26 @@ export const RequestsPage = ({
                           id="input-preferred-date"
                         />
                       </div>
+                      <p className="text-[11px] text-[#705e69]">Times use your local zone: {timeZone}</p>
                     </div>
 
-                    {/* Preferred Time Slot */}
+                    {/* Preferred Start Time */}
                     <div className="space-y-2">
                       <label className="flex items-center gap-2 text-sm font-bold text-[#201a1b]">
                         <span className="material-symbols-outlined text-[19px] text-[#524156]">
                           schedule
                         </span>
-                        <span>Preferred Time Slot</span>
+                        <span>Preferred Start Time</span>
                       </label>
                       <div className="relative">
-                        <select
+                        <input
+                          type="time"
                           value={preferredTimeSlot}
                           onChange={(e) => setPreferredTimeSlot(e.target.value)}
-                          className="w-full bg-white border border-[#ebdcd8] rounded-xl px-4 py-3 text-sm text-[#201a1b] focus:outline-none focus:border-[#524156] shadow-2xs appearance-none cursor-pointer pr-10"
+                          className="w-full bg-white border border-[#ebdcd8] rounded-xl px-4 py-3 text-sm text-[#201a1b] focus:outline-none focus:border-[#524156] shadow-2xs"
+                          required
                           id="select-preferred-time-slot"
-                        >
-                          <option value="Morning (09:00 - 12:00)">
-                            Morning (09:00 - 12:00)
-                          </option>
-                          <option value="Afternoon (13:00 - 16:00)">
-                            Afternoon (13:00 - 16:00)
-                          </option>
-                          <option value="Evening (17:00 - 20:00)">
-                            Evening (17:00 - 20:00)
-                          </option>
-                        </select>
-                        <span className="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 text-[#705e69] pointer-events-none text-[20px]">
-                          expand_more
-                        </span>
+                        />
                       </div>
                     </div>
                   </div>
@@ -1231,32 +1227,6 @@ export const RequestsPage = ({
             <p>© {new Date().getFullYear()} SkillSwap Academic. All rights reserved.</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6">
-            <button
-              onClick={() => onShowToast('Academic Privacy Policy')}
-              className="hover:text-[#201a1b] transition-colors cursor-pointer"
-            >
-              Privacy Policy
-            </button>
-            <button
-              onClick={() => onShowToast('Terms of Service & Code of Conduct')}
-              className="hover:text-[#201a1b] transition-colors cursor-pointer"
-            >
-              Terms of Service
-            </button>
-            <button
-              onClick={() => onShowToast('University Partners: Stanford, MIT, Harvard, Cambridge')}
-              className="hover:text-[#201a1b] transition-colors cursor-pointer"
-            >
-              University Partners
-            </button>
-            <button
-              onClick={() => onShowToast('Connecting to Academic Support Desk...')}
-              className="hover:text-[#201a1b] transition-colors cursor-pointer"
-            >
-              Contact Support
-            </button>
-          </div>
         </div>
       </footer>
     </div>

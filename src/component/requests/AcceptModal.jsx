@@ -32,6 +32,12 @@ export function AcceptModal({
               <p className="text-xs text-[#705e69]">
                 {request.requestedSkill} • {request.formattedDate}
               </p>
+              <p className="text-xs text-[#705e69]">
+                Requested start: {request.preferredTimeSlot || 'time not specified'}
+              </p>
+              <p className="text-[10px] text-[#887580]">
+                Requested slot uses {request.timeZone || 'an unknown time zone'}
+              </p>
             </div>
           </div>
           <button

@@ -13,7 +13,7 @@ export const MainLayout = ({
       {toastMessage && (
         <div
           id="toast-notification"
-          className="fixed top-5 left-1/2 -translate-x-1/2 z-[110] bg-[#352f2f]/95 text-white px-5 py-2.5 rounded-full shadow-xl border border-white/20 flex items-center gap-2.5 text-xs font-medium backdrop-blur-md animate-bounce"
+          className="fixed top-5 left-1/2 -translate-x-1/2 z-[110] bg-[#352f2f]/95 text-white px-5 py-2.5 rounded-full shadow-xl border border-white/20 flex items-center gap-2.5 text-xs font-medium backdrop-blur-md animate-toast-in"
         >
           <span className="material-symbols-outlined text-[18px] text-[#efdbfd]">
             info

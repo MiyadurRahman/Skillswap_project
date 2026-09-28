@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ensureConversation,
   getConversationId,
+  subscribeBlockedUsers,
+  blockScholar,
+  unblockScholar,
   markConversationRead,
   sendMessage,
   subscribeConversationMessages,
@@ -20,6 +23,20 @@ export function useChat({
   showToast,
 }) {
   const [activeChat, setActiveChat] = useState(null);
+  const [subscribedBlockedUserIds, setSubscribedBlockedUserIds] = useState([]);
+  const blockedUserIds = useMemo(
+    () => (isRealtime && myUid ? subscribedBlockedUserIds : []),
+    [isRealtime, myUid, subscribedBlockedUserIds]
+  );
+
+  useEffect(() => {
+    if (!isRealtime || !myUid) {
+      return undefined;
+    }
+    return subscribeBlockedUsers(myUid, setSubscribedBlockedUserIds, (error) => {
+      console.warn('Blocked scholar list unavailable:', error);
+    });
+  }, [isRealtime, myUid]);
 
   // Live messages for the currently open chat (realtime mode only).
   useEffect(() => {
@@ -73,8 +90,8 @@ export function useChat({
   }, [conversations, realtimeUsers, myUid]);
 
   const chatPeers = useMemo(
-    () => realtimeUsers.filter((u) => u.uid && u.uid !== myUid),
-    [realtimeUsers, myUid]
+    () => realtimeUsers.filter((u) => u.uid && u.uid !== myUid && !blockedUserIds.includes(u.uid)),
+    [realtimeUsers, myUid, blockedUserIds]
   );
 
   const openChatSeed = useCallback(
@@ -99,6 +116,10 @@ export function useChat({
   const handleNewChat = useCallback(
     (peer) => {
       if (!peer?.uid || !myUid) return;
+      if (blockedUserIds.includes(peer.uid)) {
+        showToast('Unblock this scholar before starting a new conversation.');
+        return;
+      }
       const convId = getConversationId(myUid, peer.uid);
       const convo = {
         id: convId,
@@ -124,18 +145,46 @@ export function useChat({
           showToast('Could not start this conversation. Please try again.');
         });
     },
-    [myUid, openChatSeed, showToast]
+    [myUid, openChatSeed, showToast, blockedUserIds]
   );
+
+  const handleBlockScholar = useCallback(async (peerUid) => {
+    try {
+      await blockScholar(myUid, peerUid);
+      showToast('Scholar blocked. New requests and messages are disabled.');
+      if (activeChat?.peer?.uid === peerUid) setActiveChat(null);
+    } catch (error) {
+      console.warn('Could not block scholar:', error);
+      showToast(error?.message || 'Could not block this scholar. Please try again.');
+    }
+  }, [myUid, activeChat, showToast]);
+
+  const handleUnblockScholar = useCallback(async (peerUid) => {
+    try {
+      await unblockScholar(myUid, peerUid);
+      showToast('Scholar unblocked.');
+    } catch (error) {
+      console.warn('Could not unblock scholar:', error);
+      showToast(error?.message || 'Could not unblock this scholar. Please try again.');
+    }
+  }, [myUid, showToast]);
 
   const handleSendChatMessage = useCallback(
     async (text) => {
       const chat = activeChat;
-      if (!chat?.conversation?.id) return;
+      if (!chat?.conversation?.id) return false;
       const { conversation, peer } = chat;
       const convId = conversation.id;
       const peerUid =
         peer?.uid || conversation.participantIds?.find((id) => id !== myUid);
-      if (!peerUid || !myUid) return;
+      if (!peerUid || !myUid) return false;
+      if (
+        !conversation.participantIds?.includes(myUid) ||
+        !conversation.participantIds.includes(peerUid)
+      ) {
+        showToast('This conversation is not available to the current account.');
+        return false;
+      }
 
       try {
         await sendMessage({
@@ -146,9 +195,11 @@ export function useChat({
           fromName: myProfile?.name || 'Scholar',
           text,
         });
+        return true;
       } catch (e) {
         console.warn('[chat] send failed:', { convId, fromUid: myUid, toUid: peerUid }, e);
-        showToast('Could not send message. Please try again.');
+        showToast(e?.message || 'Could not send message. Please try again.');
+        return false;
       }
     },
     [
@@ -174,6 +225,7 @@ export function useChat({
 
   return {
     activeChat,
+    blockedUserIds,
     chatPeers,
     conversationsWithPeers,
     handleOpenChat,
@@ -181,5 +233,7 @@ export function useChat({
     handleSendChatMessage,
     handleMarkChatRead,
     handleCloseChat,
+    handleBlockScholar,
+    handleUnblockScholar,
   };
 }

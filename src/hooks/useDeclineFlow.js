@@ -2,22 +2,24 @@ import { useState } from 'react';
 
 export function useDeclineFlow({ onDeclineRequest, onShowToast }) {
   const [decliningReq, setDecliningReq] = useState(null);
-  const [declineReason, setDeclineReason] = useState('Schedule conflict during this time slot');
+  const [declineReason, setDeclineReason] = useState('');
   const [customDeclineNote, setCustomDeclineNote] = useState('');
 
   const handleOpenDeclineModal = (request) => {
     setDecliningReq(request);
-    setDeclineReason('Schedule conflict during this time slot');
+    setDeclineReason('');
     setCustomDeclineNote('');
   };
 
   const handleConfirmDecline = async () => {
     if (!decliningReq || !onDeclineRequest) return;
+    const reason = customDeclineNote.trim() || declineReason;
+    if (!reason || reason === 'Other reason...') {
+      onShowToast?.('Choose a reason or add a brief explanation.');
+      return;
+    }
     try {
-      await onDeclineRequest(
-        decliningReq.id,
-        customDeclineNote.trim() || declineReason
-      );
+      await onDeclineRequest(decliningReq.id, reason);
       onShowToast?.(`Request from ${decliningReq.requester.name} declined.`);
       setDecliningReq(null);
     } catch (error) {

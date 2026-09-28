@@ -25,7 +25,9 @@ export function useFirestoreSubscriptions({
   setCreditTransactions,
 }) {
   const [readyState, setReadyState] = useState({ uid: null, count: 0 });
+  const [gateState, setGateState] = useState({ uid: null, expired: false });
   const readyCount = isRealtime && readyState.uid === myUid ? readyState.count : 0;
+  const gateExpired = isRealtime && gateState.uid === myUid && gateState.expired;
 
   useEffect(() => {
     if (!isRealtime || !myUid) return;
@@ -63,23 +65,22 @@ export function useFirestoreSubscriptions({
     setCreditTransactions,
   ]);
 
-  // Safety net: never leave the UI blocked if a subscription errors out or the
-  // project has no data — force the initial-paint gate open after 2.5s.
+  // One absolute deadline per account prevents staggered snapshots from
+  // repeatedly extending the loading screen.
   useEffect(() => {
-    if (readyCount >= REQUIRED_SNAPSHOTS) return;
-    const t = setTimeout(
-      () =>
-        setReadyState((state) => ({
-          uid: myUid,
-          count:
-            state.uid === myUid
-              ? Math.max(state.count, REQUIRED_SNAPSHOTS)
-              : REQUIRED_SNAPSHOTS,
-        })),
-      GATE_TIMEOUT_MS
-    );
-    return () => clearTimeout(t);
-  }, [isRealtime, myUid, readyCount]);
+    if (!isRealtime || !myUid) {
+      return undefined;
+    }
 
-  return { readyCount };
+    const timer = setTimeout(() => {
+      setGateState({ uid: myUid, expired: true });
+    }, GATE_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [isRealtime, myUid]);
+
+  return {
+    readyCount,
+    dataReady: !isRealtime || readyCount >= REQUIRED_SNAPSHOTS || gateExpired,
+    dataDelayed: isRealtime && gateExpired && readyCount < REQUIRED_SNAPSHOTS,
+  };
 }

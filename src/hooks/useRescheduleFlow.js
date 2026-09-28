@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { toDateInput } from '../utils/dateUtils';
+import { getLocalTimeZone, toDateInput, toTimeInputValue } from '../utils/dateUtils';
 
 export function useRescheduleFlow({
   onRescheduleRequest,
@@ -9,13 +9,13 @@ export function useRescheduleFlow({
 }) {
   const [reschedulingReq, setReschedulingReq] = useState(null);
   const [newProposedDate, setNewProposedDate] = useState(() => toDateInput(3));
-  const [newProposedSlot, setNewProposedSlot] = useState('Afternoon (14:00 - 15:30)');
+  const [newProposedSlot, setNewProposedSlot] = useState('14:00');
   const [rescheduleNote, setRescheduleNote] = useState('');
 
   const handleOpenRescheduleModal = (request) => {
     setReschedulingReq(request);
     setNewProposedDate(request.preferredDate || toDateInput(3));
-    setNewProposedSlot(request.preferredTimeSlot || 'Afternoon (14:00 - 15:30)');
+    setNewProposedSlot(toTimeInputValue(request.preferredTimeSlot, '14:00'));
     setRescheduleNote('');
   };
 
@@ -25,6 +25,7 @@ export function useRescheduleFlow({
       await onRescheduleRequest(reschedulingReq.id, {
         date: newProposedDate,
         slot: newProposedSlot,
+        timeZone: getLocalTimeZone(),
         note: rescheduleNote.trim(),
       });
       onShowToast?.(`Alternate time sent to ${reschedulingReq.requester.name}.`);
@@ -41,7 +42,8 @@ export function useRescheduleFlow({
       await onConfirmRescheduleRequest(
         request.id,
         request.rescheduledDate || request.preferredDate,
-        request.rescheduledSlot || request.preferredTimeSlot
+        request.rescheduledSlot || request.preferredTimeSlot,
+        request.rescheduledTimeZone || getLocalTimeZone()
       );
       onShowToast?.(`New time confirmed with ${request.mentor.name}.`);
     } catch (error) {

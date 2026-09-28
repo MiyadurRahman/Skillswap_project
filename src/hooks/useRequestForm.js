@@ -1,5 +1,11 @@
 import { useMemo, useState } from 'react';
-import { formatAcademicDate, toDateInput } from '../utils/dateUtils';
+import {
+  formatAcademicDate,
+  getLocalTimeZone,
+  toDateInput,
+  toTimeInputValue,
+} from '../utils/dateUtils';
+import { DEFAULT_CREDIT_AMOUNT, MAX_REQUEST_CREDITS } from '../config/economy';
 
 export function useRequestForm({
   selectedMentorForRequest,
@@ -17,7 +23,7 @@ export function useRequestForm({
   const [draftDate, draftTime] = String(draft.slot || '').split('|');
   const [preferredDate, setPreferredDate] = useState(draftDate || toDateInput(2));
   const [preferredTimeSlot, setPreferredTimeSlot] = useState(
-    draftTime || 'Morning (09:00 - 12:00)'
+    toTimeInputValue(draftTime, '09:00')
   );
   const [sessionGoals, setSessionGoals] = useState(draft.note || '');
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
@@ -37,7 +43,14 @@ export function useRequestForm({
 
     setIsSubmittingRequest(true);
     try {
-      const cost = Number(currentMentor.cost || 2.5);
+      const cost = Number(currentMentor.cost || DEFAULT_CREDIT_AMOUNT);
+      const balance = Number(userProfile?.timeCredits || 0);
+      if (!Number.isFinite(cost) || cost <= 0 || cost > MAX_REQUEST_CREDITS) {
+        throw new Error(`Session cost must be between 0 and ${MAX_REQUEST_CREDITS} credits.`);
+      }
+      if (balance < cost) {
+        throw new Error(`You need ${cost} credits for this request. Your balance is ${balance}.`);
+      }
       await onSendRequest({
         mentor: currentMentor,
         requestedSkill: chosenSkill.name,
@@ -48,7 +61,8 @@ export function useRequestForm({
         creditsOffered: cost,
         preferredDate,
         formattedDate: formatAcademicDate(`${preferredDate}T12:00:00`),
-        preferredTimeSlot,
+        preferredTimeSlot: toTimeInputValue(preferredTimeSlot),
+        timeZone: getLocalTimeZone(),
         goals: sessionGoals.trim(),
       });
       onShowToast?.(`Learning session requested from ${currentMentor.name}.`);
@@ -66,6 +80,7 @@ export function useRequestForm({
     selectedSkillId,
     setSelectedSkillId,
     preferredDate,
+    timeZone: getLocalTimeZone(),
     minPreferredDate: toDateInput(1),
     setPreferredDate,
     preferredTimeSlot,

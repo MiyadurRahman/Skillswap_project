@@ -6,6 +6,7 @@ import { ScheduleHistoryList } from '../component/ScheduleHistoryList';
 import { resolveSessionTimes } from '../services/realtime';
 import { toLocalDayKey } from '../utils/dateUtils';
 import { useDialogBehavior } from '../hooks/useDialogBehavior';
+import { resolveAvatarForName } from '../assets';
 
 const startOfWeek = (d) => {
   const copy = new Date(d);
@@ -24,12 +25,10 @@ export const SchedulePage = ({
   onShowToast,
 }) => {
   const { userProfile: authProfile } = useAuth();
-  const userAvatar =
-    authProfile?.avatarUrl ||
-    userProfile?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=240&auto=format&fit=crop&q=80';
+  const userAvatar = authProfile?.avatarUrl || userProfile?.avatarUrl || resolveAvatarForName(authProfile?.name || userProfile?.name || 'Scholar');
 
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [now] = useState(Date.now);
   useDialogBehavior(Boolean(cancelTarget), () => setCancelTarget(null));
 
@@ -81,17 +80,18 @@ export const SchedulePage = ({
     setCancelTarget(session);
   };
 
-  const confirmCancel = () => {
-    if (!cancelTarget) return;
-    onUpdateSession?.({
-      ...cancelTarget,
-      status: 'Cancelled',
-      date: cancelTarget.date,
-      time: cancelTarget.time,
-      title: cancelTarget.title,
-    });
-    onShowToast?.('Session cancelled. It has been removed from your calendar.');
-    setCancelTarget(null);
+  const confirmCancel = async () => {
+    if (!cancelTarget || isCancelling || !onUpdateSession) return;
+    setIsCancelling(true);
+    try {
+      await onUpdateSession({ ...cancelTarget, status: 'Cancelled' });
+      onShowToast?.('Session cancelled. It has been removed from your calendar.');
+      setCancelTarget(null);
+    } catch {
+      // The update handler reports the save failure.
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const formatDay = (ms) =>
@@ -105,9 +105,11 @@ export const SchedulePage = ({
 
   const formatTime = (ms) =>
     ms
-      ? new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
-          new Date(ms)
-        )
+      ? new Intl.DateTimeFormat(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZoneName: 'short',
+        }).format(new Date(ms))
       : '';
 
   return (
@@ -162,14 +164,6 @@ export const SchedulePage = ({
 
           {/* Right: icons & profile */}
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => onShowToast?.('Notifications: All academic swaps are up to date.')}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              title="Notifications"
-              id="schedule-btn-notifications"
-            >
-              <span className="material-symbols-outlined text-[20px]">notifications</span>
-            </button>
             <button
               onClick={() => onNavigateScreen('profile-setup')}
               className="relative cursor-pointer group shrink-0"
@@ -306,9 +300,10 @@ export const SchedulePage = ({
               </button>
               <button
                 onClick={confirmCancel}
+                disabled={isCancelling}
                 className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors cursor-pointer"
               >
-                Yes, Cancel It
+                {isCancelling ? 'Cancelling…' : 'Yes, Cancel It'}
               </button>
             </div>
           </div>

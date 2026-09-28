@@ -16,23 +16,41 @@ export function useSessionHandlers({
     showToast('Sessions are created after the receiving scholar accepts a swap request.');
   }, [showToast]);
 
-  const handleUpdateSession = useCallback((updatedSession) => {
+  const handleUpdateSession = useCallback(async (updatedSession) => {
     if (!updatedSession?.id) return;
+    if (updatedSession.status === 'Cancelled') {
+      try {
+        await updateSession(updatedSession.id, {
+          status: 'Cancelled',
+          cancelledAt: Date.now(),
+          cancelledBy: myUid,
+        });
+      } catch (error) {
+        console.warn('Cancel session failed:', error);
+        showToast('Could not cancel this session. Please try again.');
+        throw error;
+      }
+      return;
+    }
     const next = {
       title: updatedSession.title,
       date: updatedSession.date,
       time: updatedSession.time,
+      timeZone: updatedSession.timeZone,
     };
     const { startAt, endAt } = resolveSessionTimes(updatedSession);
     if (startAt) {
       next.startAt = startAt;
       next.endAt = endAt;
     }
-    updateSession(updatedSession.id, next).catch((error) => {
+    try {
+      await updateSession(updatedSession.id, next);
+    } catch (error) {
       console.warn('Update session failed:', error);
       showToast('Could not update this session.');
-    });
-  }, [showToast]);
+      throw error;
+    }
+  }, [showToast, myUid]);
 
   const handleSelectSession = useCallback((session) => {
     setSelectedSessionId(session?.id || null);

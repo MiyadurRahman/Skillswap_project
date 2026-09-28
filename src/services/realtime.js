@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   addDoc,
+  deleteDoc,
   setDoc,
   updateDoc,
   writeBatch,
@@ -9,6 +10,8 @@ import {
   query,
   where,
   orderBy,
+  limitToLast,
+  limit,
   getDoc,
   arrayUnion,
   increment,
@@ -16,12 +19,20 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { resolveAvatarForName, academicAssets } from '../assets';
+import {
+  getLocalTimeZone,
+  isValidTimeZone,
+  toTimeInputValue,
+  zonedDateTimeToEpoch,
+} from '../utils/dateUtils';
+import {
+  DEFAULT_CREDIT_AMOUNT,
+  INITIAL_TIME_CREDITS,
+} from '../config/economy';
 
-const DEFAULT_AVATAR = academicAssets?.avatars?.defaultMaleScholar ||
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+const DEFAULT_AVATAR = academicAssets?.avatars?.defaultMaleScholar || resolveAvatarForName('Scholar');
 
-// Default price for a one-hour knowledge swap.
-export const DEFAULT_CREDIT_AMOUNT = 2.5;
+export { DEFAULT_CREDIT_AMOUNT } from '../config/economy';
 
 // Normalize legacy hundred-based values while storing new values directly.
 export const toCreditHours = (creditsOffered) => {
@@ -129,9 +140,20 @@ const editableProfile = (profile = {}) => {
 
 export const upsertUserProfile = async (uid, profile) => {
   const ref = doc(db, 'users', uid);
+  const existing = await getDoc(ref);
+  const initialStats = existing.exists() ? {} : {
+    timeCredits: INITIAL_TIME_CREDITS,
+    creditsEarned: 0,
+    creditsSpent: 0,
+    completedSwaps: 0,
+    ratingCount: 0,
+    ratingSum: 0,
+    ratingAverage: 0,
+    achievementBadges: [],
+  };
   await setDoc(
     ref,
-    { ...editableProfile(profile), uid, updatedAt: Date.now() },
+    { ...editableProfile(profile), ...initialStats, uid, updatedAt: Date.now() },
     { merge: true }
   );
   return profile;
@@ -153,7 +175,19 @@ export const ensureUserProfile = async (uid, profile) => {
   }
   await setDoc(
     ref,
-    { ...editableProfile(profile), uid, updatedAt: Date.now() },
+    {
+      ...editableProfile(profile),
+      timeCredits: INITIAL_TIME_CREDITS,
+      creditsEarned: 0,
+      creditsSpent: 0,
+      completedSwaps: 0,
+      ratingCount: 0,
+      ratingSum: 0,
+      ratingAverage: 0,
+      achievementBadges: [],
+      uid,
+      updatedAt: Date.now(),
+    },
     { merge: true }
   );
   return profile;
@@ -168,8 +202,8 @@ export const subscribeUserProfile = (uid, callback) => {
   );
 };
 
-// All public scholar profiles (for the Discover directory). Excludes no one;
-// the UI filters out the current viewer.
+// Public scholar profiles used by Discover. Keep this projection explicit so
+// fields added to account documents never leak into the directory model.
 export const subscribeAllUsers = (callback, onFirst) => {
   const q = query(collection(db, 'users'));
   let fired = false;
@@ -213,11 +247,6 @@ export const subscribeAllUsers = (callback, onFirst) => {
           credentials: asArray(u.credentials),
         };
       });
-      console.info(
-        '[users] subscription',
-        `${users.length} users`,
-        users.map((u) => `${u.uid.slice(0, 8)}:${u.name}`).join(' | ')
-      );
       callback(users);
     },
     (err) => {
@@ -245,17 +274,18 @@ export const mapIncomingRequest = (doc) => {
       isOnline: r.requester?.isOnline ?? false,
     },
     requestedSkill: r.requestedSkill || 'Skill not specified',
-    skillLevel: r.skillLevel || '60 min',
+    skillLevel: r.skillLevel || 'Not specified',
     offeredExchange: r.offeredExchange || `${r.creditsOffered ?? DEFAULT_CREDIT_AMOUNT} Academic Credits`,
     offeredSkill: r.offeredSkill || '',
     preferredDate: r.preferredDate,
+    timeZone: r.timeZone || '',
     formattedDate: r.formattedDate || r.preferredDate || 'Flexible date',
     preferredTimeSlot: r.preferredTimeSlot || 'Any time slot',
     goals: r.goals || '',
     status: r.status || 'pending',
     urgency:
       r.status === 'pending'
-        ? r.urgency || 'Expires in 24 hours'
+        ? r.urgency || 'Awaiting response'
         : r.status,
     submittedAt: formatTimeAgo(r.createdAt),
     createdAt: r.createdAt,
@@ -265,6 +295,7 @@ export const mapIncomingRequest = (doc) => {
     declineReason: r.declineReason,
     rescheduledDate: r.rescheduledDate,
     rescheduledSlot: r.rescheduledSlot,
+    rescheduledTimeZone: r.rescheduledTimeZone || '',
     rescheduleNote: r.rescheduleNote,
   };
 };
@@ -282,10 +313,11 @@ export const mapOutgoingRequest = (doc) => {
       badge2: r.mentor?.badges?.[1] || '',
     },
     requestedSkill: r.requestedSkill || 'Academic Skills',
-    skillLevel: r.skillLevel || 'Advanced Level • 60 min',
+    skillLevel: r.skillLevel || 'Not specified',
     cost: r.cost ?? r.creditsOffered ?? DEFAULT_CREDIT_AMOUNT,
     creditsOffered: r.creditsOffered ?? DEFAULT_CREDIT_AMOUNT,
     preferredDate: r.preferredDate || 'Flexible date',
+    timeZone: r.timeZone || '',
     formattedDate: r.formattedDate || r.preferredDate || 'Flexible date',
     preferredTimeSlot: r.preferredTimeSlot || 'Any time slot',
     goals: r.goals || '',
@@ -297,6 +329,7 @@ export const mapOutgoingRequest = (doc) => {
     declineReason: r.declineReason,
     rescheduledDate: r.rescheduledDate,
     rescheduledSlot: r.rescheduledSlot,
+    rescheduledTimeZone: r.rescheduledTimeZone || '',
     rescheduleNote: r.rescheduleNote,
   };
 };
@@ -397,7 +430,7 @@ const dayKey = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 // Resolve { startAt, endAt } (ms) from any supported date/time representation.
-export const resolveSessionTimes = ({ date, time, duration, startAt, endAt }) => {
+export const resolveSessionTimes = ({ date, time, duration, startAt, endAt, timeZone }) => {
   const startTs = Number(startAt);
   if (startTs && !Number.isNaN(startTs) && new Date(startTs).getFullYear() > 2000) {
     const durMs = durationToMinutes(duration) * 60000;
@@ -408,8 +441,19 @@ export const resolveSessionTimes = ({ date, time, duration, startAt, endAt }) =>
   if (!parts) return { startAt: null, endAt: null };
   const base = new Date(parts[0], parts[1], parts[2], 9, 0, 0);
   const window = slotToWindow(time);
-  if (window) base.setHours(window[0], window[1], 0, 0);
-  const start = base.getTime();
+  const hour = window ? window[0] : 9;
+  const minute = window ? window[1] : 0;
+  const start = isValidTimeZone(timeZone)
+    ? zonedDateTimeToEpoch({
+        year: parts[0],
+        month: parts[1] + 1,
+        day: parts[2],
+        hour,
+        minute,
+        timeZone,
+      })
+    : (base.setHours(hour, minute, 0, 0), base.getTime());
+  if (!start) return { startAt: null, endAt: null };
   const end = start + durationToMinutes(duration) * 60000;
   return { startAt: start, endAt: end };
 };
@@ -421,6 +465,7 @@ const sessionSchedule = (s) => {
     duration: s.duration,
     startAt: s.startAt,
     endAt: s.endAt,
+    timeZone: s.timeZone,
   });
   return {
     startMs: startAt,
@@ -444,9 +489,12 @@ export const mapSession = (doc, currentUid) => {
     status: s.status || 'Accepted',
     creditAmount: creditAmount || null,
     settledBy: s.settledBy || {},
+    cancelledAt: millis(s.cancelledAt),
+    cancelledBy: s.cancelledBy || '',
     description: s.description || '',
     learningGoals: s.learningGoals || [],
     duration: s.duration || '60 Minutes',
+    timeZone: s.timeZone || '',
     method: s.method || 'Video Call',
     platform: s.platform || 'Google Meet',
     date: s.date || 'Upcoming',
@@ -460,7 +508,7 @@ export const mapSession = (doc, currentUid) => {
       name: partner.name || 'Partner',
       title: partner.title || 'Peer Scholar',
       avatarUrl: partner.avatarUrl || DEFAULT_AVATAR,
-      isOnline: partner.isOnline !== false,
+      isOnline: partner.isOnline === true,
       badges: partner.achievementBadges || partner.badges || [],
       rating: partner.ratingAverage || partner.rating || 0,
       reviewsCount: partner.completedSwaps ?? 0,
@@ -549,7 +597,7 @@ export const buildRequesterSnapshot = (uid, profile) => ({
   university: profile?.university || 'University',
   rating: profile?.rating ?? 0,
   completedSwaps: profile?.completedSwaps ?? 0,
-  isOnline: true,
+  isOnline: profile?.isOnline === true,
   expertiseAreas: profile?.expertiseAreas || [],
   learningGoals: profile?.learningGoals || [],
 });
@@ -593,7 +641,7 @@ export const acceptRequest = async ({
     university: request.requester?.university || 'University',
     rating: num(request.requester?.rating),
     completedSwaps: request.requester?.completedSwaps ?? 0,
-    isOnline: true,
+    isOnline: request.requester?.isOnline === true,
   };
 
   const mentor = {
@@ -604,7 +652,7 @@ export const acceptRequest = async ({
     university: currentProfile?.university || 'University',
     rating: currentProfile?.rating ?? 0,
     completedSwaps: currentProfile?.completedSwaps ?? 0,
-    isOnline: true,
+    isOnline: currentProfile?.isOnline === true,
     badges: (currentProfile?.expertiseAreas || []).slice(0, 2),
   };
 
@@ -614,10 +662,15 @@ export const acceptRequest = async ({
       ? '45 Minutes'
       : '60 Minutes';
 
+  const timeZone = isValidTimeZone(request.timeZone)
+    ? request.timeZone
+    : getLocalTimeZone();
+  const sessionTime = toTimeInputValue(request.preferredTimeSlot);
   const { startAt, endAt } = resolveSessionTimes({
-    date: request.formattedDate || request.preferredDate,
-    time: request.preferredTimeSlot,
+    date: request.preferredDate || request.formattedDate,
+    time: sessionTime,
     duration,
+    timeZone,
   });
 
   const sessionData = {
@@ -626,17 +679,14 @@ export const acceptRequest = async ({
     status: 'Accepted',
     creditAmount: toCreditHours(request.creditsOffered) || null,
     settledBy: {},
-    description: `Collaborative mentorship session requested by ${requester.name}. Focus: ${request.requestedSkill}.`,
-    learningGoals: [
-      `Master foundational concepts in ${request.requestedSkill}`,
-      'Solve core applied problems and edge cases',
-      'Review methodological integrity and literature context',
-    ],
+    description: request.goals?.trim() || '',
+    learningGoals: request.goals?.trim() ? [request.goals.trim()] : [],
     duration,
+    timeZone,
     method: 'Video Call',
     platform,
     date: request.formattedDate || request.preferredDate,
-    time: request.preferredTimeSlot,
+    time: sessionTime,
     startAt: startAt || null,
     endAt: endAt || null,
     meetingLink,
@@ -687,19 +737,22 @@ export const acceptRequest = async ({
 };
 
 export const declineRequest = async (requestId, reason) => {
+  const cleanReason = String(reason || '').trim();
+  if (!cleanReason) throw new Error('Choose a reason before declining this request.');
   await updateDoc(doc(db, 'requests', requestId), {
     status: 'declined',
     respondedAt: Date.now(),
-    declineReason: reason || 'Schedule conflict during this time slot',
+    declineReason: cleanReason.slice(0, 500),
   });
 };
 
-export const rescheduleRequest = async (requestId, { date, slot, note }) => {
+export const rescheduleRequest = async (requestId, { date, slot, note, timeZone }) => {
   await updateDoc(doc(db, 'requests', requestId), {
     status: 'rescheduled',
     respondedAt: Date.now(),
     rescheduledDate: date,
     rescheduledSlot: slot,
+    rescheduledTimeZone: isValidTimeZone(timeZone) ? timeZone : getLocalTimeZone(),
     rescheduleNote: note || '',
   });
 };
@@ -713,12 +766,14 @@ export const cancelOutgoingRequest = async (requestId) => {
 
 // Requester confirms the mentor's proposed alternate time — reopens the
 // request with the new date/slot so the mentor can accept it.
-export const confirmRescheduleRequest = async (requestId, newDate, newSlot) => {
+export const confirmRescheduleRequest = async (requestId, newDate, newSlot, timeZone) => {
   await updateDoc(doc(db, 'requests', requestId), {
     status: 'pending',
     preferredDate: newDate,
     formattedDate: newDate,
     preferredTimeSlot: newSlot,
+    timeZone: isValidTimeZone(timeZone) ? timeZone : getLocalTimeZone(),
+    rescheduledTimeZone: null,
     rescheduledDate: null,
     rescheduledSlot: null,
     rescheduleNote: null,
@@ -737,6 +792,117 @@ export const addSessionNote = async (sessionId, note) => {
 };
 
 // ---------------------------------------------------------------------------
+// Trust and safety
+// ---------------------------------------------------------------------------
+
+export const getBlockId = (blockerUid, blockedUid) => `${blockerUid}__${blockedUid}`;
+
+export const subscribeBlockedUsers = (blockerUid, callback, onError) => {
+  if (!blockerUid) return () => {};
+  const q = query(collection(db, 'blocks'), where('blockerUid', '==', blockerUid));
+  return onSnapshot(
+    q,
+    (snapshot) => callback(snapshot.docs.map((entry) => entry.data().blockedUid).filter(Boolean)),
+    (error) => onError?.(error)
+  );
+};
+
+export const blockScholar = async (blockerUid, blockedUid) => {
+  if (!blockerUid || !blockedUid || blockerUid === blockedUid) {
+    throw new Error('Choose another scholar to block.');
+  }
+  if (auth.currentUser?.uid !== blockerUid) {
+    throw new Error('Sign in again before changing your blocked scholars.');
+  }
+  const blockRef = doc(db, 'blocks', getBlockId(blockerUid, blockedUid));
+  const existing = await getDoc(blockRef);
+  if (existing.exists()) return;
+  await setDoc(blockRef, { blockerUid, blockedUid, createdAt: Date.now() });
+};
+
+export const unblockScholar = async (blockerUid, blockedUid) => {
+  if (!blockerUid || !blockedUid || auth.currentUser?.uid !== blockerUid) {
+    throw new Error('Sign in again before changing your blocked scholars.');
+  }
+  await deleteDoc(doc(db, 'blocks', getBlockId(blockerUid, blockedUid)));
+};
+
+export const submitScholarReport = async ({
+  reporterUid,
+  reportedUid,
+  category,
+  details,
+  source = 'profile',
+  conversationId = '',
+}) => {
+  const allowedCategories = ['harassment', 'spam', 'impersonation', 'unsafe', 'other'];
+  if (!reporterUid || !reportedUid || reporterUid === reportedUid) {
+    throw new Error('This scholar cannot be reported from the current account.');
+  }
+  if (auth.currentUser?.uid !== reporterUid) {
+    throw new Error('Sign in again before submitting a report.');
+  }
+  if (!allowedCategories.includes(category)) {
+    throw new Error('Choose a reason for your report.');
+  }
+  await addDoc(collection(db, 'reports'), {
+    reporterUid,
+    reportedUid,
+    category,
+    details: String(details || '').trim().slice(0, 2000),
+    source: source === 'chat' ? 'chat' : 'profile',
+    conversationId: String(conversationId || '').slice(0, 200),
+    status: 'open',
+    createdAt: Date.now(),
+  });
+};
+
+export const subscribeAdminReports = (callback, onError) => {
+  const reportsQuery = query(
+    collection(db, 'reports'),
+    orderBy('createdAt', 'desc'),
+    limit(100)
+  );
+  return onSnapshot(
+    reportsQuery,
+    (snapshot) => callback(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }))),
+    (error) => onError?.(error)
+  );
+};
+
+export const subscribeMyReports = (reporterUid, callback, onError) => {
+  if (!reporterUid || auth.currentUser?.uid !== reporterUid) {
+    onError?.(new Error('Sign in to view your reports.'));
+    return () => {};
+  }
+  const reportsQuery = query(
+    collection(db, 'reports'),
+    where('reporterUid', '==', reporterUid),
+    orderBy('createdAt', 'desc'),
+    limit(100)
+  );
+  return onSnapshot(
+    reportsQuery,
+    (snapshot) => callback(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }))),
+    (error) => onError?.(error)
+  );
+};
+
+export const updateReportReview = async (reportId, status) => {
+  const allowedStatuses = ['reviewing', 'resolved', 'dismissed'];
+  if (!reportId || !allowedStatuses.includes(status)) {
+    throw new Error('Choose a valid report status.');
+  }
+  const reviewerUid = auth.currentUser?.uid;
+  if (!reviewerUid) throw new Error('Sign in again before updating this report.');
+  await updateDoc(doc(db, 'reports', reportId), {
+    status,
+    reviewedAt: Date.now(),
+    reviewedBy: reviewerUid,
+  });
+};
+
+// ---------------------------------------------------------------------------
 // Chat / conversations
 // ---------------------------------------------------------------------------
 
@@ -746,6 +912,9 @@ export const getConversationId = (uidA, uidB) => [uidA, uidB].sort().join('__');
 // Get or create the conversation document between two users. Participant IDs
 // are stored in deterministic order and are never rewritten after creation.
 export const ensureConversation = async (uidA, uidB) => {
+  if (!uidA || !uidB || uidA === uidB) {
+    throw new Error('Choose another scholar to start a conversation.');
+  }
   const convId = getConversationId(uidA, uidB);
   const ref = doc(db, 'conversations', convId);
   const participantIds = [uidA, uidB].sort();
@@ -820,7 +989,8 @@ export const subscribeConversationMessages = (conversationId, callback, onError)
   if (!conversationId) return () => {};
   const q = query(
     collection(db, 'conversations', conversationId, 'messages'),
-    orderBy('createdAt', 'asc')
+    orderBy('createdAt', 'asc'),
+    limitToLast(100)
   );
   let unsub = () => {};
   let retryTimer = null;
@@ -871,17 +1041,32 @@ export const subscribeConversationMessages = (conversationId, callback, onError)
 // protected array-field change in Firestore and makes replies fail for the
 // participant whose sender/recipient order differs from the stored order.
 export const sendMessage = async ({ conversationId, participantIds, fromUid, toUid, fromName, text }) => {
+  const cleanText = typeof text === 'string' ? text.trim() : '';
+  if (!fromUid || !toUid || fromUid === toUid) {
+    throw new Error('A valid conversation participant is required.');
+  }
+  if (!cleanText || cleanText.length > 4000) {
+    throw new Error('Messages must contain 1 to 4000 characters.');
+  }
   const convId = conversationId || getConversationId(fromUid, toUid);
   const convRef = doc(db, 'conversations', convId);
   const msgRef = doc(collection(db, 'conversations', convId, 'messages'));
   const now = Date.now();
   const messageParticipantIds = participantIds || [fromUid, toUid];
+  if (
+    messageParticipantIds.length !== 2 ||
+    !messageParticipantIds.includes(fromUid) ||
+    !messageParticipantIds.includes(toUid)
+  ) {
+    throw new Error('The conversation participants are invalid.');
+  }
 
   const batch = writeBatch(db);
   batch.update(convRef, {
-    lastText: text,
+    lastText: cleanText,
     lastFrom: fromUid,
-    lastFromName: fromName || 'Scholar',
+    lastFromName: String(fromName || 'Scholar').slice(0, 100),
+    lastMessageId: msgRef.id,
     updatedAt: now,
     [`unread.${toUid}`]: increment(1),
   });
@@ -890,7 +1075,7 @@ export const sendMessage = async ({ conversationId, participantIds, fromUid, toU
     participantIds: messageParticipantIds,
     fromUid,
     toUid,
-    text,
+    text: cleanText,
     createdAt: now,
     read: false,
   });
@@ -911,7 +1096,8 @@ export const markConversationRead = async (conversationId, uid) => {
 // ---------------------------------------------------------------------------
 // Time-credit ledger & session settlement
 // ---------------------------------------------------------------------------
-// Settlement and ledger writes are performed by callable Cloud Functions.
+// Settlement runs as one Firestore transaction. Security rules validate the
+// resulting profile balances, session state, and create-only ledger entries.
 
 export const mapTransaction = (doc) => {
   const t = doc.data();
@@ -976,13 +1162,17 @@ export const settleSessionSide = async ({ sessionId, currentUid }) => {
     }
 
     const settledBy = { ...(session.settledBy || {}) };
-    if (settledBy[currentUid]) return { alreadyConfirmed: true, allSettled: false };
-    settledBy[currentUid] = Date.now();
+    const alreadyConfirmed = Boolean(settledBy[currentUid]);
+    if (!alreadyConfirmed) settledBy[currentUid] = Date.now();
     const allSettled = participantIds.every((uid) => Boolean(settledBy[uid]));
     if (!allSettled) {
-      transaction.update(sessionRef, { settledBy });
-      return { allSettled: false };
+      if (!alreadyConfirmed) transaction.update(sessionRef, { settledBy });
+      return { alreadyConfirmed, allSettled: false };
     }
+
+    // Older/interrupted settlement attempts can leave both confirmations on
+    // an Accepted session without applying credits or profile statistics. Do
+    // not return early for that recoverable state: rerun the atomic finalizer.
 
     const requesterUid = session.requester?.uid;
     const mentorUid = session.mentor?.uid;
@@ -994,21 +1184,18 @@ export const settleSessionSide = async ({ sessionId, currentUid }) => {
     const mentorRef = doc(db, 'users', mentorUid);
     const spentRef = doc(db, 'transactions', `${sessionId}__spent`);
     const earnedRef = doc(db, 'transactions', `${sessionId}__earned`);
-    const [requesterSnapshot, mentorSnapshot, spentSnapshot, earnedSnapshot] =
-      await Promise.all([
-        transaction.get(requesterRef),
-        transaction.get(mentorRef),
-        transaction.get(spentRef),
-        transaction.get(earnedRef),
-      ]);
+    // Ledger reads are owner-only. Reading both predictable ledger IDs here
+    // causes permission-denied for the participant who does not own each entry
+    // (even when those entries do not exist yet). The rules reject duplicate
+    // settlement writes atomically, so only participant profiles need reads.
+    const [requesterSnapshot, mentorSnapshot] = await Promise.all([
+      transaction.get(requesterRef),
+      transaction.get(mentorRef),
+    ]);
 
     if (!requesterSnapshot.exists() || !mentorSnapshot.exists()) {
       throw new Error('A participant profile is missing.');
     }
-    if (spentSnapshot.exists() || earnedSnapshot.exists()) {
-      throw new Error('This session has already been settled.');
-    }
-
     const requester = requesterSnapshot.data();
     const mentor = mentorSnapshot.data();
     const amount = num(session.creditAmount);
@@ -1065,7 +1252,7 @@ export const settleSessionSide = async ({ sessionId, currentUid }) => {
       completedAt,
       statsApplied: true,
     });
-    return { allSettled: true, paid: amount, completedAt };
+    return { alreadyConfirmed, allSettled: true, paid: amount, completedAt };
   });
 };
 
