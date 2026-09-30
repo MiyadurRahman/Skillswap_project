@@ -18,6 +18,8 @@ export const ProfileSetupPage = ({
   const [academicLevel, setAcademicLevel] = useState(
     () => userProfile?.academicLevel || ''
   );
+  const [isAcademicLevelMenuOpen, setIsAcademicLevelMenuOpen] = useState(false);
+  const [academicLevelSearch, setAcademicLevelSearch] = useState('');
   const [bio, setBio] = useState(() => userProfile?.bio || '');
   const [avatarPreview, setAvatarPreview] = useState(
     () =>
@@ -36,6 +38,22 @@ export const ProfileSetupPage = ({
   const [showGoalInput, setShowGoalInput] = useState(false);
 
   const fileInputRef = useRef(null);
+  const academicLevels = [
+    { value: 'College / HSC Student', label: 'College / HSC Student' },
+    { value: 'Diploma Student', label: 'Diploma Student' },
+    { value: 'BSc in Computer Science & Engineering', label: 'BSc in Computer Science & Engineering' },
+    { value: 'Undergraduate', label: "Undergraduate / Bachelor's Student" },
+    { value: "Master's Student", label: "Master's Student" },
+    { value: 'MPhil Student', label: 'MPhil Student' },
+    { value: 'PhD Candidate', label: 'PhD Student / Candidate' },
+    { value: 'Postdoctoral Fellow', label: 'Postdoctoral Researcher / Fellow' },
+    { value: 'Researcher', label: 'Researcher' },
+    { value: 'Lecturer', label: 'Lecturer' },
+    { value: 'Assistant Professor', label: 'Assistant Professor' },
+    { value: 'Associate Professor', label: 'Associate Professor' },
+    { value: 'Professor', label: 'Professor' },
+    { value: 'Graduate', label: 'Graduate / Alumni' },
+  ];
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
@@ -318,20 +336,82 @@ export const ProfileSetupPage = ({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-[#4a454c] block mb-1">
+                  <label htmlFor="profile-academic-level" className="text-xs font-semibold text-[#4a454c] block mb-1">
                     Degree / Status
                   </label>
-                  <select
-                    value={academicLevel}
-                    onChange={(e) => setAcademicLevel(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-[#ffffff] border border-[#ccc4cd] rounded-xl text-xs text-[#201a1b] focus:outline-none input-focus-glow"
-                  >
-                    <option value="Undergraduate">Undergraduate Student</option>
-                    <option value="Master's Student">Master's Student</option>
-                    <option value="PhD Candidate">PhD Candidate / Researcher</option>
-                    <option value="Postdoctoral Fellow">Postdoctoral Fellow</option>
-                    <option value="Assistant Professor">Faculty / Professor</option>
-                  </select>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] text-[18px]">
+                      school
+                    </span>
+                    <button
+                      id="profile-academic-level"
+                      type="button"
+                      onClick={() => {
+                        setIsAcademicLevelMenuOpen((open) => !open);
+                        setAcademicLevelSearch('');
+                      }}
+                      disabled={saving}
+                      aria-haspopup="listbox"
+                      aria-expanded={isAcademicLevelMenuOpen}
+                      className="w-full flex items-center justify-between gap-3 pl-10 pr-3 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-left text-xs sm:text-sm focus:outline-none input-focus-glow transition-all cursor-pointer"
+                    >
+                      <span className={academicLevel ? 'truncate text-[#201a1b]' : 'text-[#7b757d]'}>
+                        {academicLevels.find((level) => level.value === academicLevel)?.label || academicLevel || 'Select your degree / status'}
+                      </span>
+                      <span className={`material-symbols-outlined shrink-0 text-[18px] text-[#7b757d] transition-transform ${isAcademicLevelMenuOpen ? 'rotate-180' : ''}`}>
+                        expand_more
+                      </span>
+                    </button>
+                    {isAcademicLevelMenuOpen && (
+                      <div
+                        role="listbox"
+                        aria-label="Degree or academic status"
+                        className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-[#d9cbd7] bg-white p-1.5 shadow-xl"
+                      >
+                        <div className="relative mb-1.5">
+                          <span className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-[#887580]">
+                            search
+                          </span>
+                          <input
+                            type="search"
+                            value={academicLevelSearch}
+                            onChange={(e) => setAcademicLevelSearch(e.target.value)}
+                            placeholder="Search degree or status..."
+                            autoFocus
+                            className="w-full rounded-lg border border-[#e1d6df] bg-[#fff8f7] py-2 pl-8 pr-3 text-xs text-[#201a1b] outline-none focus:border-[#a992bb]"
+                          />
+                        </div>
+                        <div className="max-h-52 overflow-y-auto">
+                          {academicLevels
+                            .filter((level) => level.label.toLowerCase().includes(academicLevelSearch.trim().toLowerCase()))
+                            .map((level) => (
+                              <button
+                                key={level.value}
+                                type="button"
+                                role="option"
+                                aria-selected={academicLevel === level.value}
+                                onClick={() => {
+                                  setAcademicLevel(level.value);
+                                  setIsAcademicLevelMenuOpen(false);
+                                }}
+                                className={`w-full rounded-lg px-3 py-2 text-left text-xs transition-colors cursor-pointer ${
+                                  academicLevel === level.value
+                                    ? 'bg-[#eeddf2] font-semibold text-[#473b4b]'
+                                    : 'text-[#4a454c] hover:bg-[#f7eeee]'
+                                }`}
+                              >
+                                {level.label}
+                              </button>
+                            ))}
+                          {academicLevels.every(
+                            (level) => !level.label.toLowerCase().includes(academicLevelSearch.trim().toLowerCase())
+                          ) && (
+                            <p className="px-3 py-4 text-center text-xs text-[#7b757d]">No degree or status found.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

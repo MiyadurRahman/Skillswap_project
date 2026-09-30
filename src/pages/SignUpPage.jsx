@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/auth';
+import { bangladeshUniversities } from '../data/bangladeshUniversities';
 
 export const SignUpPage = ({
   onSignUpSuccess,
@@ -20,6 +21,8 @@ export const SignUpPage = ({
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isUniversityMenuOpen, setIsUniversityMenuOpen] = useState(false);
+  const [universitySearch, setUniversitySearch] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,7 +33,7 @@ export const SignUpPage = ({
       return;
     }
 
-    if (!fullName.trim() || !email.trim() || !password) {
+    if (!fullName.trim() || !email.trim() || !password || !university.trim()) {
       setErrorMessage('Please fill in all required fields.');
       return;
     }
@@ -213,7 +216,7 @@ export const SignUpPage = ({
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Tanvir Ahmed"
+                    placeholder="e.g. Enter your name"
                     required
                     disabled={loading}
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-xs sm:text-sm focus:outline-none input-focus-glow transition-all"
@@ -235,40 +238,74 @@ export const SignUpPage = ({
                   <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] text-[18px]">
                     domain
                   </span>
-                  <input
+                  <button
                     id="signup-university"
-                    type="text"
-                    value={university}
-                    onChange={(e) => setUniversity(e.target.value)}
-                    placeholder="Enter your university"
-                    required
+                    type="button"
+                    onClick={() => {
+                      setIsUniversityMenuOpen((open) => !open);
+                      setUniversitySearch('');
+                    }}
                     disabled={loading}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-xs sm:text-sm focus:outline-none input-focus-glow transition-all"
-                  />
-                </div>
-                {/* Quick suggestions */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[10px] text-[#7b757d] font-medium">Suggestions:</span>
-                  {[
-                    'United International University (UIU)',
-                    'BUET',
-                    'University of Dhaka',
-                    'BRAC University',
-                    'North South University (NSU)',
-                  ].map((u) => (
-                    <button
-                      key={u}
-                      type="button"
-                      onClick={() => setUniversity(u)}
-                      className={`text-[10px] px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
-                        university === u
-                          ? 'bg-[#675975] text-white border-[#675975] font-semibold'
-                          : 'bg-[#f7effa] text-[#52445f] border-[#d2c0e0] hover:bg-[#ebd9f8]'
-                      }`}
+                    aria-haspopup="listbox"
+                    aria-expanded={isUniversityMenuOpen}
+                    className="w-full flex items-center justify-between gap-3 pl-10 pr-3 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-left text-xs sm:text-sm focus:outline-none input-focus-glow transition-all cursor-pointer"
+                  >
+                    <span className={university ? 'truncate text-[#201a1b]' : 'text-[#7b757d]'}>
+                      {university || 'Select your university'}
+                    </span>
+                    <span className={`material-symbols-outlined shrink-0 text-[18px] text-[#7b757d] transition-transform ${isUniversityMenuOpen ? 'rotate-180' : ''}`}>
+                      expand_more
+                    </span>
+                  </button>
+                  {isUniversityMenuOpen && (
+                    <div
+                      role="listbox"
+                      aria-label="Bangladesh universities"
+                      className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-[#d9cbd7] bg-white p-1.5 shadow-xl"
                     >
-                      {u === 'United International University (UIU)' ? 'UIU' : u}
-                    </button>
-                  ))}
+                      <div className="relative mb-1.5">
+                        <span className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-[#887580]">
+                          search
+                        </span>
+                        <input
+                          type="search"
+                          value={universitySearch}
+                          onChange={(e) => setUniversitySearch(e.target.value)}
+                          placeholder="Search a university..."
+                          autoFocus
+                          className="w-full rounded-lg border border-[#e1d6df] bg-[#fff8f7] py-2 pl-8 pr-3 text-xs text-[#201a1b] outline-none focus:border-[#a992bb]"
+                        />
+                      </div>
+                      <div className="max-h-52 overflow-y-auto">
+                      {bangladeshUniversities
+                        .filter((institution) => institution.toLowerCase().includes(universitySearch.trim().toLowerCase()))
+                        .map((institution) => (
+                        <button
+                          key={institution}
+                          type="button"
+                          role="option"
+                          aria-selected={university === institution}
+                          onClick={() => {
+                            setUniversity(institution);
+                            setIsUniversityMenuOpen(false);
+                          }}
+                          className={`w-full rounded-lg px-3 py-2 text-left text-xs transition-colors cursor-pointer ${
+                            university === institution
+                              ? 'bg-[#eeddf2] font-semibold text-[#473b4b]'
+                              : 'text-[#4a454c] hover:bg-[#f7eeee]'
+                          }`}
+                        >
+                          {institution}
+                        </button>
+                      ))}
+                      {bangladeshUniversities.every(
+                        (institution) => !institution.toLowerCase().includes(universitySearch.trim().toLowerCase())
+                      ) && (
+                        <p className="px-3 py-4 text-center text-xs text-[#7b757d]">No university found.</p>
+                      )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
