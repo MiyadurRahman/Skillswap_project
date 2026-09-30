@@ -914,7 +914,7 @@ export const SessionDetailsPage = ({
                           avatarUrl: partner.avatarUrl,
                         });
                       } else if (onShowToast) {
-                        onShowToast('Messaging is unavailable for this scholar right now.');
+                        onShowToast('Messaging is unavailable for this scholar right now.', 'warning');
                       }
                     }}
                     className="w-full py-2.5 px-4 text-[#201a1b] hover:bg-[#fbf4f2] border border-[#eddcd8] rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"

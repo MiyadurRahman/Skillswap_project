@@ -62,7 +62,7 @@ export const MentorCard = ({ mentor, onSelect, onMessage, onShowToast }) => {
             if (onMessage) {
               onMessage(mentor);
             } else if (onShowToast) {
-              onShowToast('Messaging is unavailable for this scholar right now.');
+              onShowToast('Messaging is unavailable for this scholar right now.', 'warning');
             }
           }}
           className="flex-1 px-3 py-2 sm:py-1 bg-[#fdf1f1] hover:bg-[#f7ebeb] text-[#675975] rounded-full text-[11px] font-medium transition-colors text-center cursor-pointer"

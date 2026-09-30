@@ -13,7 +13,7 @@ export function useSessionHandlers({
   myUid,
 }) {
   const handleCreateSession = useCallback(() => {
-    showToast('Sessions are created after the receiving scholar accepts a swap request.');
+    showToast('Sessions are created after the receiving scholar accepts a swap request.', 'info');
   }, [showToast]);
 
   const handleUpdateSession = useCallback(async (updatedSession) => {
@@ -27,7 +27,7 @@ export function useSessionHandlers({
         });
       } catch (error) {
         console.warn('Cancel session failed:', error);
-        showToast('Could not cancel this session. Please try again.');
+        showToast('Could not cancel this session. Please try again.', 'error');
         throw error;
       }
       return;
@@ -47,7 +47,7 @@ export function useSessionHandlers({
       await updateSession(updatedSession.id, next);
     } catch (error) {
       console.warn('Update session failed:', error);
-      showToast('Could not update this session.');
+      showToast('Could not update this session.', 'error');
       throw error;
     }
   }, [showToast, myUid]);
@@ -60,7 +60,7 @@ export function useSessionHandlers({
   const handleAddSessionNote = useCallback((sessionId, note) =>
     addSessionNote(sessionId, note).catch((error) => {
       console.warn('Add note failed:', error);
-      showToast('Could not save the session note.');
+      showToast('Could not save the session note.', 'error');
       throw error;
     }), [showToast]);
 

@@ -86,18 +86,18 @@ export const SkillManagerPage = ({
     const trimmed = (skillToAdd || teachInput).trim();
     if (!trimmed) return;
     if (skillsTeach.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
-      onShowToast(`"${trimmed}" is already in your teaching list.`);
+      onShowToast(`"${trimmed}" is already in your teaching list.`, 'warning');
       setTeachInput('');
       return;
     }
     setSkillsTeach((prev) => [...prev, trimmed]);
     setTeachInput('');
-    onShowToast(`Added "${trimmed}" to Skills I Teach`);
+    onShowToast(`Added "${trimmed}" to Skills I Teach`, 'success');
   };
 
   const handleRemoveTeachSkill = (skillToRemove) => {
     setSkillsTeach((prev) => prev.filter((s) => s !== skillToRemove));
-    onShowToast(`Removed "${skillToRemove}"`);
+    onShowToast(`Removed "${skillToRemove}"`, 'success');
   };
 
   // Add / Remove Handlers for "Skills I Want"
@@ -105,18 +105,18 @@ export const SkillManagerPage = ({
     const trimmed = (skillToAdd || wantInput).trim();
     if (!trimmed) return;
     if (skillsWant.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
-      onShowToast(`"${trimmed}" is already in your learning wishlist.`);
+      onShowToast(`"${trimmed}" is already in your learning wishlist.`, 'warning');
       setWantInput('');
       return;
     }
     setSkillsWant((prev) => [...prev, trimmed]);
     setWantInput('');
-    onShowToast(`Added "${trimmed}" to Skills I Want`);
+    onShowToast(`Added "${trimmed}" to Skills I Want`, 'success');
   };
 
   const handleRemoveWantSkill = (skillToRemove) => {
     setSkillsWant((prev) => prev.filter((s) => s !== skillToRemove));
-    onShowToast(`Removed "${skillToRemove}"`);
+    onShowToast(`Removed "${skillToRemove}"`, 'success');
   };
 
   // Discard Changes
@@ -135,17 +135,17 @@ export const SkillManagerPage = ({
           ? [...userProfile.learningGoals]
         : []
     );
-    onShowToast('Changes discarded.');
+    onShowToast('Changes discarded.', 'info');
   };
 
   // Save Skills
   const handleSave = async () => {
     try {
       await onSaveProfileSkills?.({ skillsTeach, skillsWant });
-      onShowToast('✨ Skill profile successfully updated and synchronized!');
+      onShowToast('Skill profile updated successfully.', 'success');
     } catch (error) {
       console.warn('Could not save skills:', error);
-      onShowToast('Could not save your skill profile. Please try again.');
+      onShowToast('Could not save your skill profile. Please try again.', 'error');
     }
   };
 
@@ -166,7 +166,7 @@ export const SkillManagerPage = ({
         rawUser: match.rawUser,
       });
     } else {
-      onShowToast('Scholar profile actions are unavailable right now.');
+      onShowToast('Scholar profile actions are unavailable right now.', 'warning');
     }
   };
 
@@ -256,7 +256,7 @@ export const SkillManagerPage = ({
                   if (onOpenMentorModal && recentMatches[0]) {
                     handleProposeSwap(recentMatches[0]);
                   } else {
-                    onShowToast('Add learning goals to find compatible scholars.');
+                    onShowToast('Add learning goals to find compatible scholars.', 'warning');
                     onNavigateScreen('discover');
                   }
                 }}

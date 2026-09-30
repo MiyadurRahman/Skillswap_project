@@ -235,7 +235,7 @@ export const DiscoverPage = ({
                       key={star}
                       onClick={() => {
                         setMinRating(star);
-                        onShowToast(`Filter set: ${star}.0+ star rating`);
+                        onShowToast(`Filter set: ${star}.0+ star rating`, 'info');
                       }}
                       className={`material-symbols-outlined text-[18px] transition-transform hover:scale-110 ${
                         star <= Math.floor(minRating) ? 'fill text-[#473b4b]' : 'text-[#c2b2b9]'
@@ -342,7 +342,7 @@ export const DiscoverPage = ({
               </div>
               <button
                 onClick={() => {
-                  onShowToast(`Filtered for: "${searchQuery || 'All peers'}"`);
+                  onShowToast(`Filtered for: "${searchQuery || 'All peers'}"`, 'info');
                 }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2 bg-[#bda7c5] hover:bg-[#a991b3] text-[#2c1d30] rounded-xl text-xs font-bold transition-colors shadow-2xs"
                 id="btn-search-action"

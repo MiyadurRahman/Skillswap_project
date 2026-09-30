@@ -79,7 +79,7 @@ export const Navbar = ({
           <button
             onClick={() => {
               if (onOpenWalletModal) onOpenWalletModal();
-              else onShowToast('The credit ledger is unavailable right now.');
+              else onShowToast('The credit ledger is unavailable right now.', 'warning');
             }}
             className="p-2 text-white/80 hover:text-white transition-colors"
             title="Credit Ledger & Wallet"

@@ -132,11 +132,11 @@ export const DashboardPage = ({
   const handleSignOut = async () => {
     try {
       await logOut();
-      onShowToast('Successfully logged out.');
+      onShowToast('Successfully logged out.', 'success');
       onNavigateScreen('login');
     } catch (error) {
       console.error('Sign out failed:', error);
-      onShowToast('Could not sign out. Please try again.');
+      onShowToast('Could not sign out. Please try again.', 'error');
     }
   };
 

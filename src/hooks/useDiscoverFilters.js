@@ -41,7 +41,7 @@ export function useDiscoverFilters(liveScholars, onShowToast) {
     } else {
       setActiveTrendingTag(tag);
       setSearchQuery(tag);
-      onShowToast(`Filtering peers for "${tag}"`);
+      onShowToast(`Filtering peers for "${tag}"`, 'info');
     }
   };
 

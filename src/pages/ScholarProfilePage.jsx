@@ -185,7 +185,7 @@ export const PublicProfilePage = ({
             <button
               onClick={() => {
                 if (onOpenWalletModal) onOpenWalletModal();
-                else onShowToast('The credit ledger is unavailable right now.');
+                else onShowToast('The credit ledger is unavailable right now.', 'warning');
               }}
               className="p-2 text-white/80 hover:text-white transition-colors"
               title="Academic Ledger"
@@ -523,7 +523,7 @@ export const PublicProfilePage = ({
                         avatarUrl: profile.avatarUrl,
                       });
                     } else {
-                      onShowToast('Messaging is unavailable for this scholar right now.');
+                      onShowToast('Messaging is unavailable for this scholar right now.', 'warning');
                     }
                   }}
                   className="w-full py-3.5 px-4 bg-white hover:bg-[#fbf0ee] disabled:opacity-50 disabled:cursor-not-allowed border-2 border-[#4a3b47] text-[#4a3b47] rounded-full text-xs font-bold uppercase tracking-wider transition-all active:scale-[0.98]"
