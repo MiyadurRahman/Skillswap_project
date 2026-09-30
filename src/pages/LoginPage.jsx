@@ -16,6 +16,8 @@ export const LoginPage = ({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googlePending, setGooglePending] = useState(false);
+  const [googleWaitTimedOut, setGoogleWaitTimedOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -33,45 +35,55 @@ export const LoginPage = ({
     setLoading(true);
     try {
       const result = await signIn(email.trim(), password);
-      onShowToast(`Welcome back, ${result.profile?.fullName || result.user?.displayName || 'Scholar'}!`);
+      onShowToast(`Welcome back, ${result.profile?.fullName || result.user?.displayName || 'Scholar'}!`, 'success');
       if (onLoginSuccess) onLoginSuccess();
     } catch (err) {
       setErrorMessage(err.message || 'Failed to authenticate.');
-      onShowToast(err.message || 'Login failed. Please check credentials.');
+      onShowToast(err.message || 'Login failed. Please check credentials.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    if (googlePending) return;
     setErrorMessage('');
+    setGooglePending(true);
     setGoogleLoading(true);
+    setGoogleWaitTimedOut(false);
+    const googleLoadingTimeout = window.setTimeout(() => {
+      setGoogleLoading(false);
+      setGoogleWaitTimedOut(true);
+    }, 5000);
     try {
       const res = await signInWithGoogleOAuth();
-      onShowToast(`Signed in with Google as ${res.user.displayName || res.user.email}!`);
+      onShowToast(`Signed in with Google as ${res.user.displayName || res.user.email}!`, 'success');
       if (onLoginSuccess) onLoginSuccess();
     } catch (err) {
       setErrorMessage(err.message || 'Google authentication failed.');
-      onShowToast(err.message || 'Google sign-in cancelled or failed.');
+      onShowToast(err.message || 'Google sign-in cancelled or failed.', 'error');
     } finally {
+      window.clearTimeout(googleLoadingTimeout);
       setGoogleLoading(false);
+      setGooglePending(false);
+      setGoogleWaitTimedOut(false);
     }
   };
 
   const handlePasswordReset = async (e) => {
     e.preventDefault();
     if (!resetEmail) {
-      onShowToast('Please enter your email address to receive a reset link.');
+      onShowToast('Please enter your email address to receive a reset link.', 'warning');
       return;
     }
     setResetLoading(true);
     try {
       await resetPassword(resetEmail.trim());
-      onShowToast(`Password reset link sent to ${resetEmail.trim()}! Check your inbox.`);
+      onShowToast(`Password reset link sent to ${resetEmail.trim()}! Check your inbox.`, 'success');
       setResetModalOpen(false);
       setResetEmail('');
     } catch (err) {
-      onShowToast(err.message || 'Failed to send reset link.');
+      onShowToast(err.message || 'Failed to send reset link.', 'error');
     } finally {
       setResetLoading(false);
     }
@@ -214,7 +226,7 @@ export const LoginPage = ({
             <button
               id="login-submit-btn"
               type="submit"
-              disabled={loading || googleLoading}
+              disabled={loading || googlePending}
               className="w-full bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-xs sm:text-sm py-3 rounded-full shadow-md transition-colors cursor-pointer mt-2 flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {loading ? (
@@ -249,7 +261,7 @@ export const LoginPage = ({
               id="btn-login-google"
               type="button"
               onClick={handleGoogleSignIn}
-              disabled={googleLoading || loading}
+              disabled={googlePending || loading}
               className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 border border-[#ccc4cd] rounded-full text-xs font-semibold text-[#201a1b] hover:bg-[#ebe0e0] transition-colors cursor-pointer bg-white"
             >
               {googleLoading ? (
@@ -274,8 +286,13 @@ export const LoginPage = ({
                   />
                 </svg>
               )}
-              <span>Continue with Google Account</span>
+              <span>{googleLoading ? 'Waiting for Google…' : 'Continue with Google Account'}</span>
             </button>
+            {googlePending && googleWaitTimedOut && (
+              <p role="status" className="mt-2 text-center text-[11px] text-[#7b757d]">
+                Google is still waiting. Finish or close its window before trying again.
+              </p>
+            )}
           </div>
 
         </div>

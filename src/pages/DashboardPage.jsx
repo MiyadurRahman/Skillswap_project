@@ -5,6 +5,9 @@ import { MobileNav } from '../component/MobileNav';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/auth';
 import { formatLocalDateTime } from '../utils/dateUtils';
+import { toMentorCardModel } from '../utils/toMentorCardModel';
+
+const MAX_RECOMMENDED_MENTORS = 3;
 
 export const DashboardPage = ({
   onNavigateScreen,
@@ -39,38 +42,34 @@ export const DashboardPage = ({
     rawSession: s,
   }));
 
-  // Normalize a Firestore user into the shape
-  // MentorCard / the mentor modal expects.
-  const toMentorCard = (peer) => {
-    const skillNames = Array.isArray(peer.skillsTeach)
-      ? peer.skillsTeach.map((s) => (typeof s === 'string' ? s : s?.name)).filter(Boolean)
-      : Array.isArray(peer.skills)
-        ? peer.skills.map((s) => (typeof s === 'string' ? s : s?.name)).filter(Boolean)
-        : [];
-    return {
-      id: peer.uid || peer.id || `peer-${peer.name}`,
-      name: peer.name || 'Scholar',
-      field: peer.title || peer.primaryField || 'Academic Scholar',
-      institution: peer.university || peer.institution || 'University',
-      rating: peer.rating ?? 0,
-      reviewsCount: peer.reviewsCount ?? 0,
-      avatarUrl: peer.avatarUrl,
-      isOnline: peer.isOnline === true,
-      badges:
-        skillNames.length > 0
-          ? skillNames.slice(0, 3)
-          : peer.badges && peer.badges.length > 0
-            ? peer.badges
-            : [],
-      rawUser: peer,
-    };
-  };
-
-  // The same live Firestore scholars shown in Discover.
+  // Rank active scholars comparatively. Rating carries a slight lead while
+  // completed swaps rewards proven participation in the community.
   const recommendedMentors = useMemo(() => {
     const source = realtimeUsers.filter((u) => u.uid && u.uid !== currentUser?.uid);
-    const mapped = source.map(toMentorCard);
-    return mapped;
+    const mapped = source.map(toMentorCardModel);
+    const activeMentors = mapped.filter(
+      (mentor) => mentor.rating > 0 && mentor.completedSwaps > 0
+    );
+    const maxCompletedSwaps = Math.max(
+      1,
+      ...activeMentors.map((mentor) => mentor.completedSwaps)
+    );
+
+    return activeMentors
+      .map((mentor) => ({
+        ...mentor,
+        recommendationScore:
+          (mentor.rating / 5) * 0.55 +
+          (mentor.completedSwaps / maxCompletedSwaps) * 0.45,
+      }))
+      .sort(
+        (a, b) =>
+          b.recommendationScore - a.recommendationScore ||
+          b.rating - a.rating ||
+          b.completedSwaps - a.completedSwaps ||
+          b.reviewsCount - a.reviewsCount
+      )
+      .slice(0, MAX_RECOMMENDED_MENTORS);
   }, [realtimeUsers, currentUser?.uid]);
 
   const weeklyGrowthBars = useMemo(() => {
@@ -106,7 +105,7 @@ export const DashboardPage = ({
   const trendingTags = useMemo(() => {
     const seen = [];
     recommendedMentors.forEach((m) => {
-      (m.badges || []).forEach((b) => {
+      (m.skillsTeach || []).forEach((b) => {
         if (b && !seen.includes(b)) seen.push(b);
       });
     });
@@ -114,16 +113,16 @@ export const DashboardPage = ({
   }, [recommendedMentors]);
 
   const filteredMentors = recommendedMentors.filter((m) => {
-    if (selectedTag && !m.badges.some((b) => b.toLowerCase().includes(selectedTag.toLowerCase())) && !m.field.toLowerCase().includes(selectedTag.toLowerCase())) {
+    if (selectedTag && !m.skillsTeach.some((b) => b.toLowerCase().includes(selectedTag.toLowerCase())) && !m.title.toLowerCase().includes(selectedTag.toLowerCase())) {
       return false;
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
         m.name.toLowerCase().includes(q) ||
-        m.field.toLowerCase().includes(q) ||
+        m.title.toLowerCase().includes(q) ||
         m.institution.toLowerCase().includes(q) ||
-        m.badges.some((b) => b.toLowerCase().includes(q))
+        m.skillsTeach.some((b) => b.toLowerCase().includes(q))
       );
     }
     return true;
@@ -132,11 +131,11 @@ export const DashboardPage = ({
   const handleSignOut = async () => {
     try {
       await logOut();
-      onShowToast('Successfully logged out.');
+      onShowToast('Successfully logged out.', 'success');
       onNavigateScreen('login');
     } catch (error) {
       console.error('Sign out failed:', error);
-      onShowToast('Could not sign out. Please try again.');
+      onShowToast('Could not sign out. Please try again.', 'error');
     }
   };
 
@@ -576,7 +575,7 @@ export const DashboardPage = ({
               <div>
                 <h2 className="text-lg font-bold text-[#201a1b]">Recommended Scholar Mentors</h2>
                 <p className="text-xs text-[#4a454c]">
-                  Matched based on your declared learning goals and discipline interests.
+                  Top scholars ranked by their ratings and completed swaps.
                 </p>
               </div>
 
@@ -613,13 +612,14 @@ export const DashboardPage = ({
                 <MentorCard
                   key={mentor.id}
                   mentor={mentor}
-                  onSelect={() => {
+                  onRequest={() => {
                     if (onRequestRealtime && mentor.rawUser) {
                       onRequestRealtime(mentor.rawUser);
                     } else if (onOpenMentorModal) {
                       onOpenMentorModal(mentor);
                     }
                   }}
+                  onViewProfile={onOpenMentorModal ? () => onOpenMentorModal(mentor) : undefined}
                   onMessage={() => {
                     if (onMessageMentor && mentor.rawUser) {
                       onMessageMentor(mentor.rawUser);
@@ -627,7 +627,6 @@ export const DashboardPage = ({
                       onOpenMentorModal(mentor);
                     }
                   }}
-                  onShowToast={onShowToast}
                 />
               ))}
             </div>

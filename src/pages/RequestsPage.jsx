@@ -150,7 +150,7 @@ export const RequestsPage = ({
         avatarUrl: person.avatarUrl,
       });
     } else {
-      onShowToast('Messaging is unavailable for this scholar right now.');
+      onShowToast('Messaging is unavailable for this scholar right now.', 'warning');
     }
   };
 
@@ -227,7 +227,7 @@ export const RequestsPage = ({
             <button
               onClick={() => {
                 if (onOpenWalletModal) onOpenWalletModal();
-                else onShowToast('The credit ledger is unavailable right now.');
+                else onShowToast('The credit ledger is unavailable right now.', 'warning');
               }}
               className="p-2 text-white/80 hover:text-white transition-colors"
               title="Credit Ledger & Wallet"
@@ -892,10 +892,10 @@ export const RequestsPage = ({
                         <button
                           onClick={() => {
                             onCancelOutgoingRequest(req.id)
-                              .then(() => onShowToast('Request withdrawn.'))
+                              .then(() => onShowToast('Request withdrawn.', 'success'))
                               .catch((error) => {
                                 console.warn('Cancel request failed:', error);
-                                onShowToast(error?.message || 'Could not withdraw request.');
+                                onShowToast(error?.message || 'Could not withdraw request.', 'error');
                               });
                           }}
                           className="text-xs font-semibold text-[#8c464e] hover:underline shrink-0"
@@ -1138,7 +1138,7 @@ export const RequestsPage = ({
                       <button
                         type="button"
                         onClick={() => {
-                          onShowToast('Request canceled.');
+                          onShowToast('Request canceled.', 'success');
                           setActiveTab('incoming');
                         }}
                         className="text-sm font-semibold text-[#524156] hover:text-[#201a1b] px-4 py-2 cursor-pointer transition-colors"

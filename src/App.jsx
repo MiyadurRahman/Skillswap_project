@@ -17,6 +17,7 @@ import { toMentorModel } from './utils/toMentorModel';
 import { openExternalUrl } from './utils/urlUtils';
 import { submitScholarReport } from './services/realtime';
 import { EducationalLoader } from './component/EducationalLoader';
+import { Toast } from './component/Toast';
 
 function AppContent() {
   const {
@@ -51,7 +52,7 @@ function AppContent() {
   const selectedSession =
     sessions.find((s) => s.id === selectedSessionId) || sessions[0] || null;
 
-  const { toastMessage, showToast } = useToast();
+  const { toast, showToast, dismissToast } = useToast();
 
   const handleImageError = useCallback((event) => {
     const image = event.target;
@@ -153,12 +154,12 @@ function AppContent() {
     if (isRealtime && session?.meetingLink) {
       setSelectedSessionId(session.id || null);
       if (!openExternalUrl(session.meetingLink)) {
-        showToast('This meeting link is invalid. Ask the session host to update it.');
+        showToast('This meeting link is invalid. Ask the session host to update it.', 'error');
       }
       return;
     }
     setSelectedSessionId(session?.id || null);
-    showToast('No meeting link has been added to this session yet.');
+    showToast('No meeting link has been added to this session yet.', 'warning');
   };
 
   const handleOpenMentor = (mentor) => {
@@ -182,7 +183,7 @@ function AppContent() {
   );
 
   // "Propose swap" routes into the real request-session form prefilled with the
-  // chosen scholar (same flow as Discover's "Request Session" button).
+  // chosen scholar (same flow as F's "Request Session" button).
   const handleProposeSwap = useCallback(
     (mentor) => {
       setActiveModal(null);
@@ -202,7 +203,7 @@ function AppContent() {
 
   const handleReportScholar = useCallback((scholar) => {
     if (!myUid) {
-      showToast('Sign in to report a scholar.');
+      showToast('Sign in to report a scholar.', 'warning');
       return;
     }
     setReportTarget(scholar?.uid ? scholar : null);
@@ -219,7 +220,7 @@ function AppContent() {
       conversationId: reportTarget.conversationId,
     });
     setReportTarget(null);
-    showToast('Report submitted. Thank you for helping keep SkillSwap safe.');
+    showToast('Report submitted. Thank you for helping keep SkillSwap safe.', 'success');
   }, [myUid, reportTarget, showToast]);
 
   // Wait for the first Firestore snapshots so the page never paints in a
@@ -233,17 +234,7 @@ function AppContent() {
       className="min-h-screen bg-[#fff8f7] font-sans antialiased text-[#201a1b] selection:bg-[#c5b3d3] selection:text-[#22162e]"
       onError={handleImageError}
     >
-      {toastMessage && (
-        <div
-          id="toast-notification"
-          role="status"
-          aria-live="polite"
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-[120] max-w-[calc(100vw-2rem)] bg-[#352f2f]/95 text-white px-5 py-2.5 rounded-full shadow-xl border border-white/20 flex items-center gap-2.5 text-xs font-medium backdrop-blur-md animate-toast-in"
-        >
-          <span className="material-symbols-outlined text-[18px] text-[#efdbfd]">info</span>
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      <Toast toast={toast} onDismiss={dismissToast} />
 
       {(!isOnline || dataDelayed) && (
         <div

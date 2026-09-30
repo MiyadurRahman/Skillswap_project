@@ -194,7 +194,7 @@ export const Modals = ({
             </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
-            {(selectedMentor.badges || []).map((badge) => (
+            {(selectedMentor.skillsTeach || selectedMentor.badges || []).map((badge) => (
               <span key={badge} className="rounded-full bg-[#eeddf2] px-3 py-1 text-xs font-medium text-[#5c4c62]">{badge}</span>
             ))}
           </div>

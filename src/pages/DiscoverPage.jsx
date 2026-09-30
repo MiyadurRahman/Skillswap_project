@@ -4,8 +4,9 @@ import { MobileNav } from '../component/MobileNav';
 import { useDiscoverFilters } from '../hooks/useDiscoverFilters';
 import { useDiscoverRequests } from '../hooks/useDiscoverRequests';
 import { RequestPeerModal } from '../component/discover/RequestPeerModal';
-import { AvatarImage } from '../component/AvatarImage';
+import { MentorCard } from '../component/MentorCard';
 import { resolveAvatarForName } from '../assets';
+import { toMentorCardModel } from '../utils/toMentorCardModel';
 
 export const DiscoverPage = ({
   onNavigateScreen,
@@ -235,7 +236,7 @@ export const DiscoverPage = ({
                       key={star}
                       onClick={() => {
                         setMinRating(star);
-                        onShowToast(`Filter set: ${star}.0+ star rating`);
+                        onShowToast(`Filter set: ${star}.0+ star rating`, 'info');
                       }}
                       className={`material-symbols-outlined text-[18px] transition-transform hover:scale-110 ${
                         star <= Math.floor(minRating) ? 'fill text-[#473b4b]' : 'text-[#c2b2b9]'
@@ -342,7 +343,7 @@ export const DiscoverPage = ({
               </div>
               <button
                 onClick={() => {
-                  onShowToast(`Filtered for: "${searchQuery || 'All peers'}"`);
+                  onShowToast(`Filtered for: "${searchQuery || 'All peers'}"`, 'info');
                 }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2 bg-[#bda7c5] hover:bg-[#a991b3] text-[#2c1d30] rounded-xl text-xs font-bold transition-colors shadow-2xs"
                 id="btn-search-action"
@@ -419,70 +420,19 @@ export const DiscoverPage = ({
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {filteredLive.map((person) => (
-                    <div
-                      key={person.id}
-                      className="bg-white border border-[#e2d3e0] rounded-2xl p-4 shadow-xs flex flex-col gap-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="relative shrink-0">
-                          <AvatarImage
-                            src={person.avatarUrl}
-                            name={person.name}
-                            className="w-11 h-11 rounded-full object-cover border-2 border-[#e2d3e0]"
-                          />
-                          <span
-                            className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${person.isOnline === true ? 'bg-emerald-500' : 'bg-slate-300'}`}
-                            title={person.isOnline === true ? 'Online' : 'Offline'}
-                          ></span>
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="text-sm font-bold text-[#201a1b] truncate">
-                            {person.name}
-                          </h3>
-                          <p className="text-[11px] text-[#705e69] truncate">{person.title}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {(Array.isArray(person.skillsTeach) ? person.skillsTeach : []).slice(0, 3).map((sk, i) => (
-                          <span
-                            key={i}
-                            className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-[#f7d6cd] text-[#5e3831]"
-                          >
-                            {typeof sk === 'string' ? sk : sk?.name}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => handleOpenPeer(person)}
-                        className="w-full py-2 bg-white hover:bg-[#f7f1f8] border border-[#d9c4d6] text-[#473b4b] rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">person</span>
-                        <span>Profile</span>
-                      </button>
-                      <button
-                        onClick={() => onRequestRealtime && onRequestRealtime(person)}
-                        className="w-full py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">
-                          calendar_add_on
-                        </span>
-                        <span>Request</span>
-                      </button>
-                      <button
-                        onClick={() => onMessageMentor && onMessageMentor(person)}
-                        className="w-full py-2 bg-[#eeddf2] hover:bg-[#e2c7e8] text-[#473b4b] rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">
-                          chat_bubble
-                        </span>
-                        <span>Message</span>
-                      </button>
-                    </div>
-                    </div>
-                  ))}
-                </div>
+                    {filteredLive.map((person) => {
+                      const mentor = toMentorCardModel(person);
+                      return (
+                        <MentorCard
+                          key={mentor.id}
+                          mentor={mentor}
+                          onRequest={onRequestRealtime ? () => onRequestRealtime(person) : undefined}
+                          onViewProfile={() => handleOpenPeer(person)}
+                          onMessage={onMessageMentor ? () => onMessageMentor(person) : undefined}
+                        />
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             )}
@@ -490,120 +440,20 @@ export const DiscoverPage = ({
             {/* PEER CARDS 2x2 GRID (hidden in realtime — real scholars appear above) */}
             {!realtime && (
               <>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2" id="peers-grid-container">
-              {paginatedPeers.map((peer) => (
-                <div
-                  key={peer.id}
-                  onClick={() => handleOpenPeer(peer)}
-                  className="bg-white border border-[#ebd8d4] rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-[#bfa8c7] transition-all flex flex-col justify-between group cursor-pointer"
-                  id={`peer-card-${peer.id}`}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleOpenPeer(peer);
-                    }
-                  }}
-                >
-                  <div>
-                    {/* Top: Avatar, Name, Rating Badge & Title */}
-                    <div className="flex items-start justify-between gap-3 mb-3.5">
-                      <div className="flex items-center gap-3.5">
-                        <div className="relative shrink-0">
-                          <AvatarImage
-                            src={peer.avatarUrl}
-                            name={peer.name}
-                            className="w-13 h-13 rounded-full object-cover border-2 border-[#eedfdc] shadow-2xs group-hover:border-[#473b4b] transition-colors"
-                          />
-                          {peer.isOnline ? (
-                            <span
-                              className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"
-                              title="Online now for peer swap"
-                            ></span>
-                          ) : (
-                            <span
-                              className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-slate-300 border-2 border-white rounded-full"
-                              title="Currently offline"
-                            ></span>
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="text-base font-bold text-[#201a1b] group-hover:text-[#473b4b] transition-colors leading-snug">
-                            {peer.name}
-                          </h3>
-                          <p className="text-xs text-[#63535d] font-medium line-clamp-1 mt-0.5">
-                            {peer.title}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Rating Badge */}
-                      <div className="flex items-center gap-1 bg-[#fbf2ef] border border-[#edd7d2] px-2.5 py-1 rounded-lg shrink-0">
-                        <span
-                          className="material-symbols-outlined text-[15px] text-[#473b4b]"
-                          style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                          star
-                        </span>
-                        <span className="text-xs font-bold text-[#201a1b]">
-                          {peer.rating > 0 ? peer.rating.toFixed(1) : 'New'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Middle: Specialized Skill Badges (Soft terracotta pills with uppercase text) */}
-                    <div className="flex flex-wrap gap-1.5 my-3.5">
-                      {(Array.isArray(peer.skills) ? peer.skills : []).map((skill, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[10px] sm:text-[11px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded bg-[#f7d6cd] text-[#5e3831]"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Card Bottom: Next availability & View Profile CTA */}
-                  <div className="pt-3.5 border-t border-[#f4e7e4] flex items-center justify-between gap-2 mt-2">
-                    <div className="flex items-center gap-1.5 text-xs text-[#705f69]">
-                      <span className="material-symbols-outlined text-[16px] text-[#8e7d87]">
-                        schedule
-                      </span>
-                      <span>Next available: {peer.nextAvailable}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenRequestModal(peer);
-                        }}
-                        className="px-3.5 py-2 bg-[#eeddf2] hover:bg-[#e2c7e8] text-[#47364d] rounded-xl text-xs font-bold tracking-wide transition-colors shadow-2xs active:scale-95 cursor-pointer flex items-center gap-1.5"
-                        id={`btn-request-session-${peer.id}`}
-                      >
-                        <span className="material-symbols-outlined text-[15px]">
-                          calendar_add_on
-                        </span>
-                        <span>Request Session</span>
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenPeer(peer);
-                        }}
-                        className="px-4 py-2 bg-[#473b4b] hover:bg-[#342738] text-white rounded-xl text-xs font-bold tracking-wide transition-colors shadow-2xs active:scale-95 cursor-pointer"
-                        id={`btn-view-profile-${peer.id}`}
-                      >
-                        View Profile
-                      </button>
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 pt-2" id="peers-grid-container">
+                  {paginatedPeers.map((peer) => {
+                    const mentor = toMentorCardModel(peer);
+                    return (
+                      <MentorCard
+                        key={mentor.id}
+                        mentor={mentor}
+                        onRequest={() => handleOpenRequestModal(peer)}
+                        onViewProfile={() => handleOpenPeer(peer)}
+                        onMessage={onMessageMentor ? () => onMessageMentor(peer) : undefined}
+                      />
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
 
             {/* Empty state if search returned zero matches */}
             {filteredPeers.length === 0 && (

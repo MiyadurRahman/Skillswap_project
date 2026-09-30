@@ -44,7 +44,7 @@ export function useChat({
     if (!isRealtime || !myUid || !convId) return;
     const participantIds = activeChat.conversation.participantIds || [];
     if (!participantIds.includes(myUid)) {
-      showToast('This conversation is not available to the current account.');
+      showToast('This conversation is not available to the current account.', 'warning');
       return undefined;
     }
 
@@ -58,7 +58,8 @@ export function useChat({
         showToast(
           permissionDenied
             ? 'Chat access needs the latest Firestore rules. Deploy the project rules and reopen this conversation.'
-            : 'Chat history is temporarily unavailable.'
+            : 'Chat history is temporarily unavailable.',
+          'error'
         );
       }
     );
@@ -117,7 +118,7 @@ export function useChat({
     (peer) => {
       if (!peer?.uid || !myUid) return;
       if (blockedUserIds.includes(peer.uid)) {
-        showToast('Unblock this scholar before starting a new conversation.');
+        showToast('Unblock this scholar before starting a new conversation.', 'warning');
         return;
       }
       const convId = getConversationId(myUid, peer.uid);
@@ -142,7 +143,7 @@ export function useChat({
         })
         .catch((error) => {
           console.warn('Could not create conversation:', error);
-          showToast('Could not start this conversation. Please try again.');
+          showToast('Could not start this conversation. Please try again.', 'error');
         });
     },
     [myUid, openChatSeed, showToast, blockedUserIds]
@@ -151,21 +152,21 @@ export function useChat({
   const handleBlockScholar = useCallback(async (peerUid) => {
     try {
       await blockScholar(myUid, peerUid);
-      showToast('Scholar blocked. New requests and messages are disabled.');
+      showToast('Scholar blocked. New requests and messages are disabled.', 'success');
       if (activeChat?.peer?.uid === peerUid) setActiveChat(null);
     } catch (error) {
       console.warn('Could not block scholar:', error);
-      showToast(error?.message || 'Could not block this scholar. Please try again.');
+      showToast(error?.message || 'Could not block this scholar. Please try again.', 'error');
     }
   }, [myUid, activeChat, showToast]);
 
   const handleUnblockScholar = useCallback(async (peerUid) => {
     try {
       await unblockScholar(myUid, peerUid);
-      showToast('Scholar unblocked.');
+      showToast('Scholar unblocked.', 'success');
     } catch (error) {
       console.warn('Could not unblock scholar:', error);
-      showToast(error?.message || 'Could not unblock this scholar. Please try again.');
+      showToast(error?.message || 'Could not unblock this scholar. Please try again.', 'error');
     }
   }, [myUid, showToast]);
 
@@ -182,7 +183,7 @@ export function useChat({
         !conversation.participantIds?.includes(myUid) ||
         !conversation.participantIds.includes(peerUid)
       ) {
-        showToast('This conversation is not available to the current account.');
+        showToast('This conversation is not available to the current account.', 'warning');
         return false;
       }
 
@@ -198,7 +199,7 @@ export function useChat({
         return true;
       } catch (e) {
         console.warn('[chat] send failed:', { convId, fromUid: myUid, toUid: peerUid }, e);
-        showToast(e?.message || 'Could not send message. Please try again.');
+        showToast(e?.message || 'Could not send message. Please try again.', 'error');
         return false;
       }
     },

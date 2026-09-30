@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { academicAssets } from '../assets';
 import { useAuth } from '../context/auth';
+import { bangladeshUniversities } from '../data/bangladeshUniversities';
 
 export const SignUpPage = ({
   onSignUpSuccess,
@@ -15,11 +16,33 @@ export const SignUpPage = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [university, setUniversity] = useState('');
+  const [isCustomUniversity, setIsCustomUniversity] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [confirmedProfileVisibility, setConfirmedProfileVisibility] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googlePending, setGooglePending] = useState(false);
+  const [googleWaitTimedOut, setGoogleWaitTimedOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isUniversityMenuOpen, setIsUniversityMenuOpen] = useState(false);
+  const [universitySearch, setUniversitySearch] = useState('');
+  const universityMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!isUniversityMenuOpen) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (!universityMenuRef.current?.contains(event.target)) setIsUniversityMenuOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setIsUniversityMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isUniversityMenuOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,7 +53,7 @@ export const SignUpPage = ({
       return;
     }
 
-    if (!fullName.trim() || !email.trim() || !password) {
+    if (!fullName.trim() || !email.trim() || !password || !university.trim()) {
       setErrorMessage('Please fill in all required fields.');
       return;
     }
@@ -43,7 +66,7 @@ export const SignUpPage = ({
     setLoading(true);
     try {
       const result = await signUp(email.trim(), password, fullName.trim(), university.trim());
-      onShowToast(`Account created for ${result.user.displayName || fullName}! Directing to profile setup...`);
+      onShowToast(`Account created for ${result.user.displayName || fullName}! Directing to profile setup...`, 'success');
       if (onSignUpSuccess) {
         onSignUpSuccess({
           name: fullName.trim(),
@@ -53,22 +76,29 @@ export const SignUpPage = ({
       }
     } catch (err) {
       setErrorMessage(err.message || 'Registration failed.');
-      onShowToast(err.message || 'Registration failed.');
+      onShowToast(err.message || 'Registration failed.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleSignUp = async () => {
+    if (googlePending) return;
     setErrorMessage('');
     if (!confirmedProfileVisibility) {
       setErrorMessage('Accept the Terms and Privacy Policy to create an account.');
       return;
     }
+    setGooglePending(true);
     setGoogleLoading(true);
+    setGoogleWaitTimedOut(false);
+    const googleLoadingTimeout = window.setTimeout(() => {
+      setGoogleLoading(false);
+      setGoogleWaitTimedOut(true);
+    }, 5000);
     try {
       const result = await signInWithGoogleOAuth();
-      onShowToast(`Welcome, ${result.user.displayName || 'Scholar'}! Account connected.`);
+      onShowToast(`Welcome, ${result.user.displayName || 'Scholar'}! Account connected.`, 'success');
       if (onSignUpSuccess) {
         onSignUpSuccess({
           name: result.user.displayName,
@@ -77,9 +107,12 @@ export const SignUpPage = ({
       }
     } catch (err) {
       setErrorMessage(err.message || 'Google account creation cancelled or failed.');
-      onShowToast(err.message || 'Google sign-up failed.');
+      onShowToast(err.message || 'Google sign-up failed.', 'error');
     } finally {
+      window.clearTimeout(googleLoadingTimeout);
       setGoogleLoading(false);
+      setGooglePending(false);
+      setGoogleWaitTimedOut(false);
     }
   };
 
@@ -209,7 +242,7 @@ export const SignUpPage = ({
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Tanvir Ahmed"
+                    placeholder="e.g. Enter your name"
                     required
                     disabled={loading}
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-xs sm:text-sm focus:outline-none input-focus-glow transition-all"
@@ -227,44 +260,123 @@ export const SignUpPage = ({
                     University / Academic Institution
                   </label>
                 </div>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] text-[18px]">
-                    domain
-                  </span>
-                  <input
-                    id="signup-university"
-                    type="text"
-                    value={university}
-                    onChange={(e) => setUniversity(e.target.value)}
-                    placeholder="Enter your university"
-                    required
-                    disabled={loading}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-xs sm:text-sm focus:outline-none input-focus-glow transition-all"
-                  />
-                </div>
-                {/* Quick suggestions */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[10px] text-[#7b757d] font-medium">Suggestions:</span>
-                  {[
-                    'United International University (UIU)',
-                    'BUET',
-                    'University of Dhaka',
-                    'BRAC University',
-                    'North South University (NSU)',
-                  ].map((u) => (
-                    <button
-                      key={u}
-                      type="button"
-                      onClick={() => setUniversity(u)}
-                      className={`text-[10px] px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
-                        university === u
-                          ? 'bg-[#675975] text-white border-[#675975] font-semibold'
-                          : 'bg-[#f7effa] text-[#52445f] border-[#d2c0e0] hover:bg-[#ebd9f8]'
-                      }`}
+                <div className="relative" ref={universityMenuRef}>
+                  {isCustomUniversity ? (
+                    <div className="space-y-1.5">
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] text-[18px]">
+                          domain
+                        </span>
+                        <input
+                          id="signup-university"
+                          type="text"
+                          value={university}
+                          onChange={(event) => setUniversity(event.target.value)}
+                          placeholder="Enter your institution"
+                          required
+                          disabled={loading}
+                          className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-xs sm:text-sm focus:outline-none input-focus-glow transition-all"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomUniversity(false);
+                          setUniversity('');
+                        }}
+                        className="text-[11px] font-semibold text-[#675975] hover:underline cursor-pointer"
+                      >
+                        Choose from university list
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b757d] text-[18px]">
+                        domain
+                      </span>
+                      <button
+                        id="signup-university"
+                        type="button"
+                        onClick={() => {
+                          setIsUniversityMenuOpen((open) => !open);
+                          setUniversitySearch('');
+                        }}
+                        disabled={loading}
+                        aria-haspopup="listbox"
+                        aria-expanded={isUniversityMenuOpen}
+                        className="w-full flex items-center justify-between gap-3 pl-10 pr-3 py-2.5 bg-white border border-[#ccc4cd] rounded-xl text-left text-xs sm:text-sm focus:outline-none input-focus-glow transition-all cursor-pointer"
+                      >
+                        <span className={university ? 'truncate text-[#201a1b]' : 'text-[#7b757d]'}>
+                          {university || 'Select your university'}
+                        </span>
+                        <span className={`material-symbols-outlined shrink-0 text-[18px] text-[#7b757d] transition-transform ${isUniversityMenuOpen ? 'rotate-180' : ''}`}>
+                          expand_more
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                  {isUniversityMenuOpen && (
+                    <div
+                      role="listbox"
+                      aria-label="Bangladesh universities"
+                      className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-[#d9cbd7] bg-white p-1.5 shadow-xl"
                     >
-                      {u === 'United International University (UIU)' ? 'UIU' : u}
-                    </button>
-                  ))}
+                      <div className="relative mb-1.5">
+                        <span className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-[#887580]">
+                          search
+                        </span>
+                        <input
+                          type="search"
+                          value={universitySearch}
+                          onChange={(e) => setUniversitySearch(e.target.value)}
+                          placeholder="Search a university..."
+                          autoFocus
+                          className="w-full rounded-lg border border-[#e1d6df] bg-[#fff8f7] py-2 pl-8 pr-3 text-xs text-[#201a1b] outline-none focus:border-[#a992bb]"
+                        />
+                      </div>
+                      <div className="max-h-52 overflow-y-auto">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={false}
+                        onClick={() => {
+                          setUniversity('');
+                          setIsCustomUniversity(true);
+                          setIsUniversityMenuOpen(false);
+                        }}
+                        className="w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-[#675975] hover:bg-[#f7eeee] cursor-pointer"
+                      >
+                        My university isn’t listed — enter it manually
+                      </button>
+                      {bangladeshUniversities
+                        .filter((institution) => institution.toLowerCase().includes(universitySearch.trim().toLowerCase()))
+                        .map((institution) => (
+                        <button
+                          key={institution}
+                          type="button"
+                          role="option"
+                          aria-selected={university === institution}
+                          onClick={() => {
+                            setUniversity(institution);
+                            setIsUniversityMenuOpen(false);
+                          }}
+                          className={`w-full rounded-lg px-3 py-2 text-left text-xs transition-colors cursor-pointer ${
+                            university === institution
+                              ? 'bg-[#eeddf2] font-semibold text-[#473b4b]'
+                              : 'text-[#4a454c] hover:bg-[#f7eeee]'
+                          }`}
+                        >
+                          {institution}
+                        </button>
+                      ))}
+                      {bangladeshUniversities.every(
+                        (institution) => !institution.toLowerCase().includes(universitySearch.trim().toLowerCase())
+                      ) && (
+                        <p className="px-3 py-4 text-center text-xs text-[#7b757d]">No university found.</p>
+                      )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -357,7 +469,7 @@ export const SignUpPage = ({
                 <button
                   id="signup-submit-btn"
                   type="submit"
-                  disabled={loading || googleLoading}
+                  disabled={loading || googlePending}
                   className="w-full py-3.5 bg-[#c5b3d3] hover:bg-[#b59ec5] text-[#3c2f47] font-bold text-sm rounded-full transition-all duration-200 ambient-lift active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 shadow-md"
                 >
                   {loading ? (
@@ -386,7 +498,7 @@ export const SignUpPage = ({
                   <button
                     type="button"
                     onClick={handleGoogleSignUp}
-                    disabled={googleLoading || loading}
+                    disabled={googlePending || loading}
                     className="w-full flex items-center justify-center space-x-2 py-2.5 border border-[#ccc4cd] rounded-full text-xs font-semibold hover:bg-[#ebe0e0] transition-colors cursor-pointer bg-white"
                   >
                     {googleLoading ? (
@@ -411,8 +523,13 @@ export const SignUpPage = ({
                         />
                       </svg>
                     )}
-                    <span>Continue with Google</span>
+                    <span>{googleLoading ? 'Waiting for Google…' : 'Continue with Google'}</span>
                   </button>
+                  {googlePending && googleWaitTimedOut && (
+                    <p role="status" className="mt-2 text-center text-[11px] text-[#7b757d]">
+                      Google is still waiting. Finish or close its window before trying again.
+                    </p>
+                  )}
                 </div>
 
                 <p className="text-center text-xs text-[#4a454c] pt-2">
