@@ -197,7 +197,10 @@ export const AuthProvider = ({ children }) => {
             if (resolvedProfile.avatarUrl !== dbProfile?.avatarUrl) {
               await upsertUserProfile(user.uid, { avatarUrl: resolvedProfile.avatarUrl });
             }
-            setUserProfile(resolvedProfile);
+            // The profile snapshot listener below is the source of truth for
+            // rendered profile data. Avoid applying this one-time read here:
+            // it can resolve after a profile edit and replace newer local data
+            // with the older document returned by ensureUserProfile.
             return updateUserPresence(user.uid, true);
           }).catch((e) => console.warn('Profile ensure/sync:', e));
 

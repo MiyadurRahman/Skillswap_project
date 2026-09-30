@@ -66,6 +66,9 @@ export const SignUpPage = ({
       return;
     }
     setGoogleLoading(true);
+    const googleLoadingTimeout = window.setTimeout(() => {
+      setGoogleLoading(false);
+    }, 5000);
     try {
       const result = await signInWithGoogleOAuth();
       onShowToast(`Welcome, ${result.user.displayName || 'Scholar'}! Account connected.`);
@@ -79,6 +82,7 @@ export const SignUpPage = ({
       setErrorMessage(err.message || 'Google account creation cancelled or failed.');
       onShowToast(err.message || 'Google sign-up failed.');
     } finally {
+      window.clearTimeout(googleLoadingTimeout);
       setGoogleLoading(false);
     }
   };
@@ -411,7 +415,7 @@ export const SignUpPage = ({
                         />
                       </svg>
                     )}
-                    <span>Continue with Google</span>
+                    <span>{googleLoading ? 'Waiting for Google…' : 'Continue with Google'}</span>
                   </button>
                 </div>
 

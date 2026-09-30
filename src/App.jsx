@@ -182,7 +182,7 @@ function AppContent() {
   );
 
   // "Propose swap" routes into the real request-session form prefilled with the
-  // chosen scholar (same flow as Discover's "Request Session" button).
+  // chosen scholar (same flow as F's "Request Session" button).
   const handleProposeSwap = useCallback(
     (mentor) => {
       setActiveModal(null);

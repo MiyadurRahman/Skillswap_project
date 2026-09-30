@@ -46,6 +46,9 @@ export const LoginPage = ({
   const handleGoogleSignIn = async () => {
     setErrorMessage('');
     setGoogleLoading(true);
+    const googleLoadingTimeout = window.setTimeout(() => {
+      setGoogleLoading(false);
+    }, 5000);
     try {
       const res = await signInWithGoogleOAuth();
       onShowToast(`Signed in with Google as ${res.user.displayName || res.user.email}!`);
@@ -54,6 +57,7 @@ export const LoginPage = ({
       setErrorMessage(err.message || 'Google authentication failed.');
       onShowToast(err.message || 'Google sign-in cancelled or failed.');
     } finally {
+      window.clearTimeout(googleLoadingTimeout);
       setGoogleLoading(false);
     }
   };
@@ -274,7 +278,7 @@ export const LoginPage = ({
                   />
                 </svg>
               )}
-              <span>Continue with Google Account</span>
+              <span>{googleLoading ? 'Waiting for Google…' : 'Continue with Google Account'}</span>
             </button>
           </div>
 
