@@ -29,7 +29,7 @@ export const SchedulePage = ({
 
   const [cancelTarget, setCancelTarget] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [now] = useState(Date.now);
+  const [now] = useState(() => Date.now());
   useDialogBehavior(Boolean(cancelTarget), () => setCancelTarget(null));
 
   const normalizedSessions = useMemo(

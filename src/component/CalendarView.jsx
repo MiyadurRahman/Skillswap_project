@@ -48,7 +48,7 @@ export const CalendarView = ({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedKey, setSelectedKey] = useState(null);
-  const [now] = useState(Date.now);
+  const [now] = useState(() => Date.now());
 
   const byDay = useMemo(() => {
     const map = new Map();
