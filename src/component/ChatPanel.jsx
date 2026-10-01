@@ -106,7 +106,20 @@ export const ChatPanel = ({ conversation, peer, myUid, messages, onSend, onClose
               aria-label={`Report ${peer?.name || 'scholar'}`}
               title="Report scholar"
               className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-white/70 hover:text-white"
-            ><span className="material-symbols-outlined text-[18px]">flag</span></button>
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-[18px] w-[18px]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M5 21V4m0 1c5-4 9 4 14 0v10c-5 4-9-4-14 0" />
+              </svg>
+            </button>
             <button
               type="button"
               onClick={() => onBlock?.(peer?.uid)}
