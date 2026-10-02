@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write src/",
     "check": "npm run lint && npm run typecheck && npm run build",
+    "test:chat": "firebase emulators:exec --only firestore --project demo-skillswap-chat \"node scripts/check-chat-rules.mjs\"",
     "deploy:rules": "firebase deploy --only firestore",
     "deploy:hosting": "npm run build && firebase deploy --only hosting",
     "deploy": "npm run check && firebase deploy --only hosting,firestore",

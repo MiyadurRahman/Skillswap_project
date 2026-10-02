@@ -92,6 +92,12 @@ their participants.
 
 ## Test the two-user flow
 
+Run `npm run test:chat` with the Firebase CLI and Java 21 or later on your PATH
+to check chat security rules against the Firestore emulator. It uses the real
+chat services with simulated email/password and Google identities in a demo
+project, covering first and repeated messages, replies, unread counts, and
+blocked or unauthorized writes without touching production data.
+
 1. Sign in as User A in a normal browser window.
 2. Sign in as User B in a private window.
 3. Complete both profiles and add skills to teach and learn.
