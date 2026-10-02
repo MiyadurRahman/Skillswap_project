@@ -429,8 +429,10 @@ service cloud.firestore {
           (changedKeys(request.resource.data, resource.data).hasOnly([
             'lastText', 'lastFrom', 'lastFromName', 'lastMessageId', 'updatedAt', 'unread'
           ]) &&
+            // Sender, name, text, and even the timestamp can stay the same
+            // across messages. Only the message ID and unread count must change.
             changedKeys(request.resource.data, resource.data).hasAll([
-              'lastText', 'lastFrom', 'lastFromName', 'lastMessageId', 'updatedAt', 'unread'
+              'lastMessageId', 'unread'
             ]) &&
             request.resource.data.lastFrom == request.auth.uid &&
             request.resource.data.lastText is string &&
@@ -441,20 +443,22 @@ service cloud.firestore {
             request.resource.data.lastMessageId is string &&
             request.resource.data.updatedAt is number &&
             scholarsAreNotBlocked(request.auth.uid, otherParticipant(resource.data.participantIds)) &&
+            // Require a new message in this batch, not a replay of old metadata.
+            !exists(/databases/$(database)/documents/conversations/$(conversationId)/messages/$(request.resource.data.lastMessageId)) &&
             getAfter(/databases/$(database)/documents/conversations/$(conversationId)/messages/$(request.resource.data.lastMessageId)).data.fromUid == request.auth.uid &&
             getAfter(/databases/$(database)/documents/conversations/$(conversationId)/messages/$(request.resource.data.lastMessageId)).data.toUid == otherParticipant(resource.data.participantIds) &&
             getAfter(/databases/$(database)/documents/conversations/$(conversationId)/messages/$(request.resource.data.lastMessageId)).data.text == request.resource.data.lastText &&
             getAfter(/databases/$(database)/documents/conversations/$(conversationId)/messages/$(request.resource.data.lastMessageId)).data.conversationId == conversationId &&
             validUnreadMap(request.resource.data.unread, resource.data.participantIds) &&
             request.resource.data.unread.get(request.auth.uid, 0) ==
-              resource.data.unread.get(request.auth.uid, 0) &&
+              resource.data.get('unread', {}).get(request.auth.uid, 0) &&
             request.resource.data.unread.get(otherParticipant(resource.data.participantIds), 0) ==
-              resource.data.unread.get(otherParticipant(resource.data.participantIds), 0) + 1) ||
+              resource.data.get('unread', {}).get(otherParticipant(resource.data.participantIds), 0) + 1) ||
           (changedKeys(request.resource.data, resource.data).hasOnly(['unread']) &&
             validUnreadMap(request.resource.data.unread, resource.data.participantIds) &&
             request.resource.data.unread.get(request.auth.uid, 0) == 0 &&
             request.resource.data.unread.get(otherParticipant(resource.data.participantIds), 0) ==
-              resource.data.unread.get(otherParticipant(resource.data.participantIds), 0))
+              resource.data.get('unread', {}).get(otherParticipant(resource.data.participantIds), 0))
         );
       allow delete: if false;
 
