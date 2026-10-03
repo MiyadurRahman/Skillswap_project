@@ -77,19 +77,40 @@ export const DashboardPage = ({
       const date = new Date();
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() - (6 - index));
-      return { date, day: date.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase(), hours: 0 };
+      return {
+        date,
+        day: date.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase(),
+        hours: 0,
+        isToday: index === 6,
+      };
     });
     sessions
-      .filter((session) => session.status === 'Completed' && session.completedAt)
+      .filter((session) => session.status === 'Completed')
       .forEach((session) => {
-        const completed = new Date(session.completedAt);
-        const day = days.find((entry) => entry.date.toDateString() === completed.toDateString());
-        if (!day) return;
-        const startAt = Number(session.startAt);
-        const endAt = Number(session.endAt);
-        if (Number.isFinite(startAt) && Number.isFinite(endAt) && endAt > startAt) {
-          day.hours += (endAt - startAt) / 3_600_000;
+        const startMs = Number(session.startMs);
+        if (
+          !Number.isFinite(startMs) ||
+          startMs <= 0 ||
+          !Number.isFinite(new Date(startMs).getTime())
+        ) {
+          return;
         }
+
+        const scheduledDate = new Date(startMs);
+        const day = days.find((entry) => entry.date.toDateString() === scheduledDate.toDateString());
+        if (!day) return;
+
+        const endMs = Number(session.endMs);
+        const measuredHours =
+          Number.isFinite(endMs) && endMs > startMs
+            ? (endMs - startMs) / 3_600_000
+            : 0;
+        const durationMatch = String(session.duration || '').match(/(\d+(?:\.\d+)?)/);
+        const durationMinutes = durationMatch ? Number(durationMatch[1]) : 60;
+        const fallbackHours = Number.isFinite(durationMinutes) && durationMinutes > 0
+          ? durationMinutes / 60
+          : 1;
+        day.hours += measuredHours || fallbackHours;
       });
     const max = Math.max(1, ...days.map((day) => day.hours));
     return days.map((day) => ({
@@ -97,6 +118,12 @@ export const DashboardPage = ({
       height: `${Math.max(day.hours > 0 ? 8 : 0, (day.hours / max) * 100)}%`,
       hours: `${day.hours.toFixed(1)} hrs`,
       value: day.hours,
+      isToday: day.isToday,
+      dateLabel: day.date.toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      }),
     }));
   }, [sessions]);
 
@@ -149,6 +176,7 @@ export const DashboardPage = ({
   const totalHoursLogged = weeklyGrowthBars
     .reduce((sum, bar) => sum + bar.value, 0)
     .toFixed(1);
+  const hasWeeklyActivity = weeklyGrowthBars.some((bar) => bar.value > 0);
 
   // Sidebar body, shared between the desktop <aside> and the mobile drawer so
   // navigation stays consistent across breakpoints. `onDone` closes the drawer.
@@ -547,11 +575,22 @@ export const DashboardPage = ({
             </div>
 
             {/* Velocity Bar Chart */}
-            <div className="h-44 flex items-end justify-between gap-2 pt-6 px-2">
+            <div
+              className="h-44 flex items-end justify-between gap-2 pt-6 px-2"
+              role="group"
+              aria-label="Learning hours for the last seven days"
+            >
               {weeklyGrowthBars.map((bar, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                <div
+                  key={idx}
+                  className="flex-1 flex flex-col items-center gap-2 h-full justify-end group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#675975]"
+                  role="img"
+                  aria-label={`${bar.dateLabel}: ${bar.hours}${bar.isToday ? ', today' : ''}`}
+                  tabIndex={0}
+                >
                   <div
-                    className="text-[10px] text-[#675975] font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-hidden="true"
+                    className="text-[10px] text-[#675975] font-bold opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity"
                   >
                     {bar.hours}
                   </div>
@@ -559,14 +598,22 @@ export const DashboardPage = ({
                     <div
                       style={{ height: bar.height }}
                       className={`w-full rounded-t-xl transition-all duration-500 ${
-                        bar.highlight ? 'bg-[#675975]' : 'bg-[#c5b3d3]'
+                        bar.isToday ? 'bg-[#675975]' : 'bg-[#c5b3d3]'
                       }`}
+                      aria-hidden="true"
                     ></div>
                   </div>
-                  <span className="text-[11px] font-bold text-[#7b757d]">{bar.day}</span>
+                  <span className={`text-[11px] font-bold ${bar.isToday ? 'text-[#675975]' : 'text-[#7b757d]'}`}>
+                    {bar.day}
+                  </span>
                 </div>
               ))}
             </div>
+            {!hasWeeklyActivity && (
+              <p className="text-center text-xs text-[#7b757d]" role="status">
+                No completed learning sessions in the last seven days yet.
+              </p>
+            )}
           </section>
 
           {/* Section: Recommended Scholar Mentors */}
